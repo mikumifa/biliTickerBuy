@@ -54,6 +54,6 @@ while True:
         freq = 440  # 播放频率为 440 Hz
         winsound.Beep(freq, duration)  # 播放系统嗡嗡声
 
-        # time.sleep(60)
+        time.sleep(60)
     except:
         print("无法点击创建订单")
