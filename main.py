@@ -6,7 +6,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-
 TargetTime = "2023-04-16 16:39:00.00000000"  # 设置抢购时间
 WebDriver = webdriver.Chrome()
 WebDriver.get(
@@ -16,11 +15,12 @@ time.sleep(1)
 wait = WebDriverWait(WebDriver, 1)
 print("进入购票页面成功")
 WebDriver.find_element(By.CLASS_NAME, "nav-header-register").click()
-print("请在10s内登录")
-duration = 10000  # 持续时间为 10 秒钟，单位为毫秒
-freq = 440  # 播放频率为 440 Hz
-winsound.Beep(freq, duration)  # 播放系统嗡嗡声
-
+print("请登录")
+while True:
+    try:
+        WebDriver.find_element(By.CLASS_NAME, "nav-header-register")
+    except:
+        break
 
 while True:
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
@@ -48,7 +48,6 @@ while True:
     try:
         WebDriver.find_element(By.CLASS_NAME, "confirm-paybtn.active").click()
         print("订单创建完成，请在一分钟内付款")
-
 
         duration = 10000  # 持续时间为 10 秒钟，单位为毫秒
         freq = 440  # 播放频率为 440 Hz
