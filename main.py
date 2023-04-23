@@ -45,6 +45,6 @@ while True:
     try:
         WebDriver.find_element(By.CLASS_NAME, "confirm-paybtn.active").click()
         print("订单创建完成，请在一分钟内付款")
-        # time.sleep(60)
+        time.sleep(60)
     except:
         print("无法点击创建订单")
