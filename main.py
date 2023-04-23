@@ -1,5 +1,6 @@
 import datetime
 import time
+import winsound
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -16,7 +17,9 @@ wait = WebDriverWait(WebDriver, 1)
 print("进入购票页面成功")
 WebDriver.find_element(By.CLASS_NAME, "nav-header-register").click()
 print("请在10s内登录")
-time.sleep(10)
+duration = 10000  # 持续时间为 10 秒钟，单位为毫秒
+freq = 440  # 播放频率为 440 Hz
+winsound.Beep(freq, duration)  # 播放系统嗡嗡声
 
 
 while True:
@@ -45,6 +48,12 @@ while True:
     try:
         WebDriver.find_element(By.CLASS_NAME, "confirm-paybtn.active").click()
         print("订单创建完成，请在一分钟内付款")
+
+
+        duration = 10000  # 持续时间为 10 秒钟，单位为毫秒
+        freq = 440  # 播放频率为 440 Hz
+        winsound.Beep(freq, duration)  # 播放系统嗡嗡声
+
         # time.sleep(60)
     except:
         print("无法点击创建订单")
