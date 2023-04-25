@@ -1,0 +1,2 @@
+pyttsx3~=2.90
+selenium~=4.9.0
