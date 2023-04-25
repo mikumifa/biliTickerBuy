@@ -1,27 +1,70 @@
 import datetime
 import time
-import winsound
+import pyttsx3
+import json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+engine = pyttsx3.init()
+buy_url = "https://show.bilibili.com/platform/detail.html?id=72320&from=pc_ticketlist"
+# 加载配置文件
+with open('./config.json', 'r') as f:
+    config = json.load(f)
+
+
+def voice(message):
+    engine.setProperty('volume', 1.0)
+    engine.say(message)
+    engine.runAndWait()
+    engine.stop()
+    voice(message)
+
+
 TargetTime = "2023-04-16 16:39:00.00000000"  # 设置抢购时间
 WebDriver = webdriver.Chrome()
-WebDriver.get(
-    "https://show.bilibili.com/platform/detail.html?id=72320&from=pc_ticketlist")  # 输入目标购买页面
-time.sleep(1)
-# 等待页面加载完成
 wait = WebDriverWait(WebDriver, 1)
-print("进入购票页面成功")
-WebDriver.find_element(By.CLASS_NAME, "nav-header-register").click()
-print("请登录")
-while True:
-    try:
-        WebDriver.find_element(By.CLASS_NAME, "nav-header-register")
-    except:
-        break
+if len(config["bilibili_cookies"]) == 0:
+    WebDriver.get(
+        buy_url)  # 输入目标购买页面
+    time.sleep(1)
+    WebDriver.find_element(By.CLASS_NAME, "nav-header-register").click()
+    print("请登录")
+    while True:
+        try:
+            WebDriver.find_element(By.CLASS_NAME, "nav-header-register")
+        except:
+            break
+    time.sleep(5)
+    config["bilibili_cookies"] = WebDriver.get_cookies()
+    with open('./config.json', 'w') as f:
+        json.dump(config, f, indent=4)
+else:
+    WebDriver.get(
+        buy_url)  # 输入目标购买页面
+    time.sleep(1)
+    for cookie in config["bilibili_cookies"]:  # 利用cookies登录账号
+        my_cookie = {
+            'domain': cookie['domain'],
+            'name': cookie['name'],
+            'value': cookie['value'],
+            'path': cookie['path'],
+        }
+        if 'expiry' in cookie:
+            cookie['expiry'] = cookie['expiry']
+        if 'httpOnly' in cookie:
+            cookie['httpOnly'] = cookie['httpOnly']
+        if 'sameSite' in cookie:
+            cookie['sameSite'] = cookie['sameSite']
+        if 'secure' in cookie:
+            cookie['secure'] = cookie['secure']
 
+        WebDriver.add_cookie(
+           my_cookie
+        )
+
+    time.sleep(1)
 while True:
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
     print(now + "     " + TargetTime)
@@ -41,7 +84,7 @@ while True:
         element.click()
         # time.sleep(5)
         print("进入购买页面成功")
-    except BaseException as e:
+    except:
         WebDriver.refresh()
         continue
 
@@ -49,10 +92,7 @@ while True:
         WebDriver.find_element(By.CLASS_NAME, "confirm-paybtn.active").click()
         print("订单创建完成，请在一分钟内付款")
 
-        duration = 10000  # 持续时间为 10 秒钟，单位为毫秒
-        freq = 440  # 播放频率为 440 Hz
-        winsound.Beep(freq, duration)  # 播放系统嗡嗡声
-
+        voice('抢到票了，速归！')
         time.sleep(60)
     except:
         print("无法点击创建订单")
