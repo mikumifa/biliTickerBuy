@@ -2,17 +2,20 @@ import datetime
 import time
 import pyttsx3
 import json
+import random
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 engine = pyttsx3.init()
-day = 1
+day = "2023-05-02 周二"
 buy_url = "https://show.bilibili.com/platform/detail.html?id=72320&from=pc_ticketlist"
-tick_xpath = f'/html/body/div/div[2]/div[2]/div[2]/div[4]/ul[1]/li[2]/div[{day}]'
-# buy_url = "https://show.bilibili.com/platform/detail.html?id=71352&from=pc_ticketlist"
-# tick_xpath = ''
+tick_xpath = f"//*[@id='app']/div[2]/div[2]/div[2]/div[4]/ul[1]/li[2]/div[normalize-space()='{day}']"
+# 测试
+day = "4月30日"
+buy_url = "https://show.bilibili.com/platform/detail.html?id=58757&from=pc_ticketlist"
+tick_xpath = f"//*[@id='app']/div[2]/div[2]/div[2]/div[4]/ul[1]/li[2]/div[normalize-space()='{day}']"
 # 加载配置文件
 with open('./config.json', 'r') as f:
     config = json.load(f)
@@ -94,11 +97,10 @@ while True:
         WebDriver.refresh()
         continue
 
-
 element = None
 while element is None:
     try:
-        element = WebDriver.find_element(By.XPATH, '//*[@id="app"]/div[2]/div/div[5]/div[2]')
+        element=WebDriver.find_element(By.CLASS_NAME, "confirm-paybtn.active")
     except:
         continue
 element.click()
