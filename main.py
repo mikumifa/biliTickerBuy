@@ -8,8 +8,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 engine = pyttsx3.init()
+day = 1
 buy_url = "https://show.bilibili.com/platform/detail.html?id=72320&from=pc_ticketlist"
-tick_xpath = '/html/body/div/div[2]/div[2]/div[2]/div[4]/ul[1]/li[2]/div[1]'
+tick_xpath = f'/html/body/div/div[2]/div[2]/div[2]/div[4]/ul[1]/li[2]/div[{day}]'
 # buy_url = "https://show.bilibili.com/platform/detail.html?id=71352&from=pc_ticketlist"
 # tick_xpath = ''
 # 加载配置文件
