@@ -13,9 +13,9 @@ day = "2023-05-02 周二"
 buy_url = "https://show.bilibili.com/platform/detail.html?id=72320&from=pc_ticketlist"
 tick_xpath = f"//*[@id='app']/div[2]/div[2]/div[2]/div[4]/ul[1]/li[2]/div[normalize-space()='{day}']"
 # 测试
-day = "4月30日"
-buy_url = "https://show.bilibili.com/platform/detail.html?id=58757&from=pc_ticketlist"
-tick_xpath = f"//*[@id='app']/div[2]/div[2]/div[2]/div[4]/ul[1]/li[2]/div[normalize-space()='{day}']"
+# day = "4月30日"
+# buy_url = "https://show.bilibili.com/platform/detail.html?id=58757&from=pc_ticketlist"
+# tick_xpath = f"//*[@id='app']/div[2]/div[2]/div[2]/div[4]/ul[1]/li[2]/div[normalize-space()='{day}']"
 # 加载配置文件
 with open('./config.json', 'r') as f:
     config = json.load(f)
