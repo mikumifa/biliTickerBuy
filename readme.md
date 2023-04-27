@@ -11,6 +11,7 @@
 用法就是运行python文件就可以了
 
 [用法见此](https://github.com/mikumifa/biliTickerBuy/issues/6#issuecomment-1525406365)
+[用法见此](https://github.com/mikumifa/biliTickerBuy/issues/7#issuecomment-1523446010)
 
 
 4.28日cp29第二轮,不太建议用这个来抢第二轮,这个适合蹲票(刷新后看看有没有票,没有就继续刷新,直到看到有票),抢票的话, 网站崩的话没办法使用.
