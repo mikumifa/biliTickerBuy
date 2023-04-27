@@ -102,6 +102,6 @@ while True:
             WebDriver.find_element(By.CLASS_NAME, "purchaser-info").click()
             WebDriver.find_element(
                 By.XPATH, "//*[@id='root']/div/div[2]/div/div/button").click()
-            print("下单中")            
+            print("下单中，搞快点付钱，不然你票没了")            
         except:
             print("无法点击创建订单")
