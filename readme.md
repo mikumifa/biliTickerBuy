@@ -10,5 +10,5 @@
 
 用法就是运行python文件就可以了
 
-
+[用法见此](https://github.com/mikumifa/biliTickerBuy/issues/6#issuecomment-1525406365)
 
