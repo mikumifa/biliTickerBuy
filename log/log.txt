@@ -1,0 +1,7 @@
+2023-11-10 15:08:29,839 - INFO - 已经生成配置文件，开始抢票选项
+2023-11-10 15:25:29,145 - INFO - 已经生成配置文件，开始抢票选项
+2023-11-10 15:25:33,035 - INFO - 配置&抢票选项
+2023-11-10 15:25:40,250 - DEBUG - Starting new HTTPS connection (1): show.bilibili.com:443
+2023-11-10 15:25:40,473 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/project/get?version=134&id=77752&project_id=77752 HTTP/1.1" 200 None
+2023-11-10 15:25:46,152 - INFO -  Entered Number: 77752
+2023-11-10 15:25:46,152 - INFO -  Input over: 77752
