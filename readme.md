@@ -1,16 +1,19 @@
-# B站抢票脚本
+<div align="center">
+  <a href="https://koishi.chat/" target="_blank">
+    <img width="160" src="icon.ico" alt="logo">
+  </a>
+  <h1 id="koishi">biliTickerBuy</a></h1>
 
-## 😍😍😍目前是用来抢票cp29的
+![GitHub all releases](https://img.shields.io/github/downloads/mikumifa/biliTickerBuy/total)
+![GitHub release (with filter)](https://img.shields.io/github/v/release/mikumifa/biliTickerBuy)
+![GitHub issues](https://img.shields.io/github/issues/mikumifa/biliTickerBuy)
 
-## 😘😘😘支持下单
+</div>
 
-## 😒😒😒但是还是要人肉付款
+B站会员购抢票软件, 自带图形界面, 纯接口抢票.
 
-## 🤣🤣🤣能抢到就不错了
+## 特性
 
-# 准备大改!!!
-# 施工中...............
-## 你需要什么
-- Edge浏览器最新版本
-#### :heart::heart::heart::heart::heart::heart::heart:祝大家都能抢到去cp的票:heart::heart::heart::heart::heart::heart::heart:
+## 快速起步
 
+[前往文档]()
