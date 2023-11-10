@@ -33,7 +33,7 @@ jobs:
           ls -R ./dist/bilibili-buy
 
       - name: Zip the Build
-        run: zip -r ${{ secrets.ReleaseZipName }} ./dist/bilibili-buy
+        run: Compress-Archive -Path ./dist/bilibili-buy -DestinationPath ${{ secrets.ReleaseZipName }}.zip
 
       - name: Create Release
         id: create_release
