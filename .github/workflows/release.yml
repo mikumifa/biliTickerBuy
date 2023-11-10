@@ -8,7 +8,7 @@ on:
 jobs:
   build:
 
-    runs-on: windows-latest  # 使用 Windows runner
+    runs-on: windows-latest  # Use a Windows runner
 
     steps:
       - name: Checkout source
@@ -23,14 +23,9 @@ jobs:
         run: |
           pip install pyinstaller
 
-      - name: Build inside Docker container
-        uses: docker://python:3.11  # 使用 Python 3.11 的 Docker 镜像
-        with:
-          args: >
-            /bin/bash -c "
-            pip install pyinstaller &&
-            pyinstaller --onefile --noconsole --add-data=\"config/cookies.json:config\" --add-data=\"log/log.txt:log\" --hidden-import babel.numbers --icon=icon.ico main.py --name bilibili-buy
-            "
+      - name: Build Windows Executable
+        run: |
+          pyinstaller --onefile --noconsole --add-data="config/cookies.json;config" --add-data="log/log.txt;log" --hidden-import babel.numbers --icon=icon.ico main.py --name bilibili-buy
 
       - name: Debug
         run: |
