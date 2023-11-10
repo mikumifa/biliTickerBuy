@@ -6056,3 +6056,48 @@
 2023-11-10 19:52:42,241 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/order/confirmInfo?token=wGVOGGcAAS-4AAJJxgEAAgAGiJs.&voucher=&project_id=77752 HTTP/1.1" 200 776
 2023-11-10 19:52:42,406 - DEBUG - https://show.bilibili.com:443 "POST /api/ticket/order/createV2?project_id=77752 HTTP/1.1" 200 83
 2023-11-10 19:52:42,407 - INFO - {'errno': 0, 'errtag': 0, 'msg': '', 'data': {'token': '46d8f30f23d7e5b79234fc3d97e75090'}}
+2023-11-10 19:54:28,886 - INFO - 配置&抢票选项
+2023-11-10 19:54:38,382 - DEBUG - Starting new HTTPS connection (1): show.bilibili.com:443
+2023-11-10 19:54:38,640 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/project/get?version=134&id=58757&project_id=58757 HTTP/1.1" 200 None
+2023-11-10 19:55:19,479 - INFO - 选择了 1 张 4月30日 + 现场票.
+2023-11-10 19:55:19,480 - INFO - token_payload: {'count': 1, 'screen_id': 83735, 'order_type': 1, 'project_id': 58757, 'sku_id': 312807, 'token': ''}
+2023-11-10 19:55:19,480 - DEBUG - Starting new HTTPS connection (1): show.bilibili.com:443
+2023-11-10 19:55:19,751 - DEBUG - https://show.bilibili.com:443 "POST /api/ticket/order/prepare?project_id=58757 HTTP/1.1" 200 80
+2023-11-10 19:55:19,751 - INFO - res.text: {"errno":100039,"errtag":0,"msg":"活动收摊啦,下次要快点哦","data":{}}
+2023-11-10 19:55:19,818 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/order/confirmInfo?token=&voucher=&project_id=58757 HTTP/1.1" 200 103
+2023-11-10 19:55:19,883 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/buyer/list?is_default&projectId=58757 HTTP/1.1" 200 None
+2023-11-10 20:03:46,718 - INFO - {'count': 1, 'screen_id': 83735, 'project_id': 58757, 'sku_id': 312807, 'token': '', 'order_type': 1, 'pay_money': '', 'timestamp': 1699617319000, 'buyer_info': [{'id': 2882689, 'uid': 209403799, 'account_channel': '', 'personal_id': '321322200310122211', 'name': '谢宇豪', 'id_card_front': '', 'id_card_back': '', 'is_default': 0, 'tel': '15358338613', 'error_code': '0', 'id_type': 0, 'verify_status': 1, 'accountId': 209403799, 'isBuyerInfoVerified': 'true', 'isBuyerValid': 'true'}], 'buyer': '', 'tel': ''}
+2023-11-10 20:06:38,861 - INFO - 已经生成配置文件，开始抢票选项
+2023-11-10 20:16:37,592 - DEBUG - Starting new HTTPS connection (1): show.bilibili.com:443
+2023-11-10 20:16:37,817 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/order/confirmInfo?token=wGVOGGcAAS-4AAJJxgEAAgAGiJs.&voucher=&project_id=77752 HTTP/1.1" 200 776
+2023-11-10 20:16:37,954 - DEBUG - https://show.bilibili.com:443 "POST /api/ticket/order/createV2?project_id=77752 HTTP/1.1" 200 83
+2023-11-10 20:16:37,954 - INFO - {'errno': 0, 'errtag': 0, 'msg': '', 'data': {'token': '79225c9d921f8eb1c3a6dfb8b8a4490d'}}
+2023-11-10 20:16:49,303 - INFO - 已经生成配置文件，开始抢票选项
+2023-11-10 20:16:52,234 - DEBUG - Resetting dropped connection: show.bilibili.com
+2023-11-10 20:16:52,525 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/order/confirmInfo?token=wGVOGGcAAS-4AAJJxgEAAgAGiJs.&voucher=&project_id=77752 HTTP/1.1" 200 776
+2023-11-10 20:16:52,620 - DEBUG - https://show.bilibili.com:443 "POST /api/ticket/order/createV2?project_id=77752 HTTP/1.1" 200 167
+2023-11-10 20:16:52,620 - INFO - {'errno': 100079, 'errtag': 0, 'msg': '购买人谢宇豪,谢其卓存在待付款订单，请前往支付或者取消后重新下单', 'data': {'order_id': 4008773357274999}}
+2023-11-10 20:17:53,432 - DEBUG - Starting new HTTPS connection (1): show.bilibili.com:443
+2023-11-10 20:17:53,668 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/order/confirmInfo?token=wGVOGGcAAS-4AAJJxgEAAgAGiJs.&voucher=&project_id=77752 HTTP/1.1" 200 None
+2023-11-10 20:17:53,783 - DEBUG - https://show.bilibili.com:443 "POST /api/ticket/order/createV2?project_id=77752 HTTP/1.1" 200 167
+2023-11-10 20:17:53,783 - INFO - {'errno': 100079, 'errtag': 0, 'msg': '购买人谢宇豪,谢其卓存在待付款订单，请前往支付或者取消后重新下单', 'data': {'order_id': 4008773357274999}}
+2023-11-10 20:20:19,440 - INFO - 已经生成配置文件，开始抢票选项
+2023-11-10 20:20:41,141 - INFO - 配置&抢票选项
+2023-11-10 20:20:56,919 - INFO - 配置&抢票选项
+2023-11-10 20:20:58,685 - DEBUG - Starting new HTTPS connection (1): show.bilibili.com:443
+2023-11-10 20:20:58,907 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/project/get?version=134&id=77752&project_id=77752 HTTP/1.1" 200 None
+2023-11-10 20:21:01,824 - INFO - 选择了 1 张 2023-11-18 周六 + 预售票.
+2023-11-10 20:21:01,825 - INFO - token_payload: {'count': 1, 'screen_id': 149958, 'order_type': 1, 'project_id': 77752, 'sku_id': 428187, 'token': ''}
+2023-11-10 20:21:01,825 - DEBUG - Starting new HTTPS connection (1): show.bilibili.com:443
+2023-11-10 20:21:02,061 - DEBUG - https://show.bilibili.com:443 "POST /api/ticket/order/prepare?project_id=77752 HTTP/1.1" 200 245
+2023-11-10 20:21:02,061 - INFO - res.text: {"errno":0,"errtag":0,"msg":"","data":{"shield":{"open":0,"verifyMethod":"","verifyType":0,"verifyRelation":"","business":"","customerId":0,"voucher":"","type":0,"h5Url":"","pcUrl":"","msg":"","naUrl":""},"token":"wGVOIDEAAS-4AAJJxgEAAQAGiJs."}}
+2023-11-10 20:21:02,151 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/order/confirmInfo?token=wGVOIDEAAS-4AAJJxgEAAQAGiJs.&voucher=&project_id=77752 HTTP/1.1" 200 776
+2023-11-10 20:21:02,197 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/buyer/list?is_default&projectId=77752 HTTP/1.1" 200 None
+2023-11-10 20:21:03,581 - INFO - {'count': 1, 'screen_id': 149958, 'project_id': 77752, 'sku_id': 428187, 'token': 'wGVOIDEAAS-4AAJJxgEAAQAGiJs.', 'order_type': 1, 'pay_money': 12800, 'timestamp': 1699618862000, 'buyer_info': [{'id': 2934532, 'uid': 209403799, 'account_channel': '', 'personal_id': '321322200308015011', 'name': '刘华阳', 'id_card_front': '', 'id_card_back': '', 'is_default': 1, 'tel': '15850500181', 'error_code': '0', 'id_type': 0, 'verify_status': 1, 'accountId': 209403799, 'isBuyerInfoVerified': 'true', 'isBuyerValid': 'true'}], 'buyer': '', 'tel': ''}
+2023-11-10 20:21:14,742 - INFO - 已经生成配置文件，开始抢票选项
+2023-11-10 20:21:49,442 - INFO - 已经生成配置文件，开始抢票选项
+2023-11-10 20:23:07,026 - INFO - 已经生成配置文件，开始抢票选项
+2023-11-10 20:24:00,002 - DEBUG - Starting new HTTPS connection (1): show.bilibili.com:443
+2023-11-10 20:24:00,327 - DEBUG - https://show.bilibili.com:443 "GET /api/ticket/order/confirmInfo?token=wGVOIDEAAS-4AAJJxgEAAQAGiJs.&voucher=&project_id=77752 HTTP/1.1" 200 None
+2023-11-10 20:24:00,538 - DEBUG - https://show.bilibili.com:443 "POST /api/ticket/order/createV2?project_id=77752 HTTP/1.1" 200 83
+2023-11-10 20:24:00,539 - INFO - {'errno': 0, 'errtag': 0, 'msg': '', 'data': {'token': '3e2710badac1670e2458ae2af05e328f'}}

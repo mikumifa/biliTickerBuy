@@ -148,14 +148,14 @@ class TicketGrabbingApp:
 
     def grab_tickets(self, config_content, start_datetime, thread_count):
         self.isStartCrabbing = True
-        current_datetime = datetime.datetime.now()
-        delta = start_datetime - current_datetime
-        sleep_seconds = max(0, delta.total_seconds())
-        time.sleep(sleep_seconds)  # Simulating grabbing after sleep
+
         tryTimeLeft = 10
         while True:
             try:
-                sleep(sleep_seconds)
+                current_datetime = datetime.datetime.now()
+                time_difference = start_datetime - current_datetime
+                if time_difference.total_seconds() > 0:
+                    continue
                 # Start Process token tel buyer pay_money timestamp
                 # token
                 if config_content["token"] == "":
