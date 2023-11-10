@@ -34,7 +34,7 @@ B站会员购抢票软件, 自带图形界面, 纯接口抢票.
 
 ## 快速安装
 
-[下载链接](https://github.com/mikumifa/biliTickerBuy/releases)
+[下载链接](https://github.com/mikumifa/biliTickerBuy/releases),  下载最新的release文件 (bili-buy.zip)
 
 
 ## 快速起步
