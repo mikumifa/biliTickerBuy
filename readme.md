@@ -10,6 +10,7 @@
 
 # 准备大改!!!
 # 施工中...............
-
+## 你需要什么
+- Chrome浏览器最新版本
 #### :heart::heart::heart::heart::heart::heart::heart:祝大家都能抢到去cp的票:heart::heart::heart::heart::heart::heart::heart:
 
