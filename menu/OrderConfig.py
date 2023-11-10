@@ -7,7 +7,8 @@ class OrderConfigWindow:
     def __init__(self, master, order_config):
         self.master = master
         self.master.title("复制你得配置")
-        self.displayed_info_label = tk.Label(master, text="复制你的配置, 放入抢票app里面")
+        self.displayed_info_label = tk.Label(master, text="复制你的配置, 在第一个窗口选择第二个选项\n"
+                                                          "粘贴配置开始抢票")
         self.displayed_info_label.grid(row=2, column=0, pady=10)
         # Format the order_config as a JSON string with indentation
         formatted_order_config = json.dumps(order_config, indent=2, ensure_ascii=False)
