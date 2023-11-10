@@ -30,10 +30,10 @@ jobs:
       - name: Debug
         run: |
           ls -R ./dist
-          ls -R ./dist/bilibili-buy
+          ls -R ./dist/${{secrets.ReleaseZipName}}
 
       - name: Zip the Build
-        run: Compress-Archive -Path ./dist/bilibili-buy -DestinationPath ${{ secrets.ReleaseZipName }}.zip
+        run: Compress-Archive -Path ./dist/${{secrets.ReleaseZipName}} -DestinationPath ${{ secrets.ReleaseZipName }}.zip
 
       - name: Create Release
         id: create_release
