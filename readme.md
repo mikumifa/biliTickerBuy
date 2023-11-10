@@ -32,7 +32,13 @@ B站会员购抢票软件, 自带图形界面, 纯接口抢票.
 
 </details>
 
+## 快速安装
+
+[下载链接](https://github.com/mikumifa/biliTickerBuy/releases)
+
 
 ## 快速起步
 
 [前往文档](./doc/help.md)
+
+
