@@ -1,6 +1,12 @@
+import logging
+import threading
 import tkinter as tk
+from time import sleep
 from tkinter import ttk
 import json
+
+from common import format_dictionary_to_string
+from config import sleep_seconds
 
 
 class OrderConfigWindow:
@@ -9,6 +15,7 @@ class OrderConfigWindow:
         self.master.title("复制你得配置")
         self.displayed_info_label = tk.Label(master, text="复制你的配置, 在第一个窗口选择第二个选项\n"
                                                           "粘贴配置开始抢票")
+        self.order_config = order_config
         self.displayed_info_label.grid(row=2, column=0, pady=10)
         # Format the order_config as a JSON string with indentation
         formatted_order_config = json.dumps(order_config, indent=2, ensure_ascii=False)
@@ -19,9 +26,8 @@ class OrderConfigWindow:
         self.text_widget.config(state=tk.DISABLED)
         self.text_widget.grid(row=0, column=0, padx=10, pady=10)
 
-        # Create a copy button
         self.copy_button = ttk.Button(master, text="点我复制", command=self.copy_to_clipboard)
-        self.copy_button.grid(row=1, column=0, pady=10)
+        self.copy_button.grid(row=1, column=0, pady=5)  # 调整 pady 的值
 
     def copy_to_clipboard(self):
         # Copy the content of the text widget to the clipboard

@@ -29,64 +29,49 @@ def onSubmitTicket(buy_info):
     res = _request.post(
         url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={projectId}", data=token_payload)
     logging.info(f"res.text: {res.text}")
-    token = res.json()["data"]["token"]
+    token = ""
+    if "token" in res.json()["data"]:
+        token = res.json()["data"]["token"]
+
     order_info = _request.get(
         url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={token}&voucher=&project_id={projectId}")
-    ts = int(time.time())
-    contact_info = order_info.json()["data"]["contact_info"]
-    order_config = {}
+    contact_info = order_info.json()["data"].get("contact_info", {})
+
+    ts = int(time.time()) * 1000
+    buyer_info = []
+    res = _request.get(url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={projectId}")
+    print(res.text)
+    root = tk.Toplevel()
+
+    def update_buyer_info(x):
+        nonlocal buyer_info
+        buyer_info = x
+
+    selectProfileTable = SelectProfileTable(root, res.json(), max_selections=buy_info["count"],
+                                            onSubmitPersons=update_buyer_info)
+    root.mainloop()
+    #  "isBuyerInfoVerified": true,
+    # "isBuyerValid": true
+    for buyer in buyer_info:
+        buyer["isBuyerInfoVerified"] = "true"
+        buyer["isBuyerValid"] = "true"
     if not contact_info:
-        buyer_info = []
-        res = _request.get(url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={projectId}")
-        print(res.text)
-        root = tk.Toplevel()
+        contact_info = {}
+    order_config = {
+        "count": buy_info["count"],
+        "screen_id": buy_info["ticket"]["screen_id"],
+        "project_id": buy_info["project_id"],
+        "sku_id": buy_info["ticket"]["id"],
+        "token": token,
+        "order_type": 1,
+        "pay_money": order_info.json()["data"].get("pay_money", ""),
+        "timestamp": ts,
+        "buyer_info": buyer_info,
+        "buyer": contact_info.get("username", ""),
+        "tel": contact_info.get("tel", "")
+    }
 
-        def update_buyer_info(x):
-            nonlocal buyer_info
-            buyer_info = x
-
-        selectProfileTable = SelectProfileTable(root, res.json(), max_selections=buy_info["count"],
-                                                onSubmitPersons=update_buyer_info)
-        root.mainloop()
-        #  "isBuyerInfoVerified": true,
-        # "isBuyerValid": true
-        for buyer in buyer_info:
-            buyer["isBuyerInfoVerified"] = "true"
-            buyer["isBuyerValid"] = "true"
-
-        order_config = {
-            "count": buy_info["count"],
-            "screen_id": buy_info["ticket"]["screen_id"],
-            "project_id": buy_info["project_id"],
-            "sku_id": buy_info["ticket"]["id"],
-            "token": token,
-            "order_type": 1,
-            "pay_money": order_info.json()["data"]["pay_money"],
-            "timestamp": ts,
-            "buyer_info": buyer_info
-        }
-        logging.info(order_config)
-    else:
-        order_config = {
-            "count": buy_info["count"],
-            "screen_id": buy_info["ticket"]["screen_id"],
-            "project_id": buy_info["project_id"],
-            "sku_id": buy_info["ticket"]["id"],
-            "token": token,
-            "order_type": 1,
-            "pay_money": order_info.json()["data"]["pay_money"],
-            "timestamp": ts,
-            "buyer": contact_info["username"],
-            "tel": contact_info["tel"]
-        }
-        logging.info(order_config)
-
-    ## test Create Order
-    # creat_request_result = _request.post(
-    #     url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={projectId}", data=order_config).json()
-    # logging.info(creat_request_result)
-    ##
-
+    logging.info(order_config)
     root = tk.Toplevel()
     order_config_window = OrderConfigWindow(root, order_config)
     root.mainloop()

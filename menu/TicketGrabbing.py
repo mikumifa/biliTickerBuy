@@ -10,7 +10,7 @@ from time import sleep
 from tkcalendar import DateEntry
 
 from common import format_dictionary_to_string
-from config import cookies_config_path
+from config import cookies_config_path, issue_please_text
 from util.BiliRequest import BiliRequest
 from tkinter import scrolledtext
 
@@ -65,7 +65,6 @@ class TicketGrabbingApp:
         # self.thread_count_entry.grid(row=1, column=1, padx=10, pady=5, sticky=tk.W)
         # Status Label
 
-
         self.status_label = scrolledtext.ScrolledText(master, wrap=tk.WORD, width=100, height=10)
         self.status_label.grid(row=2, column=0, columnspan=2, pady=10)
 
@@ -88,11 +87,15 @@ class TicketGrabbingApp:
     def display_time_difference(self):
         # Get the selected date and time
         selected_date = self.start_date_entry.get_date()
-        selected_time = datetime.time(
-            int(self.hour_entry.get()),
-            int(self.minute_entry.get()),
-            int(self.second_entry.get())
-        )
+        selected_time = None
+        try:
+            selected_time = datetime.time(
+                int(self.hour_entry.get()),
+                int(self.minute_entry.get()),
+                int(self.second_entry.get())
+            )
+        except Exception as e:
+            return
         selected_datetime = datetime.datetime.combine(selected_date, selected_time)
         # Calculate the time difference
         current_datetime = datetime.datetime.now()
@@ -149,9 +152,51 @@ class TicketGrabbingApp:
         delta = start_datetime - current_datetime
         sleep_seconds = max(0, delta.total_seconds())
         time.sleep(sleep_seconds)  # Simulating grabbing after sleep
-
+        tryTimeLeft = 10
         while True:
             try:
+                sleep(sleep_seconds)
+                # Start Process token tel buyer pay_money timestamp
+                # token
+                if config_content["token"] == "":
+                    token_payload = {
+                        "count": config_content["count"],
+                        "screen_id": config_content["screen_id"],
+                        "order_type": 1,
+                        "project_id": config_content["project_id"],
+                        "sku_id": config_content["sku_id"],
+                        "token": "",
+                    }
+                    res = self._request.post(
+                        url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={config_content['project_id']}",
+                        data=token_payload)
+                    logging.info(f"res.text: {res.text}")
+                    if "token" not in res.json()["data"]:
+                        result = {"success": False, "status": f"抢票失败：{str(res.json())}"}
+                        self.display_status(result)
+
+                        tryTimeLeft -= 1
+                        if tryTimeLeft == 0:
+                            result = {"success": False,
+                                      "status": f"失败次数过多, 自动停止, 可能是抢票时机还没到?? {issue_please_text}"}
+                            self.display_status(result)
+                            break
+                        continue
+                    config_content["token"] = res.json()["data"]["token"]
+
+                order_info = self._request.get(
+                    url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={config_content['token']}&voucher=&project_id={config_content['project_id']}").json()
+                contact_info = order_info["data"].get("contact_info", {})
+                # tel buyer
+                if config_content["tel"] == "" and contact_info:
+                    config_content["tel"] = contact_info["tel"]
+                    config_content["buyer"] = config_content["username"]
+
+                # pay_money
+                config_content["pay_money"] = order_info["data"]["pay_money"]
+                # timestamp
+                config_content["timestamp"] = int(time.time()) * 100
+
                 payload = format_dictionary_to_string(config_content)
                 print(payload)
                 creat_request_result = self._request.post(
@@ -160,8 +205,6 @@ class TicketGrabbingApp:
                 logging.info(creat_request_result)
                 result = {"success": True, "status": f"抢票请求发送{str(creat_request_result)}"}
                 self.display_status(result)
-
-                sleep(sleep_seconds)
                 break
             except Exception as e:
                 result = {"success": False, "status": f"抢票失败：{str(e)}"}
