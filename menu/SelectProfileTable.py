@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
+from config import cookies_config_path
 from util.BiliRequest import BiliRequest
 from util.JsonUtil import ProfileInfo
 
