@@ -1,2 +1,7 @@
-config.json
+util/config.json
 .gitignore
+venv
+.idea
+dist
+main.spec
+log/*
