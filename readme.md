@@ -2,7 +2,7 @@
   <a href="https://koishi.chat/" target="_blank">
     <img width="160" src="icon.ico" alt="logo">
   </a>
-  <h1 id="koishi">biliTickerBuy</a></h1>
+  <h1 id="koishi">biliTickerBuy</h1>
 
 ![GitHub all releases](https://img.shields.io/github/downloads/mikumifa/biliTickerBuy/total)
 ![GitHub release (with filter)](https://img.shields.io/github/v/release/mikumifa/biliTickerBuy)
@@ -34,11 +34,11 @@
 
 ## 快速安装
 
-[下载链接](https://github.com/mikumifa/biliTickerBuy/releases),  下载最新的release文件 (bili-buy.zip)
+[下载链接](https://github.com/mikumifa/biliTickerBuy/releases)  下载最新的release文件 (bilibili-buy.zip)
 
 
 ## 快速起步
 
-[前往文档](./doc/help.md)
+[前往文档](https://mikumifa.github.io/2023/11/10/B%E7%AB%99%E4%BC%9A%E5%91%98%E8%B4%AD%E6%BC%AB%E5%B1%95%E6%8A%A2%E7%A5%A8%E4%BD%BF%E7%94%A8/)
 
 
