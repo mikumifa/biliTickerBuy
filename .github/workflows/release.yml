@@ -27,7 +27,7 @@ jobs:
           pip install -r requirements.txt
       - name: Build Windows Executable
         run: |
-          pyinstaller --onefile --noconsole --add-data="config/cookies.json;config" --add-data="log/log.txt;log" --hidden-import babel.numbers --requirement=requirements.txt --icon=icon.ico main.py --name ${{ secrets.ReleaseZipName }}
+          pyinstaller --onefile --noconsole --add-data="config/cookies.json;config" --add-data="log/log.txt;log" --hidden-import babel.numbers  --icon=icon.ico main.py --name ${{ secrets.ReleaseZipName }}
 
       - name: Debug
         run: |
