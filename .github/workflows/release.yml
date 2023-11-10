@@ -26,6 +26,11 @@ jobs:
       - name: Build
         run: pyinstaller --onefile --noconsole --add-data="config/cookies.json:config" --add-data="log/log.txt:log" --hidden-import babel.numbers --icon=icon.ico main.py --name bilibili-buy
 
+      - name: Debug
+        run: |
+          ls -R ./dist
+          ls -R ./dist/bilibili-buy
+
       - name: Zip the Build
         run: zip -r ${{ secrets.ReleaseZipName }} ./dist/bilibili-buy
 
