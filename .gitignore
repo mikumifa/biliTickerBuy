@@ -5,5 +5,6 @@ venv
 dist
 main.spec
 log/*
+log/log.txt
 build
 bilibili-buy.spec
