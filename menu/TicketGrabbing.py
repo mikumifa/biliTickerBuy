@@ -69,17 +69,16 @@ class TicketGrabbingApp:
 
         self.tryTime_label = ttk.Label(self.options_frame,
                                        text="设置抢票尝试次数, 不写默认10次, 写-1表示一直持续下去(可以用来捡漏??):")
-        self.tryTime_label.grid(row=2, column=1, pady=5, sticky=tk.W)
-        self.tryTime_entry = ttk.Entry(self.options_frame, width=3)
-        self.tryTime_entry.grid(row=2, column=2, padx=5, pady=5, sticky=tk.W)
+        self.tryTime_label.grid(row=1, column=0, pady=5, sticky=tk.W)
+        self.tryTime_entry = ttk.Entry(self.options_frame, width=12)
+        self.tryTime_entry.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W)
         self.tryTimeLast_label = ttk.Label(self.options_frame, text="次")
-        self.tryTimeLast_label.grid(row=2, column=3, pady=5, sticky=tk.W)
+        self.tryTimeLast_label.grid(row=1, column=2, pady=5, sticky=tk.W)
 
         # self.thread_count_label = ttk.Label(self.options_frame, text="使用抢票的线程个数:")
         # self.thread_count_label.grid(row=1, column=0, padx=10, pady=5, sticky=tk.W)
         # self.thread_count_entry = ttk.Entry(self.options_frame)
         # self.thread_count_entry.grid(row=1, column=1, padx=10, pady=5, sticky=tk.W)
-        # Status Label
 
         self.status_label = scrolledtext.ScrolledText(master, wrap=tk.WORD, width=100, height=10)
         self.status_label.grid(row=2, column=0, columnspan=2, pady=10)
