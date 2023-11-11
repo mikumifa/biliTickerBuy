@@ -1,4 +1,5 @@
-util/config.json
+config/config.json
+config
 .gitignore
 venv
 .idea
