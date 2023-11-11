@@ -9,3 +9,4 @@ log/log.txt
 build
 /config/cookies.json
 bilibili-buy.spec
+*.pyc
