@@ -1,12 +1,8 @@
 import logging
 import threading
 import tkinter as tk
-from time import sleep
 from tkinter import ttk
 import json
-
-from common import format_dictionary_to_string
-from config import sleep_seconds
 
 
 class OrderConfigWindow:
