@@ -7,6 +7,8 @@ main.spec
 log/*
 log/log.txt
 build
-/config/cookies.json
+config/cookies.json
 bilibili-buy.spec
-*.pyc
+__pycache__
+log/log.txt
+config/cookies.json
