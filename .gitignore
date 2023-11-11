@@ -10,3 +10,5 @@ build
 config/cookies.json
 bilibili-buy.spec
 __pycache__
+log/log.txt
+config/cookies.json
