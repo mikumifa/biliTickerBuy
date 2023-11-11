@@ -5,24 +5,13 @@ labels: ["bug?"]
 body:
   - type: dropdown
     attributes:
-      label: 部署方式
+      label: 
       description: "主程序使用的部署方式"
       options:
         - 手动部署
-        - 安装器部署
-        - 一键安装包部署
-        - Docker部署
+        - release的打包文件
     validations:
       required: true
-  - type: dropdown
-    attributes:
-      label: 登录框架
-      description: "连接QQ使用的框架"
-      options:
-        - Mirai
-        - go-cqhttp
-    validations:
-      required: false
   - type: input
     attributes:
       label: 系统环境
@@ -33,10 +22,10 @@ body:
   - type: input
     attributes:
       label: Python环境
-      description: 运行程序的Python版本
+      description: 运行程序的Python版本,（若有）
       placeholder: 例如： Python 3.10
     validations:
-      required: true
+      required: false
   - type: textarea
     attributes:
       label: 异常情况
