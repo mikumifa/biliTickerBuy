@@ -1,4 +1,3 @@
-config/config.json
 config
 .gitignore
 venv
@@ -8,4 +7,4 @@ main.spec
 log/*
 log/log.txt
 build
-bilibili-buy.spec
+/config/cookies.json
