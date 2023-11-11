@@ -7,10 +7,11 @@
 ![GitHub all releases](https://img.shields.io/github/downloads/mikumifa/biliTickerBuy/total)
 ![GitHub release (with filter)](https://img.shields.io/github/v/release/mikumifa/biliTickerBuy)
 ![GitHub issues](https://img.shields.io/github/issues/mikumifa/biliTickerBuy)
+![GitHub Repo stars](https://img.shields.io/github/stars/mikumifa/biliTickerBuy)
 
 </div>
 
-适合小白的, 图形化的B站会员购抢票软件, 自带图形界面, 纯接口抢票. 
+适合小白的, 图形化的B站会员购抢票软件, 自带图形界面, 纯接口抢票.  [点我查看视频展示](https://www.bilibili.com/video/BV1tg4y197wa)
 <details>
 <summary>
 
@@ -39,6 +40,6 @@
 
 ## 快速起步
 
-[前往文档](https://mikumifa.github.io/2023/11/10/B%E7%AB%99%E4%BC%9A%E5%91%98%E8%B4%AD%E6%BC%AB%E5%B1%95%E6%8A%A2%E7%A5%A8%E4%BD%BF%E7%94%A8/)
+[点我前往文档](https://mikumifa.github.io/2023/11/10/B%E7%AB%99%E4%BC%9A%E5%91%98%E8%B4%AD%E6%BC%AB%E5%B1%95%E6%8A%A2%E7%A5%A8%E4%BD%BF%E7%94%A8/)
 
 
