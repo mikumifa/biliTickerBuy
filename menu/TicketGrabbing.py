@@ -59,6 +59,23 @@ class TicketGrabbingApp:
         self.second_label = ttk.Label(self.options_frame, text="秒")
         self.second_label.grid(row=0, column=7, pady=5, sticky=tk.W)
 
+        self.sleeptime_label = ttk.Label(self.options_frame, text="设置抢票间隔, 不写默认间隔1s:")
+        self.sleeptime_label.grid(row=1, column=1, pady=5, sticky=tk.W)
+        self.sleeptime_entry = ttk.Entry(self.options_frame, width=3)
+        self.sleeptime_entry.grid(row=1, column=2, padx=5, pady=5, sticky=tk.W)
+        self.sleeptimeLast_label = ttk.Label(self.options_frame, text="秒")
+        self.sleeptimeLast_label.grid(row=1, column=3, pady=5, sticky=tk.W)
+
+        # b站没见到分控 不用延迟, 直接猛猛的强
+
+        # self.tryTime_label = ttk.Label(self.options_frame,
+        #                                text="设置抢票尝试次数, 不写默认10次, 写-1表示一直持续下去(可以用来捡漏??):")
+        # self.tryTime_label.grid(row=2, column=1, pady=5, sticky=tk.W)
+        # self.tryTime_entry = ttk.Entry(self.options_frame, width=3)
+        # self.tryTime_entry.grid(row=2, column=2, padx=5, pady=5, sticky=tk.W)
+        # self.tryTimeLast_label = ttk.Label(self.options_frame, text="次")
+        # self.tryTimeLast_label.grid(row=2, column=3, pady=5, sticky=tk.W)
+
         # self.thread_count_label = ttk.Label(self.options_frame, text="使用抢票的线程个数:")
         # self.thread_count_label.grid(row=1, column=0, padx=10, pady=5, sticky=tk.W)
         # self.thread_count_entry = ttk.Entry(self.options_frame)
@@ -149,7 +166,7 @@ class TicketGrabbingApp:
     def grab_tickets(self, config_content, start_datetime, thread_count):
         self.isStartCrabbing = True
 
-        tryTimeLeft = 10
+        tryTimeLeft = 10 if self.tryTime_entry.get() == "" else int(self.tryTime_entry.get())
         while True:
             try:
                 current_datetime = datetime.datetime.now()
@@ -172,7 +189,7 @@ class TicketGrabbingApp:
                         data=token_payload)
                     logging.info(f"res.text: {res.text}")
                     if "token" not in res.json()["data"]:
-                        result = {"success": False, "status": f"抢票失败：{str(res.json())}"}
+                        result = {"success": False, "status": f"抢票失败：{str(res.json())}, 还剩下{tryTimeLeft}次"}
                         self.display_status(result)
 
                         tryTimeLeft -= 1
