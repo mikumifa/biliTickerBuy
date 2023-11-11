@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-
+    permissions: write-all
     runs-on: windows-latest  # Use a Windows runner
 
     steps:
