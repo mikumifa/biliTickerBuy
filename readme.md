@@ -1,5 +1,5 @@
 <div align="center">
-  <a href="https://koishi.chat/" target="_blank">
+  <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">
     <img width="160" src="icon.ico" alt="logo">
   </a>
   <h1 id="koishi">biliTickerBuy</h1>
