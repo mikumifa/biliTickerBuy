@@ -12,10 +12,12 @@
 </div>
 
 适合小白的, 图形化的B站会员购抢票软件, 自带图形界面, 纯接口抢票.  [点我查看视频展示](https://www.bilibili.com/video/BV1tg4y197wa)
-<details>
-<summary>
+
 免责声明：详见[MIT License](./LICENSE)，此仓库仅用于个人参考学习，但如他人用本仓库代码用于商业用途(鄙视黄牛)，侵犯到B站利益等，本人不承担任何责任。
 ## 特性
+<details>
+<summary>
+
 
 </summary>
 
