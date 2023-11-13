@@ -39,7 +39,7 @@
 
 [下载链接](https://github.com/mikumifa/biliTickerBuy/releases)  下载最新的release文件 (bilibili-buy.zip)
 
-> NOTE
+> **NOTE**
 > 
 > 如果你对Github一点也不了解, 不知道在哪下载 这里有一份小白指南 [点我前往小白指南](./doc/如何下载release.md)
 
