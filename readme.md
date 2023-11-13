@@ -41,7 +41,7 @@
 
 > **NOTE**
 > 
-> 如果你对Github一点也不了解, 不知道在哪下载 这里有一份小白指南 [点我前往小白指南](./doc/如何下载release.md)
+> 如果你对Github一点也不了解, 不知道在哪下载 这里有一份小白指南 [点我前往小白指南](https://github.com/mikumifa/biliTickerBuy/edit/main/doc/%E5%A6%82%E4%BD%95%E4%B8%8B%E8%BD%BDrelease.md)
 
 
 ## 使用说明书
