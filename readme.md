@@ -52,6 +52,5 @@
 
 可在[issues](https://github.com/mikumifa/biliTickerBuy/issues)里面搜索相关问题, 若无法解决
 
-[点此链接向项目提出issue](https://github.com/mikumifa/biliTickerBuy/issues)
-
+[点此链接向项目提出issue](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
 
