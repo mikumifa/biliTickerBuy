@@ -8,8 +8,8 @@ from util.configUtil import CookieManager
 class BiliRequest:
     def __init__(self, headers=None, cookies=None, cookies_config_path=""):
         self.session = requests.Session()
-        self._cookieManager = CookieManager(cookies_config_path)
-        self._cookies = self._cookieManager.get_cookies_str()
+        self.cookieManager = CookieManager(cookies_config_path)
+        self._cookies = self.cookieManager.get_cookies_str()
         self.headers = headers or {
             'authority': 'show.bilibili.com',
             'accept': '*/*',
@@ -30,7 +30,7 @@ class BiliRequest:
         response = self.session.get(url, params=params, headers=self.headers)
         response.raise_for_status()
         if response.json()["msg"] == "请先登录":
-            self.headers['cookies'] = self._cookieManager.get_cookies_str_force()
+            self.headers['cookies'] = self.cookieManager.get_cookies_str_force()
             self.get(url, params)
         return response
 
@@ -38,7 +38,7 @@ class BiliRequest:
         response = self.session.post(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json()["msg"] == "请先登录":
-            self.headers['cookies'] = self._cookieManager.get_cookies_str_force()
+            self.headers['cookies'] = self.cookieManager.get_cookies_str_force()
             self.post(url, data)
         return response
 

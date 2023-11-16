@@ -6,7 +6,9 @@ import threading
 import time
 import logging
 from time import sleep
-
+from requests import utils
+from selenium import webdriver
+from selenium.common import WebDriverException
 from tkcalendar import DateEntry
 
 from common import format_dictionary_to_string
@@ -14,12 +16,15 @@ from config import cookies_config_path, issue_please_text
 from util.BiliRequest import BiliRequest
 from tkinter import scrolledtext
 
+from util.webUtil import WebUtil
+
 
 class TicketGrabbingApp:
     def __init__(self, master):
         self.master = master
         self.master.title("抢票配置")
         self._request = BiliRequest(cookies_config_path=cookies_config_path)
+        self.webUtil = WebUtil(self._request.cookieManager.config)
 
         # Left Frame for Configuration File
         self.config_frame = ttk.LabelFrame(master, text="粘贴配置文件")
@@ -197,6 +202,25 @@ class TicketGrabbingApp:
                             self.display_status(result)
                             break
                         continue
+                    if not res.json()["data"]["shield"]["verifyMethod"]:
+
+                        result = {"success": False, "status": f"遇到验证码：{res.json()['data']['shield']['naUrl']}"}
+                        self.display_status(result)
+                        try:
+                            naUrl = res.json()["data"]["shield"]["naUrl"]
+                            self.webUtil.driver.get(naUrl)
+                            while True:
+                                time.sleep(0.25)
+                                try:
+                                    self.webUtil.driver.title
+                                except WebDriverException:
+                                    break
+
+                        except:
+                            result = {"success": False,
+                                      "status": f"验证码错误"}
+                            self.display_status(result)
+                            break
                     config_content["token"] = res.json()["data"]["token"]
 
                 order_info = self._request.get(

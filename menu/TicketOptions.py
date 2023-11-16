@@ -30,8 +30,8 @@ def onSubmitTicket(buy_info):
         url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={projectId}", data=token_payload)
     logging.info(f"res.text: {res.text}")
     token = ""
-    if "token" in res.json()["data"]:
-        token = res.json()["data"]["token"]
+    # if "token" in res.json()["data"]:
+    #     token = res.json()["data"]["token"]
 
     order_info = _request.get(
         url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={token}&voucher=&project_id={projectId}")
