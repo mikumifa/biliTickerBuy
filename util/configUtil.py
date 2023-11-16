@@ -1,6 +1,8 @@
 import json
 import logging
 import time
+
+from requests import utils
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,6 +14,8 @@ class CookieManager:
     def __init__(self, config_file_path):
         self.config = {}
         self.config_file_path = config_file_path
+
+        self.cookie_jar = utils.cookiejar_from_dict(self.config)
 
     def _login_and_save_cookies(self, login_url="https://show.bilibili.com/platform/home.html"):
         logging.info("启动浏览器中.....")
