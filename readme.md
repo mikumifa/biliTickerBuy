@@ -48,6 +48,10 @@
 
 [点我前往使用说明书](https://mikumifa.github.io/2023/11/10/B%E7%AB%99%E4%BC%9A%E5%91%98%E8%B4%AD%E6%BC%AB%E5%B1%95%E6%8A%A2%E7%A5%A8%E4%BD%BF%E7%94%A8/)
 
+> **补充**
+> 
+> B站热门漫展的票可能会有滑块验证, 有关滑块验证的更新请看 [滑块更新wiki](https://github.com/mikumifa/biliTickerBuy/wiki/%E6%BB%91%E5%9D%97%E9%AA%8C%E8%AF%81)
+
 ## 有项目问题??
 
 可在[issues](https://github.com/mikumifa/biliTickerBuy/issues)里面搜索相关问题, 若无法解决
