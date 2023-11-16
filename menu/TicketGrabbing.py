@@ -202,7 +202,7 @@ class TicketGrabbingApp:
                             self.display_status(result)
                             break
                         continue
-                    if not res.json()["data"]["shield"]["verifyMethod"]:
+                    if res.json()["data"]["shield"]["verifyMethod"]:
 
                         result = {"success": False, "status": f"遇到验证码：{res.json()['data']['shield']['naUrl']}"}
                         self.display_status(result)
