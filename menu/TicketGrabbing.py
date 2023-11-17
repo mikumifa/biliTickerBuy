@@ -23,6 +23,8 @@ class TicketGrabbingApp:
     def __init__(self, master):
         self.master = master
         self.master.title("抢票配置")
+        self.is_grabbing = False
+        self.grabbing_thread = None
         self._request = BiliRequest(cookies_config_path=cookies_config_path)
         self.webUtil = WebUtil(self._request.cookieManager.config)
 
@@ -92,6 +94,9 @@ class TicketGrabbingApp:
         self.submit_button = ttk.Button(master, text="开始抢票", command=self.start_grabbing)
         self.submit_button.grid(row=3, column=0, columnspan=2, pady=10)
 
+        # Stop Button
+        self.submit_button = ttk.Button(master, text="停止抢票", command=self.stop_grabbing)
+        self.submit_button.grid(row=3, column=1, columnspan=2, pady=10)
         # Current Time Display
         self.current_time_label = ttk.Label(master, text="")
         self.current_time_label.grid(row=4, column=0, columnspan=2, pady=10)
@@ -100,9 +105,22 @@ class TicketGrabbingApp:
         # Time Difference Label
         self.time_difference_label = ttk.Label(master, text="")
         self.time_difference_label.grid(row=5, column=0, columnspan=2, pady=10)
-
+        self.master.protocol("WM_DELETE_WINDOW", self.on_close)
         # Update current time every second
         self.update_current_time()
+
+    def stop_grabbing(self):
+        if self.grabbing_thread is not None and self.grabbing_thread.is_alive():
+            self.is_grabbing = False  # 设置标志以通知线程退出
+            self.grabbing_thread = None
+
+    def on_close(self):
+        # Callback function to handle window close event
+        if self.grabbing_thread is not None and self.grabbing_thread.is_alive():
+            self.is_grabbing = False  # 设置标志以通知线程退出
+            self.grabbing_thread = None
+
+        self.master.destroy()
 
     def display_time_difference(self):
         # Get the selected date and time
@@ -124,7 +142,8 @@ class TicketGrabbingApp:
         self.time_difference_label.config(text=f"距离抢票开始还有：{time_difference}")
 
     def start_grabbing(self):
-
+        if self.grabbing_thread is not None:
+            return
         config_content = self.config_text.get("1.0", tk.END).strip()
         config_content = json.loads(config_content)
         start_date_str = self.start_date_entry.get()
@@ -136,9 +155,11 @@ class TicketGrabbingApp:
         # Validate inputs and start grabbing in a new thread
 
         if hours == '' and minutes == '' and seconds == '':
-            grabbing_thread = threading.Thread(target=self.grab_tickets,
-                                               args=(config_content, datetime.datetime.now(), thread_count))
-            grabbing_thread.start()
+            if not self.is_grabbing:
+                self.is_grabbing = True
+            self.grabbing_thread = threading.Thread(target=self.grab_tickets,
+                                                    args=(config_content, datetime.datetime.now(), thread_count))
+            self.grabbing_thread.start()
             return
 
         try:
@@ -157,9 +178,11 @@ class TicketGrabbingApp:
             # Combine date and time
             start_datetime = datetime.datetime.combine(start_date, datetime.time(hours, minutes, seconds))
             # Start grabbing in a new thread
-            grabbing_thread = threading.Thread(target=self.grab_tickets,
-                                               args=(config_content, start_datetime, thread_count))
-            grabbing_thread.start()
+            if not self.is_grabbing:
+                self.is_grabbing = True
+            self.grabbing_thread = threading.Thread(target=self.grab_tickets,
+                                                    args=(config_content, start_datetime, thread_count))
+            self.grabbing_thread.start()
         except ValueError as e:
             error_message = f"输入错误, 有空没输入, 或者输入错误(不能有空格)"
             result = {"success": False, "status": f"{error_message}"}
@@ -170,7 +193,7 @@ class TicketGrabbingApp:
         self.isStartCrabbing = True
 
         tryTimeLeft = 10 if self.tryTime_entry.get() == "" else int(self.tryTime_entry.get())
-        while True:
+        while self.is_grabbing:
             try:
                 current_datetime = datetime.datetime.now()
                 time_difference = start_datetime - current_datetime
@@ -213,11 +236,18 @@ class TicketGrabbingApp:
                 config_content["token"] = res.json()["data"]["token"]
                 ## 已经完成验证码 ,下面应该不断的处理订单的生成
 
-                while True:
+                while self.is_grabbing:
                     try:
                         order_info = self._request.get(
                             url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={config_content['token']}&voucher=&project_id={config_content['project_id']}").json()
                         contact_info = order_info["data"].get("contact_info", {})
+                        if "pay_money" not in order_info["data"]:
+                            result = {"success": False,
+                                      "status": f"休息1秒,抢票失败：{order_info['msg']}"}
+                            self.display_status(result)
+                            sleep(1)
+                            continue
+
                         # tel buyer
                         if config_content["tel"] == "" and contact_info:
                             config_content["tel"] = contact_info["tel"]
@@ -234,7 +264,8 @@ class TicketGrabbingApp:
                         creat_request_result = self._request.post(
                             url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={config_content['project_id']}",
                             data=payload).json()
-                        if "token" not in creat_request_result:
+                        logging.info(creat_request_result)
+                        if "token" not in creat_request_result["data"]:
                             # 在申请订单环节产生的所有错误都应当重新申请
                             result = {"success": False,
                                       "status": f"休息3秒,抢票失败：{creat_request_result['msg']}"}
@@ -242,15 +273,17 @@ class TicketGrabbingApp:
                             raise Exception
                         result = {"success": True, "status": f"抢票请求发送{str(creat_request_result)}"}
                         self.display_status(result)
+                        self.grabbing_thread = None
                         # 如果返回结果里面有token, 那么成功, 应当return
                         return
                     except Exception as e:
                         sleep(3)
                         continue
-
             except Exception as e:
                 result = {"success": False, "status": f"抢票失败：{str(e)}"}
                 self.display_status(result)
+
+        self.grabbing_thread = None
 
     def display_status(self, result):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
