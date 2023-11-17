@@ -178,73 +178,76 @@ class TicketGrabbingApp:
                     continue
                 # Start Process token tel buyer pay_money timestamp
                 # token
-                if config_content["token"] == "":
-                    token_payload = {
-                        "count": config_content["count"],
-                        "screen_id": config_content["screen_id"],
-                        "order_type": 1,
-                        "project_id": config_content["project_id"],
-                        "sku_id": config_content["sku_id"],
-                        "token": "",
-                    }
-                    res = self._request.post(
-                        url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={config_content['project_id']}",
-                        data=token_payload)
-                    logging.info(f"res.text: {res.text}")
-                    if "token" not in res.json()["data"]:
-                        result = {"success": False, "status": f"抢票失败：{str(res.json())}, 还剩下{tryTimeLeft}次"}
-                        self.display_status(result)
+                token_payload = {
+                    "count": config_content["count"],
+                    "screen_id": config_content["screen_id"],
+                    "order_type": 1,
+                    "project_id": config_content["project_id"],
+                    "sku_id": config_content["sku_id"],
+                    "token": "",
+                }
+                res = self._request.post(
+                    url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={config_content['project_id']}",
+                    data=token_payload)
+                logging.info(f"res.text: {res.text}")
+                if "token" not in res.json()["data"]:
+                    result = {"success": False, "status": f"抢票失败：{str(res.json())}, 还剩下{tryTimeLeft}次"}
+                    self.display_status(result)
 
-                        tryTimeLeft -= 1
-                        if tryTimeLeft == 0:
+                    tryTimeLeft -= 1
+                    if tryTimeLeft == 0:
+                        result = {"success": False,
+                                  "status": f"失败次数过多, 自动停止, 可能是抢票时机还没到?? {issue_please_text}"}
+                        self.display_status(result)
+                        break
+                    continue
+
+                ## 到此处, 就算网不好, 必然有token
+
+                ## 确定有token时候, 再去检查时候有验证码
+                if res.json()["data"]["shield"]["verifyMethod"]:
+                    result = {"success": False, "status": f"遇到验证码：{res.json()['data']['shield']['naUrl']}"}
+                    self.display_status(result)
+                    naUrl = res.json()["data"]["shield"]["naUrl"]
+                    self.webUtil.driver.get(naUrl)
+                config_content["token"] = res.json()["data"]["token"]
+                ## 已经完成验证码 ,下面应该不断的处理订单的生成
+
+                while True:
+                    try:
+                        order_info = self._request.get(
+                            url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={config_content['token']}&voucher=&project_id={config_content['project_id']}").json()
+                        contact_info = order_info["data"].get("contact_info", {})
+                        # tel buyer
+                        if config_content["tel"] == "" and contact_info:
+                            config_content["tel"] = contact_info["tel"]
+                            config_content["buyer"] = config_content["username"]
+
+                        # pay_money
+                        config_content["pay_money"] = order_info["data"]["pay_money"]
+                        # timestamp
+                        config_content["timestamp"] = int(time.time()) * 100
+
+                        payload = format_dictionary_to_string(config_content)
+
+                        #  已完成所有信息的填写
+                        creat_request_result = self._request.post(
+                            url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={config_content['project_id']}",
+                            data=payload).json()
+                        if "token" not in creat_request_result:
+                            # 在申请订单环节产生的所有错误都应当重新申请
                             result = {"success": False,
-                                      "status": f"失败次数过多, 自动停止, 可能是抢票时机还没到?? {issue_please_text}"}
+                                      "status": f"休息3秒,抢票失败：{creat_request_result['msg']}"}
                             self.display_status(result)
-                            break
+                            raise Exception
+                        result = {"success": True, "status": f"抢票请求发送{str(creat_request_result)}"}
+                        self.display_status(result)
+                        # 如果返回结果里面有token, 那么成功, 应当return
+                        return
+                    except Exception as e:
+                        sleep(3)
                         continue
-                    if res.json()["data"]["shield"]["verifyMethod"]:
 
-                        result = {"success": False, "status": f"遇到验证码：{res.json()['data']['shield']['naUrl']}"}
-                        self.display_status(result)
-                        try:
-                            naUrl = res.json()["data"]["shield"]["naUrl"]
-                            self.webUtil.driver.get(naUrl)
-                            while True:
-                                time.sleep(0.25)
-                                try:
-                                    self.webUtil.driver.title
-                                except WebDriverException:
-                                    break
-
-                        except:
-                            result = {"success": False,
-                                      "status": f"验证码错误"}
-                            self.display_status(result)
-                            break
-                    config_content["token"] = res.json()["data"]["token"]
-
-                order_info = self._request.get(
-                    url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={config_content['token']}&voucher=&project_id={config_content['project_id']}").json()
-                contact_info = order_info["data"].get("contact_info", {})
-                # tel buyer
-                if config_content["tel"] == "" and contact_info:
-                    config_content["tel"] = contact_info["tel"]
-                    config_content["buyer"] = config_content["username"]
-
-                # pay_money
-                config_content["pay_money"] = order_info["data"]["pay_money"]
-                # timestamp
-                config_content["timestamp"] = int(time.time()) * 100
-
-                payload = format_dictionary_to_string(config_content)
-                print(payload)
-                creat_request_result = self._request.post(
-                    url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={config_content['project_id']}",
-                    data=payload).json()
-                logging.info(creat_request_result)
-                result = {"success": True, "status": f"抢票请求发送{str(creat_request_result)}"}
-                self.display_status(result)
-                break
             except Exception as e:
                 result = {"success": False, "status": f"抢票失败：{str(e)}"}
                 self.display_status(result)
