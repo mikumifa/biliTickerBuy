@@ -51,6 +51,7 @@
 > **补充**
 > 
 > B站热门漫展的票可能会有滑块验证, 有关滑块验证的更新请看 [滑块更新wiki](https://github.com/mikumifa/biliTickerBuy/wiki/%E6%BB%91%E5%9D%97%E9%AA%8C%E8%AF%81)
+> 
 > 抢票逻辑描述, 请看 [抢票逻辑wiki](https://github.com/mikumifa/biliTickerBuy/wiki/%E6%BB%91%E5%9D%97%E9%AA%8C%E8%AF%81)
 
 ## 有项目问题??
