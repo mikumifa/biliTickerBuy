@@ -251,7 +251,7 @@ class TicketGrabbingApp:
                         # tel buyer
                         if config_content["tel"] == "" and contact_info:
                             config_content["tel"] = contact_info["tel"]
-                            config_content["buyer"] = config_content["username"]
+                            config_content["buyer"] = contact_info["username"]
 
                         # pay_money
                         config_content["pay_money"] = order_info["data"]["pay_money"]
