@@ -13,7 +13,7 @@ class SelectProfileTable:
         self.master = master
         self.onSubmitPersons = onSubmitPersons
         self.onSubmitAddr = onSubmitAddr
-        self.master.title("选人")
+        self.master.title("选择收货地址")
         self.persons = self.profileInfo.get_persons()
         self.addrs = self.addrInfo.get_addrs()
         self.max_selections = max_selections
@@ -33,7 +33,9 @@ class SelectProfileTable:
         self.addr_listbox.grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
         for addr in self.addrs:
             name = addr['name']
-            self.addr_listbox.insert(tk.END, f"{name}")
+            addr_name = addr['addr']
+
+            self.addr_listbox.insert(tk.END, f"收货人：{name}， 地址： {addr_name}")
             self.addr_listbox.itemconfig(tk.END, {'fg': "black"})
 
         self.detail_text = tk.Text(master, height=10, width=40)
