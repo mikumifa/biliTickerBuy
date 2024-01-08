@@ -21,3 +21,10 @@ class ProfileInfo:
 
     def get_persons(self):
         return self.personList
+
+class AddrInfo:
+    def __init__(self, data):
+        self.addrList = data["data"]["addr_list"]
+
+    def get_addrs(self):
+        return self.addrList

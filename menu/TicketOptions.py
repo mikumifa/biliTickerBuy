@@ -30,25 +30,32 @@ def onSubmitTicket(buy_info):
         url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={projectId}", data=token_payload)
     logging.info(f"res.text: {res.text}")
     token = ""
-    # if "token" in res.json()["data"]:
-    #     token = res.json()["data"]["token"]
+    if "token" in res.json()["data"]:
+        token = res.json()["data"]["token"]
 
     order_info = _request.get(
         url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={token}&voucher=&project_id={projectId}")
     contact_info = order_info.json()["data"].get("contact_info", {})
-
+    logging.info(f"contact_info: {contact_info}")
     ts = int(time.time()) * 1000
     buyer_info = []
+    delivery_info = {}
     res = _request.get(url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={projectId}")
     print(res.text)
+    addr_res = _request.get(url="https://show.bilibili.com/api/ticket/addr/list")
+    print(addr_res.text)
     root = tk.Toplevel()
 
     def update_buyer_info(x):
         nonlocal buyer_info
         buyer_info = x
 
-    selectProfileTable = SelectProfileTable(root, res.json(), max_selections=buy_info["count"],
-                                            onSubmitPersons=update_buyer_info)
+    def update_addr_info(x):
+        nonlocal delivery_info
+        delivery_info = x[0]
+
+    selectProfileTable = SelectProfileTable(root, res.json(), addr_res.json(), max_selections=buy_info["count"],
+                                            onSubmitPersons=update_buyer_info, onSubmitAddr=update_addr_info)
     root.mainloop()
     #  "isBuyerInfoVerified": true,
     # "isBuyerValid": true
@@ -67,8 +74,11 @@ def onSubmitTicket(buy_info):
         "pay_money": order_info.json()["data"].get("pay_money", ""),
         "timestamp": ts,
         "buyer_info": buyer_info,
-        "buyer": contact_info.get("username", ""),
-        "tel": contact_info.get("tel", "")
+        "buyer": buyer_info[0]["name"],
+        "tel": buyer_info[0]["tel"],
+        "deliver_info": {"name": delivery_info["name"], "tel": delivery_info["phone"], "addr_id": delivery_info["id"],
+                         "addr": delivery_info["prov"] + delivery_info["city"] + delivery_info["area"] + delivery_info[
+                             "addr"]}
     }
 
     logging.info(order_config)
