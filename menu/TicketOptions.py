@@ -1,12 +1,10 @@
 import logging
+import time
 import tkinter as tk
 from tkinter import ttk
-import logging
-import time
 
 from config import cookies_config_path, issue_please_text
 from menu.GoodInput import NumberInputApp
-
 from menu.OrderConfig import OrderConfigWindow
 from menu.SelectProfileTable import SelectProfileTable
 from menu.SelectTicketsTable import TicketBookingApp
@@ -132,7 +130,9 @@ class TicketOptionsApp:
 
         # Submit Button
         self.submit_button = ttk.Button(master, text="开始", command=self.submit_options)
+        self.log_button = ttk.Button(master, text="导出日志", command=self.export_log)
         self.submit_button.pack(pady=10)
+        self.log_button.pack(pady=10)
 
     def submit_options(self):
         selected_option = self.option_var.get()
@@ -148,6 +148,13 @@ class TicketOptionsApp:
             root.mainloop()
         else:
             logging.info("请选择一个选项")
+
+    def export_log(self):
+        with open("log/log.txt", 'r') as file:
+            log_content = file.read()
+        with open("log.txt", 'w') as file:
+            # 将修改后的内容写入文件
+            file.write(log_content)
 
 
 if __name__ == "__main__":

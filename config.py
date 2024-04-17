@@ -1,9 +1,5 @@
-import logging
 import os
 import sys
-
-
-
 
 
 # 获取图标文件的路径
