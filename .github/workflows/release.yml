@@ -27,14 +27,14 @@ jobs:
           pip install -r requirements.txt
       - name: Build Windows Executable
         run: |
-          pyinstaller --onefile --noconsole --add-data="config/cookies.json;config" --add-data="log/log.txt;log" --hidden-import babel.numbers  --icon=icon.ico main.py --name ${{ secrets.ReleaseZipName }}
+          pyinstaller bilibili-buy.spec
 
       - name: Debug
         run: |
           ls -R ./dist
 
       - name: Zip the Build
-        run: Compress-Archive -Path ./dist/${{ secrets.ReleaseZipName }}.exe -DestinationPath ${{ secrets.ReleaseZipName }}.zip
+        run: Compress-Archive -Path ./dist/main -DestinationPath ${{ secrets.ReleaseZipName }}.zip
 
       - name: Create Release
         id: create_release
