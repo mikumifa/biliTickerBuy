@@ -7,5 +7,6 @@ main.spec
 log/*
 log/log.txt
 build
-bilibili-buy.spec
 *.pyc
+*.log
+*.json
