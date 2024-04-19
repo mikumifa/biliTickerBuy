@@ -46,6 +46,8 @@
 
 ## 使用说明书
 
+重构了UI
+
 [点我前往使用说明书](https://mikumifa.github.io/2023/11/10/B%E7%AB%99%E4%BC%9A%E5%91%98%E8%B4%AD%E6%BC%AB%E5%B1%95%E6%8A%A2%E7%A5%A8%E4%BD%BF%E7%94%A8/)
 
 > **补充**
