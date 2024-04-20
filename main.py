@@ -95,7 +95,7 @@ def onSubmitAll(ticket_number, ticket_info, people, people_buyer, address):
 
 
 def start_go(tickets_info, time_start, interval, mode, total_attempts):
-    global isRunning
+    global isRunning, geetest_validate, geetest_seccode
     global gt
     global challenge
     result = ""
@@ -130,7 +130,7 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
                 # gt = "ac597a4506fee079629df5d8b66dd4fe"
                 yield [gr.update(value="进行验证码验证", visible=True), gr.update(), gr.update(),
                        gr.update(visible=True), gr.update(value=gt), gr.update(value=challenge)]
-                while geetest_validate == "" and geetest_seccode == "":
+                while geetest_validate == "" or geetest_seccode == "":
                     continue
                 logging.info(f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}")
                 _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
@@ -144,6 +144,8 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
                     "validate": geetest_validate
                 }
                 _data = _request.get(_url, urlencode(_payload))
+                geetest_validate = ""
+                geetest_seccode = ""
                 if _data["code"] == 0:
                     logging.info("极验GeeTest认证 成功")
                 else:
@@ -180,7 +182,7 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
                     qr_gen.add_data(qrcode_url)
                     qr_gen.make(fit=True)
                     qr_gen_image = qr_gen.make_image()
-                    yield [gr.update(value="生成二维码"), gr.update(),
+                    yield [gr.update(value="生成付款二维码"), gr.update(),
                            gr.update(value=qr_gen_image.get_image(), visible=True), gr.update(), gr.update(),
                            gr.update()]
                 time.sleep(interval / 1000.0)
@@ -279,12 +281,12 @@ if __name__ == '__main__':
                     qr_image = gr.Image(label="使用微信或者支付宝扫码支付", visible=False)
 
                 with gr.Row(visible=False) as gt_row:
-                    gt_html_btn = gr.Button("存在验证码，点击开启,开启抢票验证码")
+                    gt_html_btn = gr.Button("点击打开抢票验证码（请勿多点！！）")
                     gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
 
                     gt_html = gr.HTML(value="""
                        <div>
-                       <label for="datetime">如何点击无效说明，获取验证码失败</label>
+                       <label for="datetime">如何点击无效说明，获取验证码失败，请勿多点</label>
                         <div id="captcha">
                         </div>
                     </div>""", label="验证码")
