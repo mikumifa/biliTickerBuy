@@ -40,6 +40,15 @@ def onSubmitTicketId(num):
 
         ticket_str_list = []
         project_id = ret["data"]["id"]
+        project_name = ret["data"]["name"]
+        project_start_time_unix = ret["data"]["start_time"]
+        project_end_time_unix = ret["data"]["end_time"]
+        project_start_time = datetime.fromtimestamp(project_start_time_unix).strftime("%Y-%m-%d %H:%M:%S")
+        project_end_time = datetime.fromtimestamp(project_end_time_unix).strftime("%Y-%m-%d %H:%M:%S")
+        venue_info = ret["data"]["venue_info"]
+        venue_name = venue_info["name"]
+        venue_address = venue_info["address_detail"]
+        
         for screen in ret["data"]["screen_list"]:
             screen_name = screen["name"]
             screen_id = screen["id"]
@@ -67,7 +76,7 @@ def onSubmitTicketId(num):
 
         return [gr.update(choices=ticket_str_list), gr.update(choices=buyer_str_list),
                 gr.update(choices=buyer_str_list), gr.update(choices=addr_str_list), gr.update(visible=True),
-                gr.update(value="获取票信息成功", visible=True)]
+                gr.update(value=f"获取票信息成功:\n展会名称: {project_name}\n开展时间: {project_start_time} - {project_end_time}\n场馆地址: {venue_name} {venue_address}", visible=True)]
     except Exception as e:
         return [gr.update(), gr.update(), gr.update(), gr.update(), gr.update(), gr.update(value=e, visible=True)]
 
