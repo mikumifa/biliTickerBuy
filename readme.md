@@ -58,6 +58,10 @@
 > - 地址 ： 会员购中心->地址管理
 > - 购买人信息：会员购中心->购买人信息
 
+抢票过程
+
+![tutieshi_640x360_26s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/be7c072a-7449-4df9-aeb5-fca0c49b0a0e)
+
 滑块过程
 
 ![tutieshi_640x360_13s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/508e7c08-2cdd-42a9-9529-34f74e08036e)
