@@ -47,7 +47,7 @@
 >
 > 如果你对Github一点也不了解, 不知道在哪下载
 >
-这里有一份小白指南 [点我前往小白指南](https://github.com/mikumifa/biliTickerBuy/wiki/%E5%B0%8F%E7%99%BD%E4%B8%8B%E8%BD%BD%E6%8C%87%E5%8D%97)
+> 这里有一份小白指南 [点我前往小白指南](https://github.com/mikumifa/biliTickerBuy/wiki/%E5%B0%8F%E7%99%BD%E4%B8%8B%E8%BD%BD%E6%8C%87%E5%8D%97)
 
 ## 使用说明书
 
