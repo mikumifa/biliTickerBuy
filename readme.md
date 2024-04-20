@@ -58,7 +58,9 @@
 > - 地址 ： 会员购中心->地址管理
 > - 购买人信息：会员购中心->购买人信息
 
-滑块过程 ![tutieshi_640x360_13s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/508e7c08-2cdd-42a9-9529-34f74e08036e)
+滑块过程
+
+![tutieshi_640x360_13s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/508e7c08-2cdd-42a9-9529-34f74e08036e)
 
 重构了UI，启动终端第一行会显示
 
