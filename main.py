@@ -40,15 +40,6 @@ def onSubmitTicketId(num):
 
         ticket_str_list = []
         project_id = ret["data"]["id"]
-        project_name = ret["data"]["name"]
-        project_start_time_unix = ret["data"]["start_time"]
-        project_end_time_unix = ret["data"]["end_time"]
-        project_start_time = datetime.fromtimestamp(project_start_time_unix).strftime("%Y-%m-%d %H:%M:%S")
-        project_end_time = datetime.fromtimestamp(project_end_time_unix).strftime("%Y-%m-%d %H:%M:%S")
-        venue_info = ret["data"]["venue_info"]
-        venue_name = venue_info["name"]
-        venue_address = venue_info["address_detail"]
-        
         for screen in ret["data"]["screen_list"]:
             screen_name = screen["name"]
             screen_id = screen["id"]
@@ -76,7 +67,7 @@ def onSubmitTicketId(num):
 
         return [gr.update(choices=ticket_str_list), gr.update(choices=buyer_str_list),
                 gr.update(choices=buyer_str_list), gr.update(choices=addr_str_list), gr.update(visible=True),
-                gr.update(value=f"获取票信息成功:\n展会名称: {project_name}\n开展时间: {project_start_time} - {project_end_time}\n场馆地址: {venue_name} {venue_address}", visible=True)]
+                gr.update(value="获取票信息成功", visible=True)]
     except Exception as e:
         return [gr.update(), gr.update(), gr.update(), gr.update(), gr.update(), gr.update(value=e, visible=True)]
 
@@ -116,7 +107,8 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
             _request = BiliRequest(cookies_config_path=cookies_config_path)
             tickets_info = json.loads(tickets_info)
             token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
-                             "project_id": tickets_info["project_id"], "sku_id": tickets_info["sku_id"], "token": "", }
+                             "project_id": tickets_info["project_id"], "sku_id": tickets_info["sku_id"], "token": "",
+                             "newRisk": True}
             request_result_normal = _request.post(
                 url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                 data=token_payload)
@@ -124,13 +116,12 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
             logging.info(f"prepare header: {request_result_normal.headers}")
             logging.info(f"prepare: {request_result}")
 
-            tickets_info["token"] = request_result["data"]["token"]
-            errno = int(request_result["errno"])
+            code = int(request_result["code"])
             ## https://github.com/fsender/Bilibili_show_ticket_auto_order/blob/18b3cf6cb539167153f1d2dd847006c9794ac9af/api.py#L237
-            if errno == -401:
+            if code == -401:
                 _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
                 _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
-                _data = _request.post(_url, _payload)
+                _data = _request.post(_url, _payload).json()
                 gt = _data["data"]["geetest"]["gt"]
                 challenge = _data["data"]["geetest"]["challenge"]
                 token = _data["data"]["token"]
@@ -152,13 +143,15 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
                     "csrf": csrf,
                     "validate": geetest_validate
                 }
-                _data = _request.get(_url, urlencode(_payload))
+                _data = _request.post(_url, urlencode(_payload)).json()
                 geetest_validate = ""
                 geetest_seccode = ""
                 if _data["code"] == 0:
                     logging.info("极验GeeTest认证 成功")
                 else:
                     logging.info("极验GeeTest验证失败。")
+            else:
+                tickets_info["token"] = request_result["data"]["token"]
 
             request_result = _request.get(
                 url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher=&project_id={tickets_info['project_id']}").json()
@@ -204,6 +197,7 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
         except Exception as e:
             errno = request_result["errno"]
             left_time_str = '无限' if mode == 0 else left_time
+            logging.info(e)
             logging.info(
                 f'错误码:{errno} 错误码解析: {errnoDict.get(errno, "未知错误码")}, 请求体: {request_result},剩余次数: {left_time_str}')
             yield [
