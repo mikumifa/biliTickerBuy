@@ -1,5 +1,3 @@
-import json
-
 import requests
 
 from util.configUtil import CookieManager
@@ -26,12 +24,12 @@ class BiliRequest:
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0'
         }
 
-    def get(self, url, params=None):
-        response = self.session.get(url, params=params, headers=self.headers)
+    def get(self, url, data=None):
+        response = self.session.get(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json()["msg"] == "请先登录":
             self.headers['cookies'] = self.cookieManager.get_cookies_str_force()
-            self.get(url, params)
+            self.get(url, data)
         return response
 
     def post(self, url, data=None):

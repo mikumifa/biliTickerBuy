@@ -59,6 +59,13 @@ class CookieManager:
             cookies_str += cookie["name"] + "=" + cookie["value"] + "; "
         return cookies_str
 
+    def get_cookies_value(self, name):
+        cookies = self.get_cookies()
+        for cookie in cookies:
+            if cookie["name"] == name:
+                return cookie["value"]
+        return None
+
     def get_cookies_str_force(self):
         cookies = self._login_and_save_cookies()
         cookies_str = ""

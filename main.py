@@ -4,17 +4,25 @@ import os
 import sys
 import time
 from datetime import datetime
+from urllib.parse import urlencode
 
 import gradio as gr
+import qrcode
 
 from common import format_dictionary_to_string
 from config import cookies_config_path
 from util.BiliRequest import BiliRequest
+from util.error import errnoDict
+from util.order_qrcode import get_qrcode_url
 
 buyer_value = []
 addr_value = []
 ticket_value = []
 isRunning = False
+gt = ""
+challenge = ""
+geetest_validate = ""
+geetest_seccode = ""
 
 
 def onSubmitTicketId(num):
@@ -65,68 +73,132 @@ def onSubmitTicketId(num):
 
 
 def onSubmitAll(ticket_number, ticket_info, people, people_buyer, address):
-    if ticket_number != len(people):
-        return gr.update(value="生成配置文件失败，保证选票数目和购买人数目一致", visible=True)
-    ticket_cur = ticket_value[ticket_info]
-    people_cur = [buyer_value[item] for item in people]
-    people_buyer_cur = buyer_value[people_buyer]
+    try:
+        if ticket_number != len(people):
+            return gr.update(value="生成配置文件失败，保证选票数目和购买人数目一致", visible=True)
+        ticket_cur = ticket_value[ticket_info]
+        people_cur = [buyer_value[item] for item in people]
+        people_buyer_cur = buyer_value[people_buyer]
 
-    address_cur = addr_value[address]
-    config_dir = {"count": ticket_number, "screen_id": ticket_cur["ticket"]["screen_id"],
-                  "project_id": ticket_cur["project_id"], "sku_id": ticket_cur["ticket"]["id"], "order_type": 1,
-                  "buyer_info": people_cur, "buyer": people_buyer_cur["name"], "tel": people_buyer_cur["tel"],
-                  "deliver_info": {"name": address_cur["name"], "tel": address_cur["phone"],
-                                   "addr_id": address_cur["id"],
-                                   "addr": address_cur["prov"] + address_cur["city"] + address_cur["area"] +
-                                           address_cur["addr"]}}
-    return gr.update(value=json.dumps(config_dir), visible=True)
+        address_cur = addr_value[address]
+        config_dir = {"count": ticket_number, "screen_id": ticket_cur["ticket"]["screen_id"],
+                      "project_id": ticket_cur["project_id"], "sku_id": ticket_cur["ticket"]["id"], "order_type": 1,
+                      "buyer_info": people_cur, "buyer": people_buyer_cur["name"], "tel": people_buyer_cur["tel"],
+                      "deliver_info": {"name": address_cur["name"], "tel": address_cur["phone"],
+                                       "addr_id": address_cur["id"],
+                                       "addr": address_cur["prov"] + address_cur["city"] + address_cur["area"] +
+                                               address_cur["addr"]}}
+        return gr.update(value=json.dumps(config_dir), visible=True)
+    except Exception as e:
+        logging.info(e)
+        return gr.update(value="生产错误，仔细看看你可能有哪里漏填的", visible=True)
 
 
 def start_go(tickets_info, time_start, interval, mode, total_attempts):
     global isRunning
+    global gt
+    global challenge
     result = ""
-    request_result = {"msg": "配置文件有错"}
+    request_result = {"errno": "未知状态码", "msg": "配置文件有错"}
     isRunning = True
-    try:
-        _request = BiliRequest(cookies_config_path=cookies_config_path)
-        tickets_info = json.loads(tickets_info)
-        token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
-                         "project_id": tickets_info["project_id"], "sku_id": tickets_info["sku_id"], "token": "", }
-        request_result = _request.post(
-            url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-            data=token_payload).json()
-        logging.info(f"{request_result}")
+    left_time = total_attempts
+    while isRunning:
+        try:
+            _request = BiliRequest(cookies_config_path=cookies_config_path)
+            tickets_info = json.loads(tickets_info)
+            token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
+                             "project_id": tickets_info["project_id"], "sku_id": tickets_info["sku_id"], "token": "", }
+            request_result_normal = _request.post(
+                url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
+                data=token_payload)
+            request_result = request_result_normal.json()
+            logging.info(f"prepare header: {request_result_normal.headers}")
+            logging.info(f"prepare: {request_result}")
 
-        tickets_info["token"] = request_result["data"]["token"]
+            tickets_info["token"] = request_result["data"]["token"]
+            errno = int(request_result["errno"])
+            ## https://github.com/fsender/Bilibili_show_ticket_auto_order/blob/18b3cf6cb539167153f1d2dd847006c9794ac9af/api.py#L237
+            if errno == -401:
+                _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
+                _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
+                _data = _request.post(_url, _payload)
+                gt = _data["data"]["geetest"]["gt"]
+                challenge = _data["data"]["geetest"]["challenge"]
+                token = _data["data"]["token"]
+                # https://passport.bilibili.com/x/passport-login/captcha?source=main_web
+                # challenge = "7e4a9557299685fb82c41972b63a42fc"
+                # gt = "ac597a4506fee079629df5d8b66dd4fe"
+                yield [gr.update(value="进行验证码验证", visible=True), gr.update(), gr.update(),
+                       gr.update(visible=True), gr.update(value=gt), gr.update(value=challenge)]
+                while geetest_validate == "" and geetest_seccode == "":
+                    continue
+                logging.info(f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}")
+                _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
+                csrf = _request.cookieManager.get_cookies_value("bili_jct")
 
-        request_result = _request.get(
-            url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher=&project_id={tickets_info['project_id']}").json()
-        tickets_info["pay_money"] = request_result["data"]["pay_money"]
-        tickets_info["timestamp"] = int(time.time()) * 100
-        payload = format_dictionary_to_string(tickets_info)
-        left_time = total_attempts
-        if time_start != '':
-            time_difference = datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp() - time.time()
-            if time_difference > 0:
-                result += f'{datetime.now()} msg: 等待中\n'
-                yield [gr.update(value=result, visible=True), gr.update(visible=True)]
-                time.sleep(time_difference)  # 等待到指定的开始时间
-        while isRunning:
-            creat_request_result = _request.post(
-                url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
-                data=payload).json()
-            res = creat_request_result["msg"] if creat_request_result["msg"] else creat_request_result["data"]
-            result += f'{datetime.now()} msg: {res} 剩余次数: {left_time}\n'
-            yield [gr.update(value=result, visible=True), gr.update(visible=True)]
+                _payload = {
+                    "challenge": challenge,
+                    "token": token,
+                    "seccode": geetest_seccode,
+                    "csrf": csrf,
+                    "validate": geetest_validate
+                }
+                _data = _request.get(_url, urlencode(_payload))
+                if _data["code"] == 0:
+                    logging.info("极验GeeTest认证 成功")
+                else:
+                    logging.info("极验GeeTest验证失败。")
+
+            request_result = _request.get(
+                url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher=&project_id={tickets_info['project_id']}").json()
+            logging.info(f"confirmInfo: {request_result}")
+            tickets_info["pay_money"] = request_result["data"]["pay_money"]
+            tickets_info["timestamp"] = int(time.time()) * 100
+            payload = format_dictionary_to_string(tickets_info)
+            if time_start != '':
+                time_difference = datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp() - time.time()
+                if time_difference > 0:
+                    logging.info(f'等待中')
+                    yield [gr.update(value="等待中", visible=True), gr.update(visible=False), gr.update(), gr.update(),
+                           gr.update(), gr.update()]
+                    time.sleep(time_difference)  # 等待到指定的开始时间
+            while isRunning:
+                request_result = _request.post(
+                    url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
+                    data=payload).json()
+                errno = int(request_result["errno"])
+                left_time_str = '无限' if mode == 0 else left_time
+                logging.info(
+                    f'错误码:{errno} 错误码解析: {errnoDict.get(errno, "未知错误码")}, 请求体: {request_result} 剩余次数: {left_time_str}')
+                yield [gr.update(
+                    value=f"正在抢票，具体情况查看终端控制台。\n 剩余次数: {left_time_str} 当前状态码: {errno}, 当前错误信息：{errnoDict.get(errno, '未知错误码')}",
+                    visible=True), gr.update(visible=True), gr.update(), gr.update(), gr.update(), gr.update()]
+                if errno == 0:
+                    qrcode_url = get_qrcode_url(_request, request_result["data"]["token"], tickets_info['project_id'],
+                                                request_result["data"]['orderId'])
+                    qr_gen = qrcode.QRCode()
+                    qr_gen.add_data(qrcode_url)
+                    qr_gen.make(fit=True)
+                    qr_gen_image = qr_gen.make_image()
+                    yield [gr.update(value="生成二维码"), gr.update(),
+                           gr.update(value=qr_gen_image.get_image(), visible=True), gr.update(), gr.update(),
+                           gr.update()]
+                time.sleep(interval / 1000.0)
+                if mode == 1:
+                    left_time -= 1
+                    if left_time <= 0:
+                        break
+            yield [gr.update(value="抢票结束", visible=True), gr.update(visible=False), gr.update(), gr.update(),
+                   gr.update(), gr.update()]
+        except Exception as e:
+            errno = request_result["errno"]
+            left_time_str = '无限' if mode == 0 else left_time
+            logging.info(
+                f'错误码:{errno} 错误码解析: {errnoDict.get(errno, "未知错误码")}, 请求体: {request_result},剩余次数: {left_time_str}')
+            yield [
+                gr.update(value=f"错误, 错误码:{errno} 错误码解析: {errnoDict.get(errno, '未知错误码')}", visible=True),
+                gr.update(visible=False), gr.update(), gr.update(), gr.update(), gr.update()]
             time.sleep(interval / 1000.0)
-            if mode == 1:
-                left_time -= 1
-                if left_time <= 0:
-                    break
-        return [gr.update(value=result, visible=True), gr.update(visible=False)]
-    except KeyError as e:
-        logging.info(e)
-        return [gr.update(value="request_result", visible=True), gr.update(visible=False)]
 
 
 def configure_global_logging():
@@ -144,7 +216,13 @@ def configure_global_logging():
 
 if __name__ == '__main__':
     configure_global_logging()
-    with gr.Blocks() as demo:
+    short_js = """                <script
+                        src="http://libs.baidu.com/jquery/1.10.2/jquery.min.js"
+                        rel="external nofollow">
+                </script>
+                <script src="https://static.geetest.com/static/js/gt.0.4.9.js"></script>
+       """
+    with gr.Blocks(head=short_js) as demo:
         gr.Markdown("抢票")
         with gr.Tab("配置") as setting_tab:
             info_ui = gr.TextArea(info="此窗口为输出信息", label="输出信息", interactive=False, visible=False)
@@ -152,17 +230,20 @@ if __name__ == '__main__':
                 ticket_id_ui = gr.Textbox(label="票ID", interactive=True)
                 ticket_id_btn = gr.Button("提交票id")
                 with gr.Column(visible=False) as inner:
-                    ticket_number_ui = gr.Number(label="票数目", value=1)
-                    ticket_info_ui = gr.Dropdown(label="选票", interactive=True, type="index")
-                    people_ui = gr.CheckboxGroup(label="实名人", interactive=True, type="index",
-                                                 info="用于身份证实名认证，请确保曾经在b站填写过购买人的实名信息，否则这个表单不会有任何信息")
-                    people_buyer_ui = gr.Dropdown(label="联系人", interactive=True, type="index",
-                                                  info="选一个作为联系人，请确保曾经在b站填写过购买人的实名信息，否则这个表单不会有任何信息")
-                    address_ui = gr.Dropdown(label="地址", interactive=True, type="index",
-                                             info="请确保曾经在b站填写过地址，否则这个表单不会有任何信息")
+                    with gr.Row():
+                        ticket_number_ui = gr.Number(label="票数目", value=1)
+                        ticket_info_ui = gr.Dropdown(label="选票", interactive=True, type="index")
+                    with gr.Row():
+                        people_ui = gr.CheckboxGroup(label="实名人", interactive=True, type="index",
+                                                     info="用于身份证实名认证，请确保曾经在b站填写过购买人（哔哩哔哩客户端-会员购-个人中心-购票人信息）的实名信息，否则这个表单不会有任何信息")
+                        people_buyer_ui = gr.Dropdown(label="联系人", interactive=True, type="index",
+                                                      info="选一个作为联系人，请确保曾经在b站填写过购买人的实名信息，否则这个表单不会有任何信息")
+                        address_ui = gr.Dropdown(label="地址", interactive=True, type="index",
+                                                 info="请确保曾经在b站填写过地址，否则这个表单不会有任何信息")
+
+                    config_btn = gr.Button("生成配置")
                     config_output_ui = gr.Textbox(label="生成配置文件", show_copy_button=True, info="右上角粘贴",
                                                   visible=False)
-                    config_btn = gr.Button("生成配置")
                     config_btn.click(fn=onSubmitAll,
                                      inputs=[ticket_number_ui, ticket_info_ui, people_ui, people_buyer_ui, address_ui],
                                      outputs=config_output_ui, )
@@ -175,33 +256,92 @@ if __name__ == '__main__':
                 ticket_ui = gr.TextArea(label="填入配置", info="再次填入配置信息", interactive=True)
                 time_html = gr.HTML("""<label for="datetime">选择抢票的时间</label><br> 
                 <input type="datetime-local" id="datetime" name="datetime">""", label="选择抢票的时间", show_label=True)
-                interval_ui = gr.Number(label="抢票间隔", value=1000, minimum=1,
-                                        info="设置抢票任务之间的时间间隔（单位：毫秒），建议不要设置太小")
-                mode_ui = gr.Radio(label="抢票模式", choices=["无限", "有限"], value="无限", info="选择抢票的模式",
-                                   type="index", interactive=True)
-                total_attempts_ui = gr.Number(label="总过次数", value=100, minimum=1, info="设置抢票的总次数",
-                                              visible=False)
+
+                with gr.Row():
+                    interval_ui = gr.Number(label="抢票间隔", value=1000, minimum=1,
+                                            info="设置抢票任务之间的时间间隔（单位：毫秒），建议不要设置太小")
+                    mode_ui = gr.Radio(label="抢票模式", choices=["无限", "有限"], value="无限",
+                                       info="选择抢票的模式",
+                                       type="index", interactive=True)
+                    total_attempts_ui = gr.Number(label="总过次数", value=100, minimum=1, info="设置抢票的总次数",
+                                                  visible=False)
+
                 mode_ui.change(fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False),
                                inputs=[mode_ui], outputs=total_attempts_ui)
-                go_btn = gr.Button("开始抢票")
-                go_ui = gr.TextArea(info="此窗口为输出信息", label="输出信息", interactive=False, visible=False,
-                                    show_copy_button=True, max_lines=10)
+                with gr.Row():
+                    go_btn = gr.Button("开始抢票")
+                    stop_btn = gr.Button("停止", visible=False)
+
+                with gr.Row():
+                    go_ui = gr.TextArea(info="此窗口为临时输出，具体请见控制台", label="输出信息", interactive=False,
+                                        visible=False,
+                                        show_copy_button=True, max_lines=10)
+                    qr_image = gr.Image(label="使用微信或者支付宝扫码支付", visible=False)
+
+                with gr.Row(visible=False) as gt_row:
+                    gt_html_btn = gr.Button("存在验证码，点击开启,开启抢票验证码")
+                    gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
+
+                    gt_html = gr.HTML(value="""
+                       <div>
+                       <label for="datetime">如何点击无效说明，获取验证码失败</label>
+                        <div id="captcha">
+                        </div>
+                    </div>""", label="验证码")
+                # data
                 time_tmp = gr.Textbox(visible=False)
+                geetest_validate_ui = gr.Textbox(visible=False)
+                geetest_seccode_ui = gr.Textbox(visible=False)
+                gt_ui = gr.Textbox(visible=False)
+                challenge_ui = gr.Textbox(visible=False)
+
+                gt_html_finish_btn.click(None, None, geetest_validate_ui,
+                                         js='() => {return captchaObj.getValidate().geetest_validate}')
+                gt_html_finish_btn.click(None, None, geetest_seccode_ui,
+                                         js='() => {return captchaObj.getValidate().geetest_seccode}')
+
+
+                def update_geetest_validate(x):
+                    global geetest_validate
+                    geetest_validate = x
+
+
+                def update_geetest_seccode(x):
+                    global geetest_seccode
+                    geetest_seccode = x
+
+
+                geetest_validate_ui.change(fn=update_geetest_validate, inputs=geetest_validate_ui, outputs=None)
+                geetest_seccode_ui.change(fn=update_geetest_seccode, inputs=geetest_seccode_ui, outputs=None)
+
+                gt_html_btn.click(fn=None, inputs=[gt_ui, challenge_ui], outputs=None,
+                                  js=f"""(x,y) => {{      initGeetest({{
+                        gt: x,
+                        challenge: y,
+                        offline: false,
+                        new_captcha: true,
+                        product: "popup",
+                        width: "300px",
+                        https: true
+                    }}, function (captchaObj) {{
+               window.captchaObj = captchaObj;
+                        captchaObj.appendTo('#captcha');
+                    }})}}""")
+
                 go_btn.click(fn=None, inputs=None, outputs=time_tmp,
                              js='(x) => {return (document.getElementById("datetime")).value;}')
-
-                stop_btn = gr.Button("停止", visible=False)
 
 
                 def stop():
                     global isRunning
                     isRunning = False
+                    return [gr.update(value="抢票结束", visible=True), gr.update(visible=False),
+                            gr.update(), gr.update()]
 
 
                 go_btn.click(fn=start_go, inputs=[ticket_ui, time_tmp, interval_ui, mode_ui, total_attempts_ui],
-                             outputs=[go_ui, stop_btn], )
-                stop_btn.click(fn=stop, inputs=None,
-                               outputs=None, )
+                             outputs=[go_ui, stop_btn, qr_image, gt_row, gt_ui, challenge_ui], )
+                stop_btn.click(fn=stop, inputs=None, outputs=[go_ui, stop_btn, qr_image, gt_row], )
 
                 # 运行应用
     demo.launch()
