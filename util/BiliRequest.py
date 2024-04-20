@@ -27,7 +27,7 @@ class BiliRequest:
     def get(self, url, data=None):
         response = self.session.get(url, data=data, headers=self.headers)
         response.raise_for_status()
-        if response.json()["msg"] == "请先登录":
+        if response.json().get("msg", "") == "请先登录":
             self.headers['cookies'] = self.cookieManager.get_cookies_str_force()
             self.get(url, data)
         return response
@@ -35,7 +35,7 @@ class BiliRequest:
     def post(self, url, data=None):
         response = self.session.post(url, data=data, headers=self.headers)
         response.raise_for_status()
-        if response.json()["msg"] == "请先登录":
+        if response.json().get("msg", "") == "请先登录":
             self.headers['cookies'] = self.cookieManager.get_cookies_str_force()
             self.post(url, data)
         return response
