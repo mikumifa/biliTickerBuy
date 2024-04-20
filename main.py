@@ -40,6 +40,14 @@ def onSubmitTicketId(num):
 
         ticket_str_list = []
         project_id = ret["data"]["id"]
+        project_name = ret["data"]["name"]
+        project_start_time_unix = ret["data"]["start_time"]
+        project_end_time_unix = ret["data"]["end_time"]
+        project_start_time = datetime.fromtimestamp(project_start_time_unix).strftime("%Y-%m-%d %H:%M:%S")
+        project_end_time = datetime.fromtimestamp(project_end_time_unix).strftime("%Y-%m-%d %H:%M:%S")
+        venue_info = ret["data"]["venue_info"]
+        venue_name = venue_info["name"]
+        venue_address = venue_info["address_detail"]
         for screen in ret["data"]["screen_list"]:
             screen_name = screen["name"]
             screen_id = screen["id"]
@@ -67,7 +75,10 @@ def onSubmitTicketId(num):
 
         return [gr.update(choices=ticket_str_list), gr.update(choices=buyer_str_list),
                 gr.update(choices=buyer_str_list), gr.update(choices=addr_str_list), gr.update(visible=True),
-                gr.update(value="获取票信息成功", visible=True)]
+                gr.update(
+                    value=f"获取票信息成功:\n展会名称: {project_name}\n开展时间: {project_start_time} - {project_end_time}\n"
+                          f"场馆地址: {venue_name} {venue_address}",
+                    visible=True)]
     except Exception as e:
         return [gr.update(), gr.update(), gr.update(), gr.update(), gr.update(), gr.update(value=e, visible=True)]
 
@@ -150,9 +161,14 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
                     logging.info("极验GeeTest认证 成功")
                 else:
                     logging.info("极验GeeTest验证失败。")
-            else:
-                tickets_info["token"] = request_result["data"]["token"]
-
+                    yield [gr.update(value="极验GeeTest验证失败。重新验证", visible=True), gr.update(), gr.update(),
+                           gr.update(),
+                           gr.update(), gr.update()]
+                    continue
+                request_result = _request.post(
+                    url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
+                    data=token_payload).json()
+            tickets_info["token"] = request_result["data"]["token"]
             request_result = _request.get(
                 url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher=&project_id={tickets_info['project_id']}").json()
             logging.info(f"confirmInfo: {request_result}")
@@ -228,11 +244,45 @@ if __name__ == '__main__':
                 <script src="https://static.geetest.com/static/js/gt.0.4.9.js"></script>
        """
     with gr.Blocks(head=short_js) as demo:
-        gr.Markdown("抢票")
+        gr.HTML("""
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to My GitHub</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 36px;
+        }
+        .header p {
+            font-size: 18px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+         <h1>B站会员购抢票🌈</h1>
+        <p>⚠️此项目仅用于个人参考学习，切勿进行盈利，所造成的后果与本人无关。</p>
+    </div>
+</body>
+</html> """)
         with gr.Tab("配置") as setting_tab:
             info_ui = gr.TextArea(info="此窗口为输出信息", label="输出信息", interactive=False, visible=False)
             with gr.Column() as first:
-                ticket_id_ui = gr.Textbox(label="票ID", interactive=True)
+                ticket_id_ui = gr.Textbox(label="票ID", interactive=True,
+                                          info="例如：要抢的网址是https://show.bilibili.com/platform/detail.html?id=84096\n"
+                                               "就要填写 84096 ")
                 ticket_id_btn = gr.Button("提交票id")
                 with gr.Column(visible=False) as inner:
                     with gr.Row():
