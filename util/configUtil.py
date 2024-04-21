@@ -19,7 +19,16 @@ class CookieManager:
 
     def _login_and_save_cookies(self, login_url="https://show.bilibili.com/platform/home.html"):
         logging.info("启动浏览器中.....")
-        self.driver = webdriver.Edge()
+        try:
+            self.driver = webdriver.Edge()
+        except Exception as e:
+            try:
+                self.driver = webdriver.Chrome()
+            except Exception as e:
+                raise Exception("没有找到浏览器驱动，请根据自己的浏览器下载相应的驱动：\n"
+                                "相关教程：https://blog.csdn.net/zz00008888/article/details/127903475\n"
+                                "Edge： https://liushilive.github.io/github_selenium_drivers/md/IE.html\n"
+                                "Chrome：https://liushilive.github.io/github_selenium_drivers/md/Chrome.html\n")
         self.wait = WebDriverWait(self.driver, 0.5)
         self.driver.get(login_url)
         self.driver.maximize_window()

@@ -399,4 +399,5 @@ if __name__ == '__main__':
                 stop_btn.click(fn=stop, inputs=None, outputs=[go_ui, stop_btn, qr_image, gt_row], )
 
                 # 运行应用
+    print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
     demo.launch()
