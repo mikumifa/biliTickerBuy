@@ -102,7 +102,7 @@ def onSubmitAll(ticket_number, ticket_info, people, people_buyer, address):
         return gr.update(value=json.dumps(config_dir), visible=True)
     except Exception as e:
         logging.info(e)
-        return gr.update(value="生产错误，仔细看看你可能有哪里漏填的", visible=True)
+        return gr.update(value="生成错误，仔细看看你可能有哪里漏填的", visible=True)
 
 
 def start_go(tickets_info, time_start, interval, mode, total_attempts):
