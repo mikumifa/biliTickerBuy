@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import time
+import inspect
 from datetime import datetime
 from urllib.parse import urlencode
 
@@ -105,7 +106,7 @@ def onSubmitAll(ticket_number, ticket_info, people, people_buyer, address):
         return gr.update(value="生成错误，仔细看看你可能有哪里漏填的", visible=True)
 
 
-def start_go(tickets_info, time_start, interval, mode, total_attempts):
+def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
     global isRunning, geetest_validate, geetest_seccode
     global gt
     global challenge
@@ -115,8 +116,8 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
     left_time = total_attempts
     while isRunning:
         try:
+            tickets_info = json.loads(tickets_info_str)
             _request = BiliRequest(cookies_config_path=cookies_config_path)
-            tickets_info = json.loads(tickets_info)
             token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
                              "project_id": tickets_info["project_id"], "sku_id": tickets_info["sku_id"], "token": "",
                              "newRisk": True}
@@ -213,7 +214,10 @@ def start_go(tickets_info, time_start, interval, mode, total_attempts):
         except Exception as e:
             errno = request_result["errno"]
             left_time_str = '无限' if mode == 0 else left_time
-            logging.info(e)
+            frame_info = inspect.stack()[0]
+            filename = frame_info.filename
+            line_number = frame_info.lineno
+            logging.info("An error occurred in file '%s' at line %d: %s", filename, line_number, e)
             logging.info(
                 f'错误码:{errno} 错误码解析: {errnoDict.get(errno, "未知错误码")}, 请求体: {request_result},剩余次数: {left_time_str}')
             yield [
