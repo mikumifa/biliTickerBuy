@@ -118,8 +118,16 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
     request_result = {"errno": "未知状态码", "msg": "配置文件有错"}
     isRunning = True
     left_time = total_attempts
+
     while isRunning:
         try:
+            if time_start != '':
+                time_difference = datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp() - time.time()
+                if time_difference > 0:
+                    logging.info(f'等待中')
+                    yield [gr.update(value="等待中", visible=True), gr.update(visible=False), gr.update(), gr.update(),
+                           gr.update(), gr.update()]
+                    time.sleep(time_difference)  # 等待到指定的开始时间
             tickets_info = json.loads(tickets_info_str)
             _request = BiliRequest(cookies_config_path=cookies_config_path)
             token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
@@ -180,41 +188,31 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
             tickets_info["pay_money"] = request_result["data"]["pay_money"]
             tickets_info["timestamp"] = int(time.time()) * 100
             payload = format_dictionary_to_string(tickets_info)
-            if time_start != '':
-                time_difference = datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp() - time.time()
-                if time_difference > 0:
-                    logging.info(f'等待中')
-                    yield [gr.update(value="等待中", visible=True), gr.update(visible=False), gr.update(), gr.update(),
-                           gr.update(), gr.update()]
-                    time.sleep(time_difference)  # 等待到指定的开始时间
-            while isRunning:
-                request_result = _request.post(
-                    url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
-                    data=payload).json()
-                errno = int(request_result["errno"])
-                left_time_str = '无限' if mode == 0 else left_time
-                logging.info(
-                    f'错误码:{errno} 错误码解析: {errnoDict.get(errno, "未知错误码")}, 请求体: {request_result} 剩余次数: {left_time_str}')
-                yield [gr.update(
-                    value=f"正在抢票，具体情况查看终端控制台。\n 剩余次数: {left_time_str} 当前状态码: {errno}, 当前错误信息：{errnoDict.get(errno, '未知错误码')}",
-                    visible=True), gr.update(visible=True), gr.update(), gr.update(), gr.update(), gr.update()]
-                if errno == 0:
-                    qrcode_url = get_qrcode_url(_request, request_result["data"]["token"], tickets_info['project_id'],
-                                                request_result["data"]['orderId'])
-                    qr_gen = qrcode.QRCode()
-                    qr_gen.add_data(qrcode_url)
-                    qr_gen.make(fit=True)
-                    qr_gen_image = qr_gen.make_image()
-                    yield [gr.update(value="生成付款二维码"), gr.update(),
-                           gr.update(value=qr_gen_image.get_image(), visible=True), gr.update(), gr.update(),
-                           gr.update()]
-                time.sleep(interval / 1000.0)
-                if mode == 1:
-                    left_time -= 1
-                    if left_time <= 0:
-                        break
-            yield [gr.update(value="抢票结束", visible=True), gr.update(visible=False), gr.update(), gr.update(),
-                   gr.update(), gr.update()]
+            request_result = _request.post(
+                url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
+                data=payload).json()
+            errno = int(request_result["errno"])
+            left_time_str = '无限' if mode == 0 else left_time
+            logging.info(
+                f'错误码:{errno} 错误码解析: {errnoDict.get(errno, "未知错误码")}, 请求体: {request_result} 剩余次数: {left_time_str}')
+            yield [gr.update(
+                value=f"正在抢票，具体情况查看终端控制台。\n 剩余次数: {left_time_str} 当前状态码: {errno}, 当前错误信息：{errnoDict.get(errno, '未知错误码')}",
+                visible=True), gr.update(visible=True), gr.update(), gr.update(), gr.update(), gr.update()]
+            if errno == 0:
+                qrcode_url = get_qrcode_url(_request, request_result["data"]["token"], tickets_info['project_id'],
+                                            request_result["data"]['orderId'])
+                qr_gen = qrcode.QRCode()
+                qr_gen.add_data(qrcode_url)
+                qr_gen.make(fit=True)
+                qr_gen_image = qr_gen.make_image()
+                yield [gr.update(value="生成付款二维码"), gr.update(),
+                       gr.update(value=qr_gen_image.get_image(), visible=True), gr.update(), gr.update(),
+                       gr.update()]
+            time.sleep(interval / 1000.0)
+            if mode == 1:
+                left_time -= 1
+                if left_time <= 0:
+                    break
         except Exception as e:
             errno = request_result["errno"]
             left_time_str = '无限' if mode == 0 else left_time
@@ -228,6 +226,8 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
                 gr.update(value=f"错误, 错误码:{errno} 错误码解析: {errnoDict.get(errno, '未知错误码')}", visible=True),
                 gr.update(visible=False), gr.update(), gr.update(), gr.update(), gr.update()]
             time.sleep(interval / 1000.0)
+    yield [gr.update(value="抢票结束", visible=True), gr.update(visible=False), gr.update(), gr.update(),
+           gr.update(), gr.update()]
 
 
 def configure_global_logging():
