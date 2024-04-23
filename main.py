@@ -1,9 +1,9 @@
+import inspect
 import json
 import logging
 import os
 import sys
 import time
-import inspect
 from datetime import datetime
 from urllib.parse import urlencode
 
@@ -24,6 +24,10 @@ gt = ""
 challenge = ""
 geetest_validate = ""
 geetest_seccode = ""
+
+
+# test_geetest_validate = ""
+# test_geetest_seccode = ""
 
 
 def onSubmitTicketId(num):
@@ -343,7 +347,7 @@ if __name__ == '__main__':
 
                     gt_html = gr.HTML(value="""
                        <div>
-                       <label for="datetime">如何点击无效说明，获取验证码失败，请勿多点</label>
+                       <label>如何点击无效说明，获取验证码失败，请勿多点</label>
                         <div id="captcha">
                         </div>
                     </div>""", label="验证码")
@@ -384,6 +388,7 @@ if __name__ == '__main__':
                         https: true
                     }}, function (captchaObj) {{
                window.captchaObj = captchaObj;
+               $('#captcha').empty();
                         captchaObj.appendTo('#captcha');
                     }})}}""")
 
@@ -401,7 +406,114 @@ if __name__ == '__main__':
                 go_btn.click(fn=start_go, inputs=[ticket_ui, time_tmp, interval_ui, mode_ui, total_attempts_ui],
                              outputs=[go_ui, stop_btn, qr_image, gt_row, gt_ui, challenge_ui], )
                 stop_btn.click(fn=stop, inputs=None, outputs=[go_ui, stop_btn, qr_image, gt_row], )
+        with gr.Tab("训练你的验证码速度") as train_taq:
+            _request = BiliRequest(cookies_config_path=cookies_config_path)
+            gr.HTML("""
+                <div class="header">
+        <p>💪 在这里训练一下手过验证码的速度，提前演练一下</p>
+            </div>""")
+            test_go_btn = gr.Button("开始测试")
+            test_gt = ""
+            test_token = ""
+            test_csrf = ""
+            test_challenge = ""
+            test_geetest_validate = ""
+            test_geetest_seccode = ""
 
-                # 运行应用
+
+            def test_go():
+                global test_csrf
+                global test_gt
+                global test_challenge
+                global test_token
+                global test_geetest_validate
+                global test_geetest_seccode
+                test_res = _request.get("https://passport.bilibili.com/x/passport-login/captcha?source=main_web").json()
+                test_challenge = test_res["data"]["geetest"]["challenge"]
+                test_gt = test_res["data"]["geetest"]["gt"]
+                test_token = test_res["data"]["token"]
+                test_csrf = _request.cookieManager.get_cookies_value("bili_jct")
+                test_geetest_validate = ""
+                test_geetest_seccode = ""
+                return [gr.update(value=test_gt), gr.update(value=test_challenge), gr.update(visible=True),
+                        gr.update(value="重新生成")]
+
+
+            short_js = """                <script
+                                src="http://libs.baidu.com/jquery/1.10.2/jquery.min.js"
+                                rel="external nofollow">
+                        </script>
+                        <script src="https://static.geetest.com/static/js/gt.0.4.9.js"></script>
+               """
+            test_log = gr.TextArea(label="测试结果", info="描述当前的情况,验证码过期是正常现象")
+            with gr.Row(visible=False) as test_gt_row:
+                test_gt_html_start_btn = gr.Button("点击打开抢票验证码（请勿多点！！）")
+                test_gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
+                test_gt_html = gr.HTML(value="""
+                           <div>
+                           <label>如何点击无效说明，获取验证码失败，请勿多点</label>
+                            <div id="captcha_test">
+                            </div>
+                        </div>""", label="验证码")
+            test_gt_ui = gr.Textbox(label="gt", visible=True)
+            test_challenge_ui = gr.Textbox(label="challenge", visible=True)
+            test_go_btn.click(fn=test_go, inputs=None,
+                              outputs=[test_gt_ui, test_challenge_ui, test_gt_row, test_go_btn])
+            test_gt_html_start_btn.click(fn=None, inputs=[test_gt_ui, test_challenge_ui], outputs=None,
+                                         js=f"""(x,y) => {{      initGeetest({{
+                    gt: x,
+                    challenge: y,
+                    offline: false,
+                    new_captcha: true,
+                    product: "popup",
+                    width: "300px",
+                    https: true
+                }}, function (test_captchaObj) {{
+           window.test_captchaObj = test_captchaObj;
+           $('#captcha_test').empty();
+                    test_captchaObj.appendTo('#captcha_test');
+                }})}}""")
+            test_geetest_validate_ui = gr.Textbox(label="validate", visible=True)
+            test_geetest_seccode_ui = gr.Textbox(label="eccode", visible=True)
+            test_gt_html_finish_btn.click(None, None, test_geetest_validate_ui,
+                                          js='() => {return test_captchaObj.getValidate().geetest_validate}')
+            test_gt_html_finish_btn.click(None, None, test_geetest_seccode_ui,
+                                          js='() => {return test_captchaObj.getValidate().geetest_seccode}')
+
+
+            def test_doing():
+                while test_geetest_validate == "" or test_geetest_seccode == "":
+                    continue
+                _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
+                _payload = {
+                    "challenge": test_challenge,
+                    "token": test_token,
+                    "seccode": test_geetest_seccode,
+                    "csrf": test_csrf,
+                    "validate": test_geetest_validate
+                }
+                test_data = _request.post(_url, urlencode(_payload))
+                yield gr.update(value=test_data.json())
+
+
+            test_gt_html_finish_btn.click(fn=test_doing, outputs=[test_log])
+
+
+            def test_update_geetest_validate(x):
+                global test_geetest_validate
+                test_geetest_validate = x
+
+
+            def test_update_geetest_seccode(x):
+                global test_geetest_seccode
+                test_geetest_seccode = x
+
+
+            test_geetest_validate_ui.change(fn=test_update_geetest_validate, inputs=test_geetest_validate_ui,
+                                            outputs=None)
+            test_geetest_seccode_ui.change(fn=test_update_geetest_seccode, inputs=test_geetest_seccode_ui, outputs=None)
+            # 运行应用
+
+    # 运行应用
     print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
     demo.launch()
