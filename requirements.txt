@@ -3,4 +3,4 @@ requests~=2.31.0
 setuptools~=65.5.1
 gradio~=4.27.0
 qrcode~=7.4.2
-loguru
+loguru~=0.7.2
