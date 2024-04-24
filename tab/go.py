@@ -1,10 +1,11 @@
-from datetime import datetime
 import json
 import time
-from loguru import logger
-import qrcode
+from datetime import datetime
 from urllib.parse import urlencode
+
 import gradio as gr
+import qrcode
+from loguru import logger
 
 from common import format_dictionary_to_string
 from config import cookies_config_path
@@ -12,12 +13,12 @@ from util.bili_request import BiliRequest
 from util.error import ERRNO_DICT
 from util.order_qrcode import get_qrcode_url
 
-
 isRunning = False
 gt = ""
 challenge = ""
 geetest_validate = ""
 geetest_seccode = ""
+
 
 def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
     global isRunning, geetest_validate, geetest_seccode
@@ -31,8 +32,8 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
         try:
             if time_start != "":
                 time_difference = (
-                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
-                    - time.time()
+                        datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
+                        - time.time()
                 )
                 if time_difference > 0:
                     logger.info("等待中")
@@ -138,7 +139,7 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
             )
             yield [
                 gr.update(
-                    value=f"正在抢票，具体情况查看终端控制台。\n剩余次数: {left_time_str} 当前状态码: {errno}({ERRNO_DICT.get(errno, "未知错误码")})",
+                    value=f"正在抢票，具体情况查看终端控制台。\n剩余次数: {left_time_str} 当前状态码: {errno}({ERRNO_DICT.get(errno, '未知错误码')})",
                     visible=True,
                 ),
                 gr.update(visible=True),
@@ -193,6 +194,8 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
         gr.update(),
         gr.update(),
     ]
+
+
 def go_tab():
     with gr.Column():
         ticket_ui = gr.TextArea(
@@ -294,12 +297,13 @@ def go_tab():
             outputs=geetest_result,
             js="() => captchaObj.getValidate()",
         )
+
         def receive_geetest_result(res):
             global geetest_validate, geetest_seccode
             geetest_validate = res["geetest_validate"]
             geetest_seccode = res["geetest_seccode"]
-        geetest_result.change(fn=receive_geetest_result, inputs=geetest_result)
 
+        geetest_result.change(fn=receive_geetest_result, inputs=geetest_result)
 
         go_btn.click(
             fn=None,

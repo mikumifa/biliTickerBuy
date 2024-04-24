@@ -19,7 +19,7 @@ short_js = """
 """
 
 if __name__ == "__main__":
-    logger.add("app_{time}.log")
+    logger.add("app.log")
 
     with gr.Blocks(head=short_js) as demo:
         gr.Markdown(header)

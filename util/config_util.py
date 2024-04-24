@@ -1,11 +1,13 @@
 import json
 import time
-import requests
 
+import requests
 from loguru import logger
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 
 class CookieManager:
@@ -17,14 +19,14 @@ class CookieManager:
 
     @logger.catch
     def _login_and_save_cookies(
-        self, login_url="https://show.bilibili.com/platform/home.html"
+            self, login_url="https://show.bilibili.com/platform/home.html"
     ):
         logger.info("启动浏览器中.....")
         try:
-            self.driver = webdriver.Chrome()
+            self.driver = webdriver.Edge(EdgeChromiumDriverManager().install())
         except Exception:
             try:
-                self.driver = webdriver.Chrome()
+                self.driver = webdriver.Chrome(ChromeDriverManager().install())
             except Exception:
                 raise Exception(
                     "没有找到浏览器驱动，请根据自己的浏览器下载相应的驱动：\n"
@@ -60,7 +62,6 @@ class CookieManager:
                 self.config = json.load(f)
         except Exception:
             return self._login_and_save_cookies()
-
         if self.config == {}:
             return self._login_and_save_cookies()
         else:
