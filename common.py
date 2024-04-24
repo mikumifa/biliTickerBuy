@@ -7,7 +7,8 @@ def format_dictionary_to_string(data):
     for key, value in data.items():
         if isinstance(value, list) or isinstance(value, dict):
             formatted_string_parts.append(
-                f"{quote(key)}={quote(json.dumps(value, separators=(',', ':'), ensure_ascii=False))}")
+                f"{quote(key)}={quote(json.dumps(value, separators=(',', ':'), ensure_ascii=False))}"
+            )
         else:
             formatted_string_parts.append(f"{quote(key)}={quote(str(value))}")
 
