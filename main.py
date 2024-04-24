@@ -173,7 +173,7 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
                 if _data["code"] == 0:
                     logging.info("极验GeeTest认证 成功")
                 else:
-                    logging.info("极验GeeTest验证失败。")
+                    logging.info(f"极验GeeTest验证失败。 {_data}")
                     yield [gr.update(value="极验GeeTest验证失败。重新验证", visible=True), gr.update(), gr.update(),
                            gr.update(),
                            gr.update(), gr.update()]
