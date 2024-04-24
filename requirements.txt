@@ -4,3 +4,4 @@ setuptools~=65.5.1
 gradio~=4.27.0
 qrcode~=7.4.2
 loguru~=0.7.2
+webdriver-manager~=4.0.1
