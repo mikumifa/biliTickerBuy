@@ -155,26 +155,26 @@ def setting_tab():
                     label="身份证实名认证",
                     interactive=True,
                     type="index",
-                    info="在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
+                    info="必填，在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
                 )
                 ticket_info_ui = gr.Dropdown(
                     label="选票",
                     interactive=True,
                     type="index",
-                    info="此处的「无法购买」仅代表当前状态",
+                    info="必填，此处的「无法购买」仅代表当前状态",
                 )
             with gr.Row():
                 people_buyer_ui = gr.Dropdown(
                     label="联系人",
                     interactive=True,
                     type="index",
-                    info="与实名认证同样在「购票人信息」中添加",
+                    info="必填，如果候选项为空请到「购票人信息」添加",
                 )
                 address_ui = gr.Dropdown(
                     label="地址",
                     interactive=True,
                     type="index",
-                    info="会员购收货地址",
+                    info="必填，如果候选项为空请到「地址管理」添加",
                 )
 
             config_btn = gr.Button("生成配置")
