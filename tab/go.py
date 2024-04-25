@@ -1,6 +1,7 @@
 import json
 import time
 from datetime import datetime
+from json import JSONDecodeError
 from urllib.parse import urlencode
 
 import gradio as gr
@@ -10,7 +11,7 @@ from loguru import logger
 from common import format_dictionary_to_string
 from config import cookies_config_path
 from util.bili_request import BiliRequest
-from util.error import ERRNO_DICT
+from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
 
 isRunning = False
@@ -24,7 +25,6 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
     global isRunning, geetest_validate, geetest_seccode
     global gt
     global challenge
-    request_result = {"errno": "未知状态码", "msg": "配置文件有错"}
     isRunning = True
     left_time = total_attempts
 
@@ -38,7 +38,7 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
                 if time_difference > 0:
                     logger.info("等待中")
                     yield [
-                        gr.update(value="等待中", visible=True),
+                        gr.update(value="等待中,如果想要停止等待，请重启程序", visible=True),
                         gr.update(visible=False),
                         gr.update(),
                         gr.update(),
@@ -64,22 +64,21 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
             request_result = request_result_normal.json()
             logger.info(f"prepare header: {request_result_normal.headers}")
             logger.info(f"prepare: {request_result}")
-
             code = int(request_result["code"])
-            ## https://github.com/fsender/Bilibili_show_ticket_auto_order/blob/18b3cf6cb539167153f1d2dd847006c9794ac9af/api.py#L237
             if code == -401:
                 _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
                 _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
                 _data = _request.post(_url, _payload).json()
+                logger.info(
+                    f"gaia-vgate: {_data}"
+                )
                 gt = _data["data"]["geetest"]["gt"]
                 challenge = _data["data"]["geetest"]["challenge"]
                 token = _data["data"]["token"]
                 # https://passport.bilibili.com/x/passport-login/captcha?source=main_web
-                # challenge = "7e4a9557299685fb82c41972b63a42fc"
-                # gt = "ac597a4506fee079629df5d8b66dd4fe"
                 yield [
-                    gr.update(value="进行验证码验证", visible=True),
-                    gr.update(),
+                    gr.update(value=withTimeString("进行验证码验证"), visible=True),
+                    gr.update(visible=True),
                     gr.update(),
                     gr.update(visible=True),
                     gr.update(value=gt),
@@ -92,7 +91,6 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
                 )
                 _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
                 csrf = _request.cookieManager.get_cookies_value("bili_jct")
-
                 _payload = {
                     "challenge": challenge,
                     "token": token,
@@ -101,6 +99,7 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
                     "validate": geetest_validate,
                 }
                 _data = _request.post(_url, urlencode(_payload)).json()
+                logger.info(f"validate: {_data}")
                 geetest_validate = ""
                 geetest_seccode = ""
                 if _data["code"] == 0:
@@ -108,8 +107,8 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
                 else:
                     logger.info("极验 GeeTest 验证失败 {}", _data)
                     yield [
-                        gr.update(value="极验 GeeTest 验证失败。重新验证", visible=True),
-                        gr.update(),
+                        gr.update(value=withTimeString("极验 GeeTest 验证失败。重新验证"), visible=True),
+                        gr.update(visible=True),
                         gr.update(),
                         gr.update(),
                         gr.update(),
@@ -120,9 +119,11 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
                     url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                     data=token_payload,
                 ).json()
+                logger.info(f"prepare: {request_result}")
             tickets_info["token"] = request_result["data"]["token"]
             request_result = _request.get(
-                url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher=&project_id={tickets_info['project_id']}"
+                url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher"
+                    f"=&project_id={tickets_info['project_id']}"
             ).json()
             logger.info(f"confirmInfo: {request_result}")
             tickets_info["pay_money"] = request_result["data"]["pay_money"]
@@ -139,7 +140,8 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
             )
             yield [
                 gr.update(
-                    value=f"正在抢票，具体情况查看终端控制台。\n剩余次数: {left_time_str} 当前状态码: {errno}({ERRNO_DICT.get(errno, '未知错误码')})",
+                    value=withTimeString(
+                        f"正在抢票，具体情况查看终端控制台。\n剩余次数: {left_time_str}\n当前状态码: {errno} ({ERRNO_DICT.get(errno, '未知错误码')})"),
                     visible=True,
                 ),
                 gr.update(visible=True),
@@ -160,32 +162,41 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
                 qr_gen.make(fit=True)
                 qr_gen_image = qr_gen.make_image()
                 yield [
-                    gr.update(value="生成付款二维码"),
-                    gr.update(),
+                    gr.update(value=withTimeString("生成付款二维码"), visible=True),
+                    gr.update(visible=False),
                     gr.update(value=qr_gen_image.get_image(), visible=True),
                     gr.update(),
                     gr.update(),
                     gr.update(),
                 ]
-            time.sleep(interval / 1000.0)
+                break
             if mode == 1:
                 left_time -= 1
                 if left_time <= 0:
                     break
+        except JSONDecodeError as e:
+            logger.error("配置文件格式错误")
+            yield [
+                gr.update(value=withTimeString("配置文件格式错误"), visible=True),
+                gr.update(visible=True),
+                gr.update(),
+                gr.update(),
+                gr.update(),
+                gr.update(),
+            ]
         except Exception as e:
-            # errno = request_result["errno"]
-            # left_time_str = '无限' if mode == 0 else left_time
-            # frame_info = inspect.stack()[0]
-            # filename = frame_info.filename
-            # line_number = frame_info.lineno
-            # logger.info("An error occurred in file '%s' at line %d: %s", filename, line_number, e)
             logger.exception(e)
-            # logger.info(
-            #     f'错误码: {errno}({ERRNO_DICT.get(errno, "未知错误码")}), 请求体: {request_result}, 剩余次数: {left_time_str}')
-            # yield [
-            #     gr.update(value=f"错误, 错误码:{errno} 错误码解析: {ERRNO_DICT.get(errno, '未知错误码')}", visible=True),
-            #     gr.update(visible=False), gr.update(), gr.update(), gr.update(), gr.update()]
-            # time.sleep(interval / 1000.0)
+            yield [
+                gr.update(value=withTimeString("有错误，具体查看控制台日志"), visible=True),
+                gr.update(visible=True),
+                gr.update(),
+                gr.update(),
+                gr.update(),
+                gr.update(),
+            ]
+        finally:
+            time.sleep(interval / 1000.0)
+
     yield [
         gr.update(value="抢票结束", visible=True),
         gr.update(visible=False),
@@ -243,20 +254,20 @@ def go_tab():
             stop_btn = gr.Button("停止", visible=False)
 
         with gr.Row():
-            go_ui = gr.TextArea(
+            go_ui = gr.Textbox(
                 info="此窗口为临时输出，具体请见控制台",
                 label="输出信息",
                 interactive=False,
                 visible=False,
                 show_copy_button=True,
                 max_lines=10,
+
             )
             qr_image = gr.Image(label="使用微信或者支付宝扫码支付", visible=False)
 
         with gr.Row(visible=False) as gt_row:
             gt_html_btn = gr.Button("点击打开抢票验证码（请勿多点！！）")
             gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
-
             gr.HTML(
                 value="""
                        <div>
@@ -266,7 +277,7 @@ def go_tab():
                     </div>""",
                 label="验证码",
             )
-
+        geetest_result = gr.JSON(visible=False)
         time_tmp = gr.Textbox(visible=False)
         gt_ui = gr.Textbox(visible=False)
         challenge_ui = gr.Textbox(visible=False)
@@ -290,20 +301,18 @@ def go_tab():
                 """,
         )
 
-        geetest_result = gr.JSON()
+        def receive_geetest_result(res):
+            global geetest_validate, geetest_seccode
+            geetest_validate = res["geetest_validate"]
+            geetest_seccode = res["geetest_seccode"]
+
         gt_html_finish_btn.click(
             fn=None,
             inputs=None,
             outputs=geetest_result,
             js="() => captchaObj.getValidate()",
         )
-
-        def receive_geetest_result(res):
-            global geetest_validate, geetest_seccode
-            geetest_validate = res["geetest_validate"]
-            geetest_seccode = res["geetest_seccode"]
-
-        geetest_result.change(fn=receive_geetest_result, inputs=geetest_result)
+        gt_html_finish_btn.click(fn=receive_geetest_result, inputs=geetest_result)
 
         go_btn.click(
             fn=None,

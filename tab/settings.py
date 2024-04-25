@@ -1,7 +1,7 @@
 from datetime import datetime
-import json
-from loguru import logger
+
 import gradio as gr
+from loguru import logger
 
 from config import cookies_config_path
 from util.bili_request import BiliRequest
@@ -17,6 +17,9 @@ def on_submit_ticket_id(num):
     global ticket_value
 
     try:
+        buyer_value = []
+        addr_value = []
+        ticket_value = []
         num = int(num)
         bili_request = BiliRequest(cookies_config_path=cookies_config_path)
         res = bili_request.get(
@@ -82,7 +85,7 @@ def on_submit_ticket_id(num):
             gr.update(visible=True),
             gr.update(
                 value=f"获取票信息成功:\n展会名称：{project_name}\n"
-                f"开展时间：{project_start_time} - {project_end_time}\n场馆地址：{venue_name} {venue_address}",
+                      f"开展时间：{project_start_time} - {project_end_time}\n场馆地址：{venue_name} {venue_address}",
                 visible=True,
             ),
         ]
@@ -97,7 +100,7 @@ def on_submit_ticket_id(num):
         ]
 
 
-def on_submit_all(ticket_info, people_indices, people_buyer_index, address_index):
+def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, address_index):
     try:
         # if ticket_number != len(people_indices):
         #     return gr.update(
@@ -106,7 +109,9 @@ def on_submit_all(ticket_info, people_indices, people_buyer_index, address_index
         ticket_cur = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
         people_buyer_cur = buyer_value[people_buyer_index]
-
+        if str(ticket_id) != str(ticket_cur["project_id"]):
+            return [gr.update(value="当前票信息已更改，请点击“获取票信息”按钮重新获取", visible=True),
+                    gr.update(value={})]
         address_cur = addr_value[address_index]
         config_dir = {
             "count": len(people_indices),
@@ -122,15 +127,15 @@ def on_submit_all(ticket_info, people_indices, people_buyer_index, address_index
                 "tel": address_cur["phone"],
                 "addr_id": address_cur["id"],
                 "addr": address_cur["prov"]
-                + address_cur["city"]
-                + address_cur["area"]
-                + address_cur["addr"],
+                        + address_cur["city"]
+                        + address_cur["area"]
+                        + address_cur["addr"],
             },
         }
-        return gr.update(value=json.dumps(config_dir), visible=True)
+        return [gr.update(), gr.update(value=config_dir, visible=True)]
     except Exception as e:
         logger.info(e)
-        return gr.update(value="生成错误，仔细看看你可能有哪里漏填的", visible=True)
+        return [gr.update(value="生成错误，仔细看看你可能有哪里漏填的", visible=True), gr.update(value={})]
 
 
 def setting_tab():
@@ -173,12 +178,6 @@ def setting_tab():
                 )
 
             config_btn = gr.Button("生成配置")
-            # config_output_ui = gr.Textbox(
-            #     label="生成配置文件",
-            #     show_copy_button=True,
-            #     info="右上角粘贴",
-            #     visible=False,
-            # )
             config_output_ui = gr.JSON(
                 label="生成配置文件（右上角复制）",
                 visible=False,
@@ -186,12 +185,13 @@ def setting_tab():
             config_btn.click(
                 fn=on_submit_all,
                 inputs=[
+                    ticket_id_ui,
                     ticket_info_ui,
                     people_ui,
                     people_buyer_ui,
                     address_ui,
                 ],
-                outputs=config_output_ui,
+                outputs=[info_ui, config_output_ui]
             )
 
         ticket_id_btn.click(
