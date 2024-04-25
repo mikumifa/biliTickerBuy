@@ -1,4 +1,6 @@
 # 欢迎补充错误码
+import datetime
+
 ERRNO_DICT = {
     3: "速度过快,请慢一点",
     100009: "库存不足,暂无余票",
@@ -10,3 +12,7 @@ ERRNO_DICT = {
     100048: "已经下单，有尚未完成订单",
     100017: "票种不可售"
 }
+
+
+def withTimeString(string):
+    return f"{datetime.datetime.now()}: {string}"
