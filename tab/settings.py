@@ -139,6 +139,14 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
 
 
 def setting_tab():
+    gr.Markdown("""
+> **补充**
+>
+> 保证自己在抢票前，已经配置了地址和购买人信息(就算不需要也要提前填写)
+>
+> - 地址 ： 会员购中心->地址管理
+> - 购买人信息：会员购中心->购买人信息
+""")
     info_ui = gr.TextArea(
         info="此窗口为输出信息", label="输出信息", interactive=False, visible=False
     )
