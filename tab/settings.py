@@ -134,7 +134,7 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
         }
         return [gr.update(), gr.update(value=config_dir, visible=True)]
     except Exception as e:
-        logger.info(e)
+        logger.exception(e)
         return [gr.update(value="生成错误，仔细看看你可能有哪里漏填的", visible=True), gr.update(value={})]
 
 
