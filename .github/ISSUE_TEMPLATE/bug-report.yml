@@ -14,18 +14,11 @@ body:
       required: true
   - type: input
     attributes:
-      label: 系统环境
-      description: 操作系统、系统架构。
-      placeholder: 例如： CentOS x64、Windows11
+      label: 版本
+      description: 下载release里面程序的版本。
+      placeholder: 例如 v1.0.0 
     validations:
       required: true
-  - type: input
-    attributes:
-      label: Python环境
-      description: 运行程序的Python版本,（若有）
-      placeholder: 例如： Python 3.10
-    validations:
-      required: false
   - type: textarea
     attributes:
       label: 异常情况
@@ -35,6 +28,6 @@ body:
   - type: textarea
     attributes:
       label: 报错信息
-      description: 请提供完整的**控制台**报错信息（若有）
+      description: 请提供完整的**控制台**报错信息（若有）以及 相关的log文件（去除敏感信息）
     validations:
       required: false
