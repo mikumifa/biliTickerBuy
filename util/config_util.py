@@ -4,7 +4,9 @@ import time
 import requests
 from loguru import logger
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.by import By
+from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
@@ -14,7 +16,6 @@ class CookieManager:
     def __init__(self, config_file_path):
         self.config = {}
         self.config_file_path = config_file_path
-
         self.cookie_jar = requests.utils.cookiejar_from_dict(self.config)
 
     @logger.catch
@@ -23,10 +24,10 @@ class CookieManager:
     ):
         logger.info("启动浏览器中.....")
         try:
-            self.driver = webdriver.Edge(EdgeChromiumDriverManager().install())
+            self.driver = webdriver.Edge(service=EdgeService(EdgeChromiumDriverManager().install()))
         except Exception:
             try:
-                self.driver = webdriver.Chrome(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
             except Exception:
                 raise Exception(
                     "没有找到浏览器驱动，请根据自己的浏览器下载相应的驱动：\n"
