@@ -18,10 +18,18 @@ short_js = """
 <script src="https://static.geetest.com/static/js/gt.0.4.9.js"></script>
 """
 
+custom_css = """
+.pay_qrcode img {
+  width: 300px !important;
+  height: 300px !important;
+  margin-top: 20px; /* 避免二维码头部的说明文字挡住二维码 */
+}
+"""
+
 if __name__ == "__main__":
     logger.add("app.log")
 
-    with gr.Blocks(head=short_js) as demo:
+    with gr.Blocks(head=short_js, css=custom_css) as demo:
         gr.Markdown(header)
         with gr.Tab("配置"):
             setting_tab()
