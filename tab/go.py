@@ -153,8 +153,6 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
             if errno == 0:
                 qrcode_url = get_qrcode_url(
                     _request,
-                    request_result["data"]["token"],
-                    tickets_info["project_id"],
                     request_result["data"]["orderId"],
                 )
                 qr_gen = qrcode.QRCode()
@@ -263,7 +261,7 @@ def go_tab():
                 max_lines=10,
 
             )
-            qr_image = gr.Image(label="使用微信或者支付宝扫码支付", visible=False)
+            qr_image = gr.Image(label="使用微信或者支付宝扫码支付", visible=False, elem_classes="pay_qrcode")
 
         with gr.Row(visible=False) as gt_row:
             gt_html_btn = gr.Button("点击打开抢票验证码（请勿多点！！）")
