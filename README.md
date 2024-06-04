@@ -74,9 +74,9 @@ Running on local URL:  http://127.0.0.1:xxx
 
 ## 有项目问题??
 
-可在[issues](https://github.com/mikumifa/biliTickerBuy/issues)里面搜索相关问题, 若无法解决
+程序使用问题： [点此链接前往discussions](https://github.com/mikumifa/biliTickerBuy/discussions)
 
-[点此链接向项目提出issue](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
+反馈程序错误或者提新功能建议： [点此链接向项目提出反馈BUG](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
 
 
 ## Contributors
