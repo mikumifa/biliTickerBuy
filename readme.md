@@ -17,10 +17,6 @@
 免责声明：详见[MIT License](./LICENSE)，此仓库仅用于个人参考学习，但如他人用本仓库代码用于商业用途(鄙视黄牛)
 ，侵犯到B站利益等，本人不承担任何责任。切勿进行盈利，所造成的后果与本人无关。
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://star-history.com/#mikumifa/biliTickerBuy&Date)
-
 ## 特性
 
 <details>
@@ -82,4 +78,14 @@ Running on local URL:  http://127.0.0.1:xxx
 
 [点此链接向项目提出issue](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
 
+
+## Contributors
+
+<!-- readme: collaborators,contributors -start -->
+<!-- readme: collaborators,contributors -end -->
+
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://star-history.com/#mikumifa/biliTickerBuy&Date)
 
