@@ -6,6 +6,14 @@ from util.bili_request import BiliRequest
 
 
 def train_tab():
+    gr.Markdown("""
+> **补充**
+>
+> 在这里，你可以
+> 1. 提前知道抢票时候验证码的过程
+> 2. 训练验证码，提高验证码速度
+>
+""")
     _request = BiliRequest(cookies_config_path=cookies_config_path)
 
     gr.Markdown("💪 在这里训练一下手过验证码的速度，提前演练一下")

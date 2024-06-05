@@ -25,6 +25,7 @@ class BiliRequest:
         }
 
     def get(self, url, data=None):
+        self.headers["cookies"] = self.cookieManager.get_cookies_str()
         response = self.session.get(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json().get("msg", "") == "请先登录":
@@ -33,12 +34,20 @@ class BiliRequest:
         return response
 
     def post(self, url, data=None):
+        self.headers["cookies"] = self.cookieManager.get_cookies_str()
         response = self.session.post(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json().get("msg", "") == "请先登录":
             self.headers["cookies"] = self.cookieManager.get_cookies_str_force()
             self.post(url, data)
         return response
+
+    def get_request_name(self):
+        try:
+            result = self.get("https://api.bilibili.com/x/web-interface/nav").json()
+            return result["data"]["uname"]
+        except Exception:
+            return "未登录"
 
 
 if __name__ == "__main__":
