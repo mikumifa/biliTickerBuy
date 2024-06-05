@@ -206,6 +206,17 @@ def start_go(tickets_info_str, time_start, interval, mode, total_attempts):
 
 
 def go_tab():
+    gr.Markdown("""
+> **分享一下经验**
+> - 抢票前，不要去提前抢还没有发售的票，会被b站封掉一段时间导致错过抢票的
+> - 热门票要提前练习过验证码
+> - 如果要使用自动定时抢，电脑的时间和b站的时间要一致
+> - 使用不同的多个账号抢票 （可以每一个exe文件都使用不同的账号， 或者在使用这个程序的时候，手机使用其他的账号去抢）
+> - 程序能保证用最快的速度发送订单请求，但是不保证这一次订单请求能够成功。所以不要完全依靠程序
+> - 现在各个平台抢票和秒杀机制都是进抽签池抽签，网速快发请求多快在拥挤的时候基本上没有效果
+> 此时就要看你有没有足够的设备和账号来提高中签率
+> - 欢迎前往[discussions](https://github.com/mikumifa/biliTickerBuy/discussions) 分享你的经验
+""")
     with gr.Column():
         ticket_ui = gr.TextArea(
             label="填入配置", info="再次填入配置信息", interactive=True

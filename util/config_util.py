@@ -57,6 +57,11 @@ class CookieManager:
         with open(self.config_file_path, "w") as f:
             json.dump(self.config, f, indent=4)
 
+    def clear_config(self):
+        self.config = {}
+        with open(self.config_file_path, "w") as f:
+            json.dump(self.config, f, indent=4)
+
     def get_cookies(self):
         try:
             with open(self.config_file_path, "r") as f:
