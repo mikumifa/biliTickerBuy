@@ -140,9 +140,9 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
 
 def setting_tab():
     gr.Markdown("""
-> **补充**
+> **必看**
 >
-> 保证自己在抢票前，已经配置了地址和购买人信息(就算不需要也要提前填写)
+> 保证自己在抢票前，已经配置了地址和购买人信息(就算不需要也要提前填写) 如果没填，生成表单时候不会出现任何选项
 >
 > - 地址 ： 会员购中心->地址管理
 > - 购买人信息：会员购中心->购买人信息
