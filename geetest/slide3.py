@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import io
 from pathlib import Path
+
+import ddddocr
 import requests
 from PIL import Image
-import ddddocr
+
 
 def parse_bg_captcha(img, im_show=False, save_path=None):
     """
@@ -46,20 +48,21 @@ def parse_bg_captcha(img, im_show=False, save_path=None):
         new_img.save(save_path)
     return new_img
 
-class Slide3:
-	def __init__(self, ocr: ddddocr.DdddOcr = ddddocr.DdddOcr(show_ad=False)):
-		self.ocr = ocr
-	def calculated_distance(self, bg_url: str, slice_url: str) -> int:
-		bg = requests.get(bg_url)
-		bg_image = parse_bg_captcha(bg.content, im_show=False)  # 假设不显示，仅用于比较
-		slice_image = requests.get(slice_url).content
-		bg1_bytes = io.BytesIO()
-		bg_image.save(bg1_bytes, format='PNG')  # 注意指定正确的格式
-		bg1_bytes.seek(0)
-		
-		res = self.ocr.slide_match(slice_image, bg1_bytes.read(), simple_target=True)
-		return res['target'][0]
 
+class Slide3:
+    def __init__(self, ocr: ddddocr.DdddOcr = ddddocr.DdddOcr(show_ad=False)):
+        self.ocr = ocr
+
+    def calculated_distance(self, bg_url: str, slice_url: str) -> int:
+        bg = requests.get(bg_url)
+        bg_image = parse_bg_captcha(bg.content, im_show=False)  # 假设不显示，仅用于比较
+        slice_image = requests.get(slice_url).content
+        bg1_bytes = io.BytesIO()
+        bg_image.save(bg1_bytes, format='PNG')  # 注意指定正确的格式
+        bg1_bytes.seek(0)
+
+        res = self.ocr.slide_match(slice_image, bg1_bytes.read(), simple_target=True)
+        return res['target'][0]
 
 
 def main():
@@ -70,10 +73,11 @@ def main():
     bg1_bytes = io.BytesIO()
     bg_image.save(bg1_bytes, format='PNG')  # 注意指定正确的格式
     bg1_bytes.seek(0)
-    
+
     res = ocr.slide_match(slice_image, bg1_bytes.read())
-    
+
     print(res)
 
+
 if __name__ == '__main__':
-	main()
+    main()
