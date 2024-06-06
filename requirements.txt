@@ -5,3 +5,5 @@ gradio~=4.27.0
 qrcode~=7.4.2
 loguru~=0.7.2
 webdriver-manager~=4.0.1
+ddddocr~=1.4.11
+Pillow~=10.3.0
