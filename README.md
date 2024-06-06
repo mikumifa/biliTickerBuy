@@ -76,6 +76,13 @@ Running on local URL:  http://127.0.0.1:xxx
                 </a>
             </td>
             <td align="center">
+                <a href="https://github.com/Amorter">
+                    <img src="https://avatars.githubusercontent.com/u/63935225?v=4" width="100;" alt="Amorter"/>
+                    <br />
+                    <sub><b>秦诗染</b></sub>
+                </a>
+            </td>
+            <td align="center">
                 <a href="https://github.com/BestLemoon">
                     <img src="https://avatars.githubusercontent.com/u/53417050?v=4" width="100;" alt="BestLemoon"/>
                     <br />
@@ -96,6 +103,8 @@ Running on local URL:  http://127.0.0.1:xxx
                     <sub><b>Shiroki Satsuki</b></sub>
                 </a>
             </td>
+		</tr>
+		<tr>
             <td align="center">
                 <a href="https://github.com/WittF">
                     <img src="https://avatars.githubusercontent.com/u/108567138?v=4" width="100;" alt="WittF"/>
@@ -103,8 +112,6 @@ Running on local URL:  http://127.0.0.1:xxx
                     <sub><b>W1ttF</b></sub>
                 </a>
             </td>
-		</tr>
-		<tr>
             <td align="center">
                 <a href="https://github.com/ipid">
                     <img src="https://avatars.githubusercontent.com/u/5251264?v=4" width="100;" alt="ipid"/>
