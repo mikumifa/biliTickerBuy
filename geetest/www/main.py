@@ -1,43 +1,81 @@
-import gradio as gr
-from loguru import logger
+from api import Slide, Click
+import subprocess
+from slide3 import Slide3
+from click3 import Click3
+import time
+from ddddocr import DdddOcr
 
-from tab.go import go_tab
-from tab.login import login_tab
-from tab.settings import setting_tab
-from tab.train import train_tab
+def main1():
+	api = Slide()
+	slide3 = Slide3()
 
-header = """
-# B 站会员购抢票🌈
+	cmd0 = "node -e \"require('./rt.js').rt()\""
+	print(cmd0)
+	rt = subprocess.run(cmd0, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+	(challenge, gt) = api.register()
 
-⚠️此项目完全开源免费 （[项目地址](https://github.com/mikumifa/biliTickerBuy)），切勿进行盈利，所造成的后果与本人无关。
-"""
+	print(challenge)
+	print(gt)
+	(c, s) = api.get_c_s(challenge, gt, None)
 
-short_js = """
-<script src="http://libs.baidu.com/jquery/1.10.2/jquery.min.js" rel="external nofollow"></script>
-<script src="https://static.geetest.com/static/js/gt.0.4.9.js"></script>
-"""
+	api.get_type(challenge, gt, None)
 
-custom_css = """
-.pay_qrcode img {
-  width: 300px !important;
-  height: 300px !important;
-  margin-top: 20px; /* 避免二维码头部的说明文字挡住二维码 */
-}
-"""
+	(c, s, challenge, bg_url, slice_url) = api.get_new_c_s_challenge_bg_slice(challenge, gt)
+	dis = slide3.calculated_distance(bg_url, slice_url)
+	cmd3 = "node -e \"require('./slide.js').send(" + str(dis) + ",\'" + gt + "\',\'" + challenge + "\'," + str(c) + ",\'" + s + "\',\'"+ rt + "\')\""
+	print(cmd3)
+	w = subprocess.run(cmd3, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+	time.sleep(2)
+	res = api.ajax(challenge, gt, w)
+	print(res)
 
-if __name__ == "__main__":
-    logger.add("app.log")
-    with gr.Blocks(head=short_js, css=custom_css) as demo:
-        gr.Markdown(header)
-        with gr.Tab("配置"):
-            setting_tab()
-        with gr.Tab("抢票"):
-            go_tab()
-        with gr.Tab("训练你的验证码速度"):
-            train_tab()
-        with gr.Tab("登录管理"):
-            login_tab()
+def main2():
+	api = Click()
+	click3 = Click3()
 
-    # 运行应用
-    print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
-    demo.launch()
+	cmd0 = "node -e \"require('./rt.js').rt()\""
+	print(cmd0)
+	rt = subprocess.run(cmd0, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+	(challenge, gt) = api.register()
+
+	print(challenge)
+	print(gt)
+	(c, s) = api.get_c_s(challenge, gt, None)
+
+	api.get_type(challenge, gt, None)
+
+	(c, s, pic) = api.get_new_c_s_pic(challenge, gt)
+	position = click3.calculated_position(pic)
+	cmd3 = "node -e \"require('./click.js').send('" + gt + "\',\'" + challenge + "\'," + str(c) + ",\'" + s + "\',\'"+ rt + "\',\'" + position + "\')\""
+	print(cmd3)
+	w = subprocess.run(cmd3, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+	time.sleep(2)
+	res = api.ajax(challenge, gt, w)
+	print(res)
+
+def main3():
+	api = Click()
+	click3 = Click3(DdddOcr(show_ad=False, beta=True))
+	count = 0
+	for i in range(300):
+		cmd0 = "node -e \"require('./rt.js').rt()\""
+		rt = subprocess.run(cmd0, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+		(challenge, gt) = api.register()
+		(c, s) = api.get_c_s(challenge, gt, None)
+
+		api.get_type(challenge, gt, None)
+
+		(c, s, pic) = api.get_new_c_s_pic(challenge, gt)
+		position = click3.calculated_position(pic)
+		cmd3 = "node -e \"require('.click.js').send('" + gt + "\',\'" + challenge + "\'," + str(c) + ",\'" + s + "\',\'"+ rt + "\',\'" + position + "\')\""
+		w = subprocess.run(cmd3, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+		time.sleep(2)
+		res = api.ajax(challenge, gt, w)
+		print(res)
+		if(res['data']['result'] == 'success'):
+			count+=1
+
+	print(count/300)
+	
+if __name__ == '__main__':
+    main3()
