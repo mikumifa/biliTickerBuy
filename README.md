@@ -11,9 +11,8 @@
 
 </div>
 
-简单易用，图形界面, 速度极快的B站会员购抢票.
+开源免费，简单易用，图形界面, 速度极快的B站会员购抢票.
 
-免责声明：详见[MIT License](./LICENSE)，切勿进行盈利，所造成的后果与本人无关。
 
 ## 快速安装
 
@@ -129,3 +128,6 @@ Running on local URL:  http://127.0.0.1:xxx
 
 [![Star History Chart](https://api.star-history.com/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://star-history.com/#mikumifa/biliTickerBuy&Date)
 
+## 免责声明
+
+详见[MIT License](./LICENSE)，切勿进行盈利，所造成的后果与本人无关。
