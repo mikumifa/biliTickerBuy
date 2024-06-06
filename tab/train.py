@@ -1,7 +1,14 @@
+import subprocess
+import time
 from urllib.parse import urlencode
+
 import gradio as gr
+from ddddocr import DdddOcr
+from loguru import logger
 
 from config import cookies_config_path
+from geetest.api import Click
+from geetest.click3 import Click3
 from util.bili_request import BiliRequest
 
 
@@ -22,6 +29,7 @@ def train_tab():
 
     with gr.Row(visible=False) as test_gt_row:
         test_gt_html_start_btn = gr.Button("点击打开抢票验证码（请勿多点！！）")
+        test_gt_ai_start_btn = gr.Button("点击AI自动过验证码（测试功能不保证正确性）")
         test_gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
         gr.HTML(
             value="""
@@ -65,6 +73,42 @@ def train_tab():
         inputs=None,
         outputs=[test_gt_ui, test_challenge_ui, test_gt_row, test_get_challenge_btn],
     )
+
+    def gt_auto_complete(gt, challenge):
+        global test_geetest_validate, test_geetest_seccode
+        api = Click()
+        rt = "1234567890123456"
+        click3 = Click3(DdddOcr(show_ad=False, beta=True))
+        (c, s) = api.get_c_s(challenge, gt, None)
+        api.get_type(challenge, gt, None)
+        (c, s, pic) = api.get_new_c_s_pic(challenge, gt)
+        position = click3.calculated_position(pic)
+        cmd3 = f"node -e \"require('./geetest/click.js').send('{gt}','{challenge}',{c},'{s}','{rt}','{position}')\""
+        w = subprocess.run(cmd3, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+        time.sleep(2)
+        res = api.ajax(challenge, gt, w)
+        logger.info(res)
+        if res['data']['result'] == 'success':
+            test_geetest_validate = res['data']['validate']
+            test_geetest_seccode = res['data']['validate'] + "|jordan"
+            _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
+            _payload = {
+                "challenge": test_challenge,
+                "token": test_token,
+                "seccode": test_geetest_seccode,
+                "csrf": test_csrf,
+                "validate": test_geetest_validate,
+            }
+            test_data = _request.post(_url, urlencode(_payload))
+            yield gr.update(value=test_data.json())
+        else:
+            yield gr.update(value=res)
+
+    test_gt_ai_start_btn.click(
+        fn=gt_auto_complete,
+        inputs=[test_gt_ui, test_challenge_ui],
+        outputs=[test_log],
+    )
     test_gt_html_start_btn.click(
         fn=None,
         inputs=[test_gt_ui, test_challenge_ui],
@@ -91,10 +135,12 @@ def train_tab():
         outputs=geetest_result,
         js="() => test_captchaObj.getValidate()",
     )
+
     def receive_geetest_result(res):
         global test_geetest_validate, test_geetest_seccode
         test_geetest_validate = res["geetest_validate"]
         test_geetest_seccode = res["geetest_seccode"]
+
     geetest_result.change(fn=receive_geetest_result, inputs=geetest_result)
 
     def test_doing():
