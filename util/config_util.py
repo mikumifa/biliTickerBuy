@@ -1,7 +1,6 @@
 import json
 import time
 
-import requests
 from loguru import logger
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -95,13 +94,19 @@ class CookieManager:
         return cookies_str
 
     def get_config_value(self, name, default=None):
-        with open(self.config_file_path, "r") as f:
-            self.config = json.load(f)
-        return self.config.get(name, default)
+        try:
+            with open(self.config_file_path, "r") as f:
+                self.config = json.load(f)
+            return self.config.get(name, default)
+        except Exception:
+            return default
 
     def set_config_value(self, name, value):
-        with open(self.config_file_path, "r") as f:
-            self.config = json.load(f)
+        try:
+            with open(self.config_file_path, "r") as f:
+                self.config = json.load(f)
+        except Exception:
+            self.config = {}
         self.config[name] = value
         self.dump_config()
 
