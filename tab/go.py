@@ -283,102 +283,102 @@ def go_tab():
             gr.update(),
         ]
 
-        mode_ui.change(
-            fn=lambda x: gr.update(visible=True)
-            if x == 1
-            else gr.update(visible=False),
-            inputs=[mode_ui],
-            outputs=total_attempts_ui,
+    mode_ui.change(
+        fn=lambda x: gr.update(visible=True)
+        if x == 1
+        else gr.update(visible=False),
+        inputs=[mode_ui],
+        outputs=total_attempts_ui,
+    )
+    with gr.Row():
+        go_btn = gr.Button("开始抢票")
+        stop_btn = gr.Button("停止", visible=False)
+
+    with gr.Row():
+        go_ui = gr.Textbox(
+            info="此窗口为临时输出，具体请见控制台",
+            label="输出信息",
+            interactive=False,
+            visible=False,
+            show_copy_button=True,
+            max_lines=10,
+
         )
-        with gr.Row():
-            go_btn = gr.Button("开始抢票")
-            stop_btn = gr.Button("停止", visible=False)
+        qr_image = gr.Image(label="使用微信或者支付宝扫码支付", visible=False, elem_classes="pay_qrcode")
 
-        with gr.Row():
-            go_ui = gr.Textbox(
-                info="此窗口为临时输出，具体请见控制台",
-                label="输出信息",
-                interactive=False,
-                visible=False,
-                show_copy_button=True,
-                max_lines=10,
-
-            )
-            qr_image = gr.Image(label="使用微信或者支付宝扫码支付", visible=False, elem_classes="pay_qrcode")
-
-        with gr.Row(visible=False) as gt_row:
-            gt_html_btn = gr.Button("点击打开抢票验证码（请勿多点！！）")
-            gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
-            gr.HTML(
-                value="""
-                       <div>
-                       <label>如何点击无效说明，获取验证码失败，请勿多点</label>
-                        <div id="captcha">
-                        </div>
-                    </div>""",
-                label="验证码",
-            )
-        geetest_result = gr.JSON(visible=False)
-        time_tmp = gr.Textbox(visible=False)
-        gt_ui = gr.Textbox(visible=False)
-        challenge_ui = gr.Textbox(visible=False)
-        gt_html_btn.click(
-            fn=None,
-            inputs=[gt_ui, challenge_ui],
-            outputs=None,
-            js="""
-                (gt, challenge) => initGeetest({
-                    gt, challenge,
-                    offline: false,
-                    new_captcha: true,
-                    product: "popup",
-                    width: "300px",
-                    https: true
-                }, function (captchaObj) {
-                    window.captchaObj = captchaObj;
-                    $('#captcha').empty();
-                    captchaObj.appendTo('#captcha');
-                })
-                """,
+    with gr.Row(visible=False) as gt_row:
+        gt_html_btn = gr.Button("点击打开抢票验证码（请勿多点！！）")
+        gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
+        gr.HTML(
+            value="""
+                   <div>
+                   <label>如何点击无效说明，获取验证码失败，请勿多点</label>
+                    <div id="captcha">
+                    </div>
+                </div>""",
+            label="验证码",
         )
+    geetest_result = gr.JSON(visible=False)
+    time_tmp = gr.Textbox(visible=False)
+    gt_ui = gr.Textbox(visible=False)
+    challenge_ui = gr.Textbox(visible=False)
+    gt_html_btn.click(
+        fn=None,
+        inputs=[gt_ui, challenge_ui],
+        outputs=None,
+        js="""
+            (gt, challenge) => initGeetest({
+                gt, challenge,
+                offline: false,
+                new_captcha: true,
+                product: "popup",
+                width: "300px",
+                https: true
+            }, function (captchaObj) {
+                window.captchaObj = captchaObj;
+                $('#captcha').empty();
+                captchaObj.appendTo('#captcha');
+            })
+            """,
+    )
 
-        def receive_geetest_result(res):
-            global geetest_validate, geetest_seccode
-            geetest_validate = res["geetest_validate"]
-            geetest_seccode = res["geetest_seccode"]
+    def receive_geetest_result(res):
+        global geetest_validate, geetest_seccode
+        geetest_validate = res["geetest_validate"]
+        geetest_seccode = res["geetest_seccode"]
 
-        gt_html_finish_btn.click(
-            fn=None,
-            inputs=None,
-            outputs=geetest_result,
-            js="() => captchaObj.getValidate()",
-        )
-        gt_html_finish_btn.click(fn=receive_geetest_result, inputs=geetest_result)
+    gt_html_finish_btn.click(
+        fn=None,
+        inputs=None,
+        outputs=geetest_result,
+        js="() => captchaObj.getValidate()",
+    )
+    gt_html_finish_btn.click(fn=receive_geetest_result, inputs=geetest_result)
 
-        go_btn.click(
-            fn=None,
-            inputs=None,
-            outputs=time_tmp,
-            js='(x) => document.getElementById("datetime").value',
-        )
+    go_btn.click(
+        fn=None,
+        inputs=None,
+        outputs=time_tmp,
+        js='(x) => document.getElementById("datetime").value',
+    )
 
-        def stop():
-            global isRunning
-            isRunning = False
-            return [
-                gr.update(value="抢票结束", visible=True),
-                gr.update(visible=False),
-                gr.update(),
-                gr.update(),
-            ]
+    def stop():
+        global isRunning
+        isRunning = False
+        return [
+            gr.update(value="抢票结束", visible=True),
+            gr.update(visible=False),
+            gr.update(),
+            gr.update(),
+        ]
 
-        go_btn.click(
-            fn=start_go,
-            inputs=[ticket_ui, time_tmp, interval_ui, mode_ui, total_attempts_ui, api_key_input_ui],
-            outputs=[go_ui, stop_btn, qr_image, gt_row, gt_ui, challenge_ui],
-        )
-        stop_btn.click(
-            fn=stop,
-            inputs=None,
-            outputs=[go_ui, stop_btn, qr_image, gt_row],
-        )
+    go_btn.click(
+        fn=start_go,
+        inputs=[ticket_ui, time_tmp, interval_ui, mode_ui, total_attempts_ui, api_key_input_ui],
+        outputs=[go_ui, stop_btn, qr_image, gt_row, gt_ui, challenge_ui],
+    )
+    stop_btn.click(
+        fn=stop,
+        inputs=None,
+        outputs=[go_ui, stop_btn, qr_image, gt_row],
+    )
