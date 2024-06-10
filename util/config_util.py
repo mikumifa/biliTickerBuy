@@ -16,7 +16,6 @@ class CookieManager:
     def __init__(self, config_file_path):
         self.config = {}
         self.config_file_path = config_file_path
-        self.cookie_jar = requests.utils.cookiejar_from_dict(self.config)
 
     @logger.catch
     def _login_and_save_cookies(
@@ -68,7 +67,7 @@ class CookieManager:
                 self.config = json.load(f)
         except Exception:
             return self._login_and_save_cookies()
-        if self.config == {}:
+        if "bilibili_cookies" not in self.config:
             return self._login_and_save_cookies()
         else:
             cookies = self.config["bilibili_cookies"]
@@ -94,6 +93,17 @@ class CookieManager:
         for cookie in cookies:
             cookies_str += cookie["name"] + "=" + cookie["value"] + "; "
         return cookies_str
+
+    def get_config_value(self, name, default=None):
+        with open(self.config_file_path, "r") as f:
+            self.config = json.load(f)
+        return self.config.get(name, default)
+
+    def set_config_value(self, name, value):
+        with open(self.config_file_path, "r") as f:
+            self.config = json.load(f)
+        self.config[name] = value
+        self.dump_config()
 
 
 if __name__ == "__main__":
