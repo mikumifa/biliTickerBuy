@@ -1,14 +1,9 @@
-import subprocess
-import time
 from urllib.parse import urlencode
 
 import gradio as gr
-from ddddocr import DdddOcr
-from loguru import logger
 
 from config import cookies_config_path
-from geetest.api import Click
-from geetest.click3 import Click3
+from tab.go import ways_detail, ways
 from util.bili_request import BiliRequest
 
 
@@ -24,12 +19,39 @@ def train_tab():
     _request = BiliRequest(cookies_config_path=cookies_config_path)
 
     gr.Markdown("💪 在这里训练一下手过验证码的速度，提前演练一下")
+
+    gr.Markdown("""
+    
+| 过码方式           | 使用说明                                                     |
+| ------------------ | ------------------------------------------------------------ |
+| 手动               | 自己过，速度取决于自己，过程看项目的readme.md的GIF           |
+| 使用接码网站 rrocr | rrocr 提供的 http://www.rrocr.com<br /> 能过验证码，但是抢票没有测试，慎用 <br /> 需要购买对应的key，速度比手动快，价格 一次大概一分钱<br /> |
+| .....              | 欢迎补充                                                     |
+    
+    """)
+
+    # 验证码选择
+    way_select_ui = gr.Radio(ways, label="验证码", info="过验证码的方式", type="index")
+    api_key_input_ui = gr.Textbox(label="api_key", value=_request.cookieManager.get_config_value("appkey", ""),
+                                  visible=False)
+    select_way = 0
+
+    def choose_option(way):
+        global select_way
+        select_way = way
+        # loguru.logger.info(way)
+        if way == 1:
+            # rrocr
+            return gr.update(visible=True)
+        else:
+            return gr.update(visible=False)
+
+    way_select_ui.change(choose_option, inputs=way_select_ui, outputs=api_key_input_ui)
+
     test_get_challenge_btn = gr.Button("开始测试")
     test_log = gr.JSON(label="测试结果（验证码过期是正常现象）")
-
     with gr.Row(visible=False) as test_gt_row:
         test_gt_html_start_btn = gr.Button("点击打开抢票验证码（请勿多点！！）")
-        test_gt_ai_start_btn = gr.Button("点击AI自动过验证码（测试功能不保证正确性）")
         test_gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
         gr.HTML(
             value="""
@@ -44,14 +66,15 @@ def train_tab():
     test_challenge_ui = gr.Textbox(label="challenge", visible=True)
     geetest_result = gr.JSON(label="validate")
 
-    def test_get_challenge():
+    def test_get_challenge(api_key):
         global \
             test_challenge, \
             test_gt, \
             test_token, \
             test_csrf, \
             test_geetest_validate, \
-            test_geetest_seccode
+            test_geetest_seccode, \
+            select_way
         test_res = _request.get(
             "https://passport.bilibili.com/x/passport-login/captcha?source=main_web"
         ).json()
@@ -61,36 +84,19 @@ def train_tab():
         test_csrf = _request.cookieManager.get_cookies_value("bili_jct")
         test_geetest_validate = ""
         test_geetest_seccode = ""
-        return [
-            gr.update(value=test_gt),  # test_gt_ui
-            gr.update(value=test_challenge),  # test_challenge_ui
-            gr.update(visible=True),  # test_gt_row
-            gr.update(value="重新生成"),  # test_get_challenge_btn
-        ]
+        if select_way == 0:
+            return [
+                gr.update(value=test_gt),  # test_gt_ui
+                gr.update(value=test_challenge),  # test_challenge_ui
+                gr.update(visible=True),  # test_gt_row
+                gr.update(value="重新生成"),  # test_get_challenge_btn
+                gr.update()
+            ]
+        else:
+            validator = ways_detail[select_way]
+            test_geetest_validate = validator.validate(appkey=api_key, gt=test_gt, challenge=test_challenge)
+            test_geetest_seccode = test_geetest_validate + "|jordan"
 
-    test_get_challenge_btn.click(
-        fn=test_get_challenge,
-        inputs=None,
-        outputs=[test_gt_ui, test_challenge_ui, test_gt_row, test_get_challenge_btn],
-    )
-
-    def gt_auto_complete(gt, challenge):
-        global test_geetest_validate, test_geetest_seccode
-        api = Click()
-        rt = "1234567890123456"
-        click3 = Click3(DdddOcr(show_ad=False, beta=True))
-        (c, s) = api.get_c_s(challenge, gt, None)
-        api.get_type(challenge, gt, None)
-        (c, s, pic) = api.get_new_c_s_pic(challenge, gt)
-        position = click3.calculated_position(pic)
-        cmd3 = f"node -e \"require('./geetest/click.js').send('{gt}','{challenge}',{c},'{s}','{rt}','{position}')\""
-        w = subprocess.run(cmd3, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
-        time.sleep(2)
-        res = api.ajax(challenge, gt, w)
-        logger.info(res)
-        if res['data']['result'] == 'success':
-            test_geetest_validate = res['data']['validate']
-            test_geetest_seccode = res['data']['validate'] + "|jordan"
             _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
             _payload = {
                 "challenge": test_challenge,
@@ -100,14 +106,18 @@ def train_tab():
                 "validate": test_geetest_validate,
             }
             test_data = _request.post(_url, urlencode(_payload))
-            yield gr.update(value=test_data.json())
-        else:
-            yield gr.update(value=res)
+            return [
+                gr.update(value=test_gt),  # test_gt_ui
+                gr.update(value=test_challenge),  # test_challenge_ui
+                gr.update(visible=False),  # test_gt_row
+                gr.update(value="重新生成"),  # test_get_challenge_btn
+                gr.update(value=test_data.json())
+            ]
 
-    test_gt_ai_start_btn.click(
-        fn=gt_auto_complete,
-        inputs=[test_gt_ui, test_challenge_ui],
-        outputs=[test_log],
+    test_get_challenge_btn.click(
+        fn=test_get_challenge,
+        inputs=[api_key_input_ui],
+        outputs=[test_gt_ui, test_challenge_ui, test_gt_row, test_get_challenge_btn, test_log],
     )
     test_gt_html_start_btn.click(
         fn=None,

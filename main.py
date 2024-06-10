@@ -40,4 +40,4 @@ if __name__ == "__main__":
 
     # 运行应用
     print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
-    demo.launch()
+    demo.launch(share=True)
