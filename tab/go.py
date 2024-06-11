@@ -10,15 +10,16 @@ from loguru import logger
 
 from common import format_dictionary_to_string
 from config import cookies_config_path, global_cookieManager
-from geetest.Validator import RROCRValidator
+from geetest.CapSolverValidator import CapSolverValidator
+from geetest.RROCRValidator import RROCRValidator
 from util.bili_request import BiliRequest
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
 
 isRunning = False
 
-ways = ["手动", "使用接码网站 rrocr"]
-ways_detail = [None, RROCRValidator()]
+ways = ["手动", "使用接码网站 rrocr", "使用 CapSolver"]
+ways_detail = [None, RROCRValidator(), CapSolverValidator()]
 
 
 def go_tab():

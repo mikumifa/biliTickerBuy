@@ -26,7 +26,8 @@ def train_tab():
 | ------------------ | ------------------------------------------------------------ |
 | 手动               | 自己过，速度取决于自己，过程看项目的readme.md的GIF           |
 | 使用接码网站 rrocr | rrocr 提供的 http://www.rrocr.com<br /> 能过验证码，但是抢票没有测试，慎用 <br /> 需要购买对应的key，速度比手动快，价格 一次大概一分钱<br /> |
-| .....              | 欢迎补充                                                     |
+| 使用接码网站 CapSolve | CapSolver的过码方式<br />https://www.capsolver.com/zh <br />https://docs.capsolver.com/guide/captcha/Geetest.html|
+| .....              | 欢迎Discussion补充                                                     |
     
     """)
 
@@ -40,11 +41,11 @@ def train_tab():
         global select_way
         select_way = way
         # loguru.logger.info(way)
-        if way == 1:
+        if way == 0:
             # rrocr
-            return gr.update(visible=True)
-        else:
             return gr.update(visible=False)
+        else:
+            return gr.update(visible=True)
 
     way_select_ui.change(choose_option, inputs=way_select_ui, outputs=api_key_input_ui)
 
