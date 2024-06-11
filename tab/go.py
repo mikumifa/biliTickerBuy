@@ -58,11 +58,11 @@ def go_tab():
             global select_way
             select_way = way
             # loguru.logger.info(way)
-            if way == 1:
+            if way == 0:
                 # rrocr
-                return gr.update(visible=True)
-            else:
                 return gr.update(visible=False)
+            else:
+                return gr.update(visible=True)
 
         way_select_ui.change(choose_option, inputs=way_select_ui, outputs=api_key_input_ui)
         with gr.Row():
