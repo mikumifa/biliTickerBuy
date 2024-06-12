@@ -41,9 +41,10 @@ class CapSolverValidator(Validator):
             resp = res.json()
             status = resp.get("status")
             if status == "ready":
-                loguru.logger.info(resp.get("solution"))
+                loguru.logger.info(resp)
                 return resp.get("solution")['validate']
             if status == "failed" or resp.get("errorId"):
+                loguru.logger.info(resp)
                 raise ValueError("Solve failed! response: " + res.text)
             if status == "processing":
                 continue

@@ -160,6 +160,16 @@ def go_tab():
                         gr.update(value="hello"),
                     ]
                     try:
+                        if select_way != 2:
+                            yield [
+                                gr.update(value=withTimeString("进行验证码验证"), visible=True),
+                                gr.update(visible=True),
+                                gr.update(),
+                                gr.update(visible=True),
+                                gr.update(value=gt),
+                                gr.update(value=challenge),
+                                gr.update(value="hello"),
+                            ]
                         if select_way != 0:
                             # https://passport.bilibili.com/x/passport-login/captcha?source=main_web
                             def run_validation():
