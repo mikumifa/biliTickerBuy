@@ -19,7 +19,7 @@ from util.order_qrcode import get_qrcode_url
 
 isRunning = False
 
-ways = ["手动", "使用接码网站 rrocr", "使用 CapSolver"]
+ways = ["手动", "使用 rrocr", "使用 CapSolver"]
 ways_detail = [None, RROCRValidator(), CapSolverValidator()]
 
 
