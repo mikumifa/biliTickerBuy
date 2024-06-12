@@ -61,6 +61,13 @@ Running on local URL:  http://127.0.0.1:xxx
 	<tbody>
 		<tr>
             <td align="center">
+                <a href="https://github.com/WittF">
+                    <img src="https://avatars.githubusercontent.com/u/108567138?v=4" width="100;" alt="WittF"/>
+                    <br />
+                    <sub><b>W1ttF</b></sub>
+                </a>
+            </td>
+            <td align="center">
                 <a href="https://github.com/mikumifa">
                     <img src="https://avatars.githubusercontent.com/u/99951454?v=4" width="100;" alt="mikumifa"/>
                     <br />
@@ -95,20 +102,13 @@ Running on local URL:  http://127.0.0.1:xxx
                     <sub><b>Chisato73</b></sub>
                 </a>
             </td>
+		</tr>
+		<tr>
             <td align="center">
                 <a href="https://github.com/shirok1">
                     <img src="https://avatars.githubusercontent.com/u/12044683?v=4" width="100;" alt="shirok1"/>
                     <br />
                     <sub><b>Shiroki Satsuki</b></sub>
-                </a>
-            </td>
-		</tr>
-		<tr>
-            <td align="center">
-                <a href="https://github.com/WittF">
-                    <img src="https://avatars.githubusercontent.com/u/108567138?v=4" width="100;" alt="WittF"/>
-                    <br />
-                    <sub><b>W1ttF</b></sub>
                 </a>
             </td>
             <td align="center">
