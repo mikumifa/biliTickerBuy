@@ -1,4 +1,5 @@
 import json
+import threading
 import time
 from datetime import datetime
 from json import JSONDecodeError
@@ -48,7 +49,7 @@ def go_tab():
         # 验证码选择
 
         way_select_ui = gr.Radio(ways, label="过验证码的方式", info="详细说明请前往 `训练你的验证码速度`那一栏",
-                                 type="index")
+                                 type="index", value="手动")
         api_key_input_ui = gr.Textbox(label="填写你的api_key",
                                       value=global_cookieManager.get_config_value("appkey", ""),
                                       visible=False)
@@ -117,6 +118,7 @@ def go_tab():
                             gr.update(),
                             gr.update(),
                             gr.update(),
+                            gr.update(),
                         ]
                         time.sleep(time_difference)  # 等待到指定的开始时间
                 tickets_info = json.loads(tickets_info_str)
@@ -148,24 +150,30 @@ def go_tab():
                     gt = _data["data"]["geetest"]["gt"]
                     challenge = _data["data"]["geetest"]["challenge"]
                     token = _data["data"]["token"]
+                    yield [
+                        gr.update(value=withTimeString("进行验证码验证"), visible=True),
+                        gr.update(visible=True),
+                        gr.update(),
+                        gr.update(visible=True),
+                        gr.update(value=gt),
+                        gr.update(value=challenge),
+                        gr.update(value="hello"),
+                    ]
+                    try:
+                        if select_way != 0:
+                            # https://passport.bilibili.com/x/passport-login/captcha?source=main_web
+                            def run_validation():
+                                global geetest_validate, geetest_seccode
+                                logger.info(f"{ways[select_way]}")
+                                validator = ways_detail[select_way]
+                                geetest_validate = validator.validate(appkey=api_key, gt=gt, challenge=challenge)
+                                geetest_seccode = geetest_validate + "|jordan"
 
-                    if select_way == 0:
-                        # https://passport.bilibili.com/x/passport-login/captcha?source=main_web
-                        yield [
-                            gr.update(value=withTimeString("进行验证码验证"), visible=True),
-                            gr.update(visible=True),
-                            gr.update(),
-                            gr.update(visible=True),
-                            gr.update(value=gt),
-                            gr.update(value=challenge),
-                        ]
-                        while geetest_validate == "" or geetest_seccode == "":
-                            continue
-                    else:
-                        logger.info(f"{ways[select_way]}")
-                        validator = ways_detail[select_way]
-                        geetest_validate = validator.validate(appkey=api_key, gt=gt, challenge=challenge)
-                        geetest_seccode = geetest_validate + "|jordan"
+                            threading.Thread(target=run_validation).start()
+                    except NameError as err:
+                        pass
+                    while geetest_validate == "" or geetest_seccode == "":
+                        continue
                     logger.info(
                         f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
                     )
@@ -189,6 +197,7 @@ def go_tab():
                         yield [
                             gr.update(value=withTimeString("极验 GeeTest 验证失败。重新验证"), visible=True),
                             gr.update(visible=True),
+                            gr.update(),
                             gr.update(),
                             gr.update(),
                             gr.update(),
@@ -229,6 +238,7 @@ def go_tab():
                     gr.update(),
                     gr.update(),
                     gr.update(),
+                    gr.update(),
                 ]
                 if errno == 0:
                     qrcode_url = get_qrcode_url(
@@ -243,6 +253,7 @@ def go_tab():
                         gr.update(value=withTimeString("生成付款二维码"), visible=True),
                         gr.update(visible=False),
                         gr.update(value=qr_gen_image.get_image(), visible=True),
+                        gr.update(),
                         gr.update(),
                         gr.update(),
                         gr.update(),
@@ -261,12 +272,14 @@ def go_tab():
                     gr.update(),
                     gr.update(),
                     gr.update(),
+                    gr.update(),
                 ]
             except Exception as e:
                 logger.exception(e)
                 yield [
                     gr.update(value=withTimeString("有错误，具体查看控制台日志"), visible=True),
                     gr.update(visible=True),
+                    gr.update(),
                     gr.update(),
                     gr.update(),
                     gr.update(),
@@ -278,6 +291,7 @@ def go_tab():
         yield [
             gr.update(value="抢票结束", visible=True),
             gr.update(visible=False),
+            gr.update(),
             gr.update(),
             gr.update(),
             gr.update(),
@@ -308,7 +322,7 @@ def go_tab():
         qr_image = gr.Image(label="使用微信或者支付宝扫码支付", visible=False, elem_classes="pay_qrcode")
 
     with gr.Row(visible=False) as gt_row:
-        gt_html_btn = gr.Button("点击打开抢票验证码（请勿多点！！）")
+        trigger = gr.Textbox(visible=False)
         gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
         gr.HTML(
             value="""
@@ -323,7 +337,7 @@ def go_tab():
     time_tmp = gr.Textbox(visible=False)
     gt_ui = gr.Textbox(visible=False)
     challenge_ui = gr.Textbox(visible=False)
-    gt_html_btn.click(
+    trigger.change(
         fn=None,
         inputs=[gt_ui, challenge_ui],
         outputs=None,
@@ -376,7 +390,7 @@ def go_tab():
     go_btn.click(
         fn=start_go,
         inputs=[ticket_ui, time_tmp, interval_ui, mode_ui, total_attempts_ui, api_key_input_ui],
-        outputs=[go_ui, stop_btn, qr_image, gt_row, gt_ui, challenge_ui],
+        outputs=[go_ui, stop_btn, qr_image, gt_row, gt_ui, challenge_ui, trigger],
     )
     stop_btn.click(
         fn=stop,
