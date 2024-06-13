@@ -151,6 +151,7 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
         ticket_cur = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
         people_buyer_cur = buyer_value[people_buyer_index]
+        ticket_id = extract_id_from_url(ticket_id)
         if str(ticket_id) != str(ticket_cur["project_id"]):
             return [gr.update(value="当前票信息已更改，请点击“获取票信息”按钮重新获取", visible=True),
                     gr.update(value={})]
