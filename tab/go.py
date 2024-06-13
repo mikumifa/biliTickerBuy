@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
-
+import uuid
 import gradio as gr
 import qrcode
 from loguru import logger
@@ -150,15 +150,6 @@ def go_tab():
                     gt = _data["data"]["geetest"]["gt"]
                     challenge = _data["data"]["geetest"]["challenge"]
                     token = _data["data"]["token"]
-                    yield [
-                        gr.update(value=withTimeString("进行验证码验证"), visible=True),
-                        gr.update(visible=True),
-                        gr.update(),
-                        gr.update(visible=True),
-                        gr.update(value=gt),
-                        gr.update(value=challenge),
-                        gr.update(value="hello"),
-                    ]
                     try:
                         if select_way != 2:
                             yield [
@@ -168,7 +159,7 @@ def go_tab():
                                 gr.update(visible=True),
                                 gr.update(value=gt),
                                 gr.update(value=challenge),
-                                gr.update(value="hello"),
+                                gr.update(value=uuid.uuid1()),
                             ]
                         if select_way != 0:
                             # https://passport.bilibili.com/x/passport-login/captcha?source=main_web
@@ -181,7 +172,15 @@ def go_tab():
 
                             threading.Thread(target=run_validation).start()
                     except NameError as err:
-                        pass
+                        yield [
+                            gr.update(value=withTimeString("进行验证码验证"), visible=True),
+                            gr.update(visible=True),
+                            gr.update(),
+                            gr.update(visible=True),
+                            gr.update(value=gt),
+                            gr.update(value=challenge),
+                            gr.update(value=uuid.uuid1()),
+                        ]
                     while geetest_validate == "" or geetest_seccode == "":
                         continue
                     logger.info(
