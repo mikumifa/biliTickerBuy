@@ -5,6 +5,7 @@ from loguru import logger
 
 from config import cookies_config_path
 from util.bili_request import BiliRequest
+from urllib.parse import urlparse, parse_qs
 
 buyer_value = []
 addr_value = []
@@ -20,7 +21,23 @@ def on_submit_ticket_id(num):
         buyer_value = []
         addr_value = []
         ticket_value = []
-        num = int(num)
+        extracted_id_message = ""
+        if "http" in num or "https" in num:
+            num = extract_id_from_url(num)
+            extracted_id_message = f"已提取URL票ID：{num}"
+        else:
+            try:
+                num = int(num)
+                extracted_id_message = f"票ID：{num}"
+            except ValueError:
+                return [
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(visible=True),
+                    gr.update(value='输入无效，请输入一个有效的票ID。', visible=True),
+                ]
         bili_request = BiliRequest(cookies_config_path=cookies_config_path)
         res = bili_request.get(
             url=f"https://show.bilibili.com/api/ticket/project/getV2?version=134&id={num}&project_id={num}"
@@ -28,6 +45,26 @@ def on_submit_ticket_id(num):
         ret = res.json()
         logger.debug(ret)
 
+        # 检查 errno
+        if ret.get('errno') == 100001:
+            return [
+                gr.update(),
+                gr.update(),
+                gr.update(),
+                gr.update(),
+                gr.update(visible=True),
+                gr.update(value='输入无效，请输入一个有效的票ID。', visible=True),
+            ]
+        elif ret.get('errno') != 0:
+            return [
+                gr.update(),
+                gr.update(),
+                gr.update(),
+                gr.update(),
+                gr.update(visible=True),
+                gr.update(value=ret.get('msg', '未知错误') + '。', visible=True),
+            ]
+        
         data = ret["data"]
         ticket_str_list = []
 
@@ -84,7 +121,7 @@ def on_submit_ticket_id(num):
             gr.update(choices=addr_str_list),
             gr.update(visible=True),
             gr.update(
-                value=f"获取票信息成功:\n展会名称：{project_name}\n"
+                value=f"{extracted_id_message}\n获取票信息成功:\n展会名称：{project_name}\n"
                       f"开展时间：{project_start_time} - {project_end_time}\n场馆地址：{venue_name} {venue_address}",
                 visible=True,
             ),
@@ -98,6 +135,11 @@ def on_submit_ticket_id(num):
             gr.update(),
             gr.update(value=e, visible=True),
         ]
+
+def extract_id_from_url(url):
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+    return query_params.get('id', [None])[0]
 
 
 def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, address_index):
