@@ -195,7 +195,7 @@ def setting_tab():
     )
     with gr.Column():
         ticket_id_ui = gr.Textbox(
-            label="想要抢票的脚本",
+            label="想要抢票的网址",
             interactive=True,
             info="例如：https://show.bilibili.com/platform/detail.html?id=84096",
         )
