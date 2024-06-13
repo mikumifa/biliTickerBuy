@@ -6,7 +6,7 @@ import gradio as gr
 from config import cookies_config_path
 from tab.go import ways_detail, ways
 from util.bili_request import BiliRequest
-
+import uuid
 
 def train_tab():
     gr.Markdown("""
@@ -99,7 +99,7 @@ def train_tab():
                     gr.update(visible=True),  # test_gt_row
                     gr.update(value="重新生成"),  # test_get_challenge_btn
                     gr.update(),
-                    gr.update(value="hello")
+                    gr.update(value=uuid.uuid1())
                 ]
             if select_way != 0:
                 def run_validation():
@@ -110,7 +110,14 @@ def train_tab():
 
                 threading.Thread(target=run_validation).start()
         except NameError as err:
-            pass
+            yield [
+                gr.update(value=test_gt),  # test_gt_ui
+                gr.update(value=test_challenge),  # test_challenge_ui
+                gr.update(visible=True),  # test_gt_row
+                gr.update(value="重新生成"),  # test_get_challenge_btn
+                gr.update(),
+                gr.update(value=uuid.uuid1())
+            ]
         while test_geetest_validate == "" or test_geetest_seccode == "":
             continue
         _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
