@@ -1,11 +1,11 @@
 from datetime import datetime
+from urllib.parse import urlparse, parse_qs
 
 import gradio as gr
 from loguru import logger
 
 from config import cookies_config_path
 from util.bili_request import BiliRequest
-from urllib.parse import urlparse, parse_qs
 
 buyer_value = []
 addr_value = []
@@ -64,7 +64,7 @@ def on_submit_ticket_id(num):
                 gr.update(visible=True),
                 gr.update(value=ret.get('msg', '未知错误') + '。', visible=True),
             ]
-        
+
         data = ret["data"]
         ticket_str_list = []
 
@@ -136,6 +136,7 @@ def on_submit_ticket_id(num):
             gr.update(value=e, visible=True),
         ]
 
+
 def extract_id_from_url(url):
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
@@ -155,6 +156,8 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
         if str(ticket_id) != str(ticket_cur["project_id"]):
             return [gr.update(value="当前票信息已更改，请点击“获取票信息”按钮重新获取", visible=True),
                     gr.update(value={})]
+        if len(people_indices) == 0:
+            raise ValueError("至少选一个实名人")
         address_cur = addr_value[address_index]
         config_dir = {
             "count": len(people_indices),
@@ -206,7 +209,7 @@ def setting_tab():
                     label="身份证实名认证",
                     interactive=True,
                     type="index",
-                    info="必填，在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
+                    info="必填，选几个就代表买几个人的票，在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
                 )
                 ticket_info_ui = gr.Dropdown(
                     label="选票",
