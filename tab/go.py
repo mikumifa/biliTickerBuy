@@ -20,13 +20,13 @@ from util.bili_request import BiliRequest
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
 
-isRunning = False
-
 ways = ["手动", "使用 rrocr", "使用 CapSolver", "本地验证码（Amorter提供）"]
 ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator(), AmorterValidator()]
 
 
 def go_tab():
+    isRunning = False
+
     gr.Markdown("""
 > **分享一下经验**
 > - 抢票前，不要去提前抢还没有发售的票，会被b站封掉一段时间导致错过抢票的
@@ -59,11 +59,9 @@ def go_tab():
         select_way = 0
 
         def choose_option(way):
-            global select_way
+            nonlocal select_way
             select_way = way
-            # loguru.logger.info(way)
-            validator = ways_detail[select_way]
-            if  validator.need_api_key():
+            if ways_detail[select_way].need_api_key():
                 return gr.update(visible=True)
             else:
                 return gr.update(visible=False)
@@ -100,9 +98,7 @@ def go_tab():
     validate_con = threading.Condition()
 
     def start_go(tickets_info_str, time_start, interval, mode, total_attempts, api_key):
-        global isRunning, geetest_validate, geetest_seccode
-        global gt
-        global challenge
+        nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning
         isRunning = True
         left_time = total_attempts
 
@@ -145,6 +141,7 @@ def go_tab():
                 logger.info(f"prepare: {request_result}")
                 code = int(request_result["code"])
                 if code == -401:
+                    # if True:
                     _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
                     _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
                     _data = _request.post(_url, _payload).json()
@@ -154,9 +151,20 @@ def go_tab():
                     gt = _data["data"]["geetest"]["gt"]
                     challenge = _data["data"]["geetest"]["challenge"]
                     token = _data["data"]["token"]
-                    validator = ways_detail[select_way]
+                    # Fake test  START --------------------------------
+                    # test_res = _request.get(
+                    #     "https://passport.bilibili.com/x/passport-login/captcha?source=main_web"
+                    # ).json()
+                    # challenge = test_res["data"]["geetest"]["challenge"]
+                    # gt = test_res["data"]["geetest"]["gt"]
+                    # token = "123456"
+                    # Fake test  END --------------------------------
+
+                    geetest_validate = ""
+                    geetest_seccode = ""
                     try:
-                        if validator.have_gt_ui():
+                        if ways_detail[select_way].have_gt_ui():
+                            logger.info(f"Using {ways_detail[select_way]}, have gt ui")
                             yield [
                                 gr.update(value=withTimeString("进行验证码验证"), visible=True),
                                 gr.update(visible=True),
@@ -168,9 +176,9 @@ def go_tab():
                             ]
 
                         def run_validation():
-                            global geetest_validate, geetest_seccode
+                            nonlocal geetest_validate, geetest_seccode
                             try:
-                                tmp = validator.validate(appkey=api_key, gt=gt, challenge=challenge)
+                                tmp = ways_detail[select_way].validate(appkey=api_key, gt=gt, challenge=challenge)
                             except Exception as e:
                                 return
                             validate_con.acquire()
@@ -197,6 +205,7 @@ def go_tab():
                     logger.info(
                         f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
                     )
+                    break
                     _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
                     csrf = _request.cookieManager.get_cookies_value("bili_jct")
                     _payload = {
@@ -378,7 +387,7 @@ def go_tab():
     )
 
     def receive_geetest_result(res):
-        global geetest_validate, geetest_seccode
+        nonlocal geetest_validate, geetest_seccode
         if "geetest_validate" in res and "geetest_seccode" in res:
             validate_con.acquire()
             geetest_validate = res["geetest_validate"]
