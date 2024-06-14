@@ -10,11 +10,17 @@ from util.bili_request import BiliRequest
 
 
 class CapSolverValidator(Validator):
+    def need_api_key(self) -> bool:
+        return True
+
+    def have_gt_ui(self) -> bool:
+        return False
+
     def __init__(self):
         self.cookieManager = global_cookieManager
         pass
 
-    @retry()
+    @retry(tries=10)
     def validate(self, appkey, gt, challenge, referer="http://127.0.0.1:7860/") -> str:
         if appkey is None or appkey == "":
             appkey = self.cookieManager.get_config_value("appkey", "")
@@ -32,6 +38,7 @@ class CapSolverValidator(Validator):
         resp = res.json()
         task_id = resp.get("taskId")
         if not task_id:
+            loguru.logger.info(resp)
             raise ValueError("Failed to create task: " + res.text)
         loguru.logger.info(f"Got taskId: {task_id} / Getting result...")
         while True:

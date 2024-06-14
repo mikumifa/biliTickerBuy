@@ -7,10 +7,15 @@ from retry import retry
 from config import cookies_config_path, global_cookieManager
 from geetest.Validator import Validator
 from util.bili_request import BiliRequest
-from util.config_util import CookieManager
 
 
 class RROCRValidator(Validator):
+    def need_api_key(self) -> bool:
+        return True
+
+    def have_gt_ui(self) -> bool:
+        return True
+
     def __init__(self):
         self.url = "http://api.rrocr.com/api/recognize.html"
         self.headers = {
@@ -20,7 +25,7 @@ class RROCRValidator(Validator):
         }
         self.cookieManager = global_cookieManager
 
-    @retry()
+    @retry(tries=10)
     def validate(self, appkey, gt, challenge, referer="http://www.baidu.com", ip='', host='') -> str:
         if appkey is None or appkey == "":
             appkey = self.cookieManager.get_config_value("appkey", "")
@@ -35,6 +40,7 @@ class RROCRValidator(Validator):
             "host": host
         }
         data = parse.urlencode(data)
+        loguru.logger.info("start rrocr validate")
         response = requests.post(self.url, headers=self.headers, data=data)
 
         if response.status_code == 200:

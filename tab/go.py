@@ -14,6 +14,7 @@ from common import format_dictionary_to_string
 from config import cookies_config_path, global_cookieManager
 from geetest.AmorterValidator import AmorterValidator
 from geetest.CapSolverValidator import CapSolverValidator
+from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
 from util.bili_request import BiliRequest
 from util.error import ERRNO_DICT, withTimeString
@@ -22,7 +23,7 @@ from util.order_qrcode import get_qrcode_url
 isRunning = False
 
 ways = ["手动", "使用 rrocr", "使用 CapSolver", "本地验证码（Amorter提供）"]
-ways_detail = [None, RROCRValidator(), CapSolverValidator(), AmorterValidator()]
+ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator(), AmorterValidator()]
 
 
 def go_tab():
@@ -61,11 +62,11 @@ def go_tab():
             global select_way
             select_way = way
             # loguru.logger.info(way)
-            if way in [0, 3]:
-                # rrocr
-                return gr.update(visible=False)
-            else:
+            validator = ways_detail[select_way]
+            if  validator.need_api_key():
                 return gr.update(visible=True)
+            else:
+                return gr.update(visible=False)
 
         way_select_ui.change(choose_option, inputs=way_select_ui, outputs=api_key_input_ui)
         with gr.Row():
@@ -96,6 +97,7 @@ def go_tab():
                 info="设置抢票的总次数",
                 visible=False,
             )
+    validate_con = threading.Condition()
 
     def start_go(tickets_info_str, time_start, interval, mode, total_attempts, api_key):
         global isRunning, geetest_validate, geetest_seccode
@@ -152,8 +154,9 @@ def go_tab():
                     gt = _data["data"]["geetest"]["gt"]
                     challenge = _data["data"]["geetest"]["challenge"]
                     token = _data["data"]["token"]
+                    validator = ways_detail[select_way]
                     try:
-                        if select_way in [0, 1, 3]:
+                        if validator.have_gt_ui():
                             yield [
                                 gr.update(value=withTimeString("进行验证码验证"), visible=True),
                                 gr.update(visible=True),
@@ -163,16 +166,20 @@ def go_tab():
                                 gr.update(value=challenge),
                                 gr.update(value=uuid.uuid1()),
                             ]
-                        if select_way in [1, 2, 3]:
-                            # https://passport.bilibili.com/x/passport-login/captcha?source=main_web
-                            def run_validation():
-                                global geetest_validate, geetest_seccode
-                                logger.info(f"{ways[select_way]}")
-                                validator = ways_detail[select_way]
-                                geetest_validate = validator.validate(appkey=api_key, gt=gt, challenge=challenge)
-                                geetest_seccode = geetest_validate + "|jordan"
 
-                            threading.Thread(target=run_validation).start()
+                        def run_validation():
+                            global geetest_validate, geetest_seccode
+                            try:
+                                tmp = validator.validate(appkey=api_key, gt=gt, challenge=challenge)
+                            except Exception as e:
+                                return
+                            validate_con.acquire()
+                            geetest_validate = tmp
+                            geetest_seccode = geetest_validate + "|jordan"
+                            validate_con.notify()
+                            validate_con.release()
+
+                        threading.Thread(target=run_validation).start()
                     except NameError as err:
                         yield [
                             gr.update(value=withTimeString("进行验证码验证"), visible=True),
@@ -183,8 +190,10 @@ def go_tab():
                             gr.update(value=challenge),
                             gr.update(value=uuid.uuid1()),
                         ]
+                    validate_con.acquire()
                     while geetest_validate == "" or geetest_seccode == "":
-                        continue
+                        validate_con.wait()
+                    validate_con.release()
                     logger.info(
                         f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
                     )
@@ -370,8 +379,12 @@ def go_tab():
 
     def receive_geetest_result(res):
         global geetest_validate, geetest_seccode
-        geetest_validate = res["geetest_validate"]
-        geetest_seccode = res["geetest_seccode"]
+        if "geetest_validate" in res and "geetest_seccode" in res:
+            validate_con.acquire()
+            geetest_validate = res["geetest_validate"]
+            geetest_seccode = res["geetest_seccode"]
+            validate_con.notify()
+            validate_con.release()
 
     gt_html_finish_btn.click(
         fn=None,
