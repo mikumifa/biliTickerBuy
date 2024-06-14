@@ -1,4 +1,5 @@
 import threading
+import uuid
 from urllib.parse import urlencode
 
 import gradio as gr
@@ -6,7 +7,7 @@ import gradio as gr
 from config import cookies_config_path
 from tab.go import ways_detail, ways
 from util.bili_request import BiliRequest
-import uuid
+
 
 def train_tab():
     gr.Markdown("""
@@ -44,7 +45,7 @@ def train_tab():
         global select_way
         select_way = way
         # loguru.logger.info(way)
-        if way == 0:
+        if way in [0, 3]:
             # rrocr
             return gr.update(visible=False)
         else:
@@ -92,7 +93,7 @@ def train_tab():
 
         try:
             # Capture 不支持同时
-            if select_way != 2:
+            if select_way in [0, 1, 3]:
                 yield [
                     gr.update(value=test_gt),  # test_gt_ui
                     gr.update(value=test_challenge),  # test_challenge_ui
@@ -101,7 +102,7 @@ def train_tab():
                     gr.update(),
                     gr.update(value=uuid.uuid1())
                 ]
-            if select_way != 0:
+            if select_way in [1, 2, 3]:
                 def run_validation():
                     global test_geetest_validate, test_geetest_seccode
                     validator = ways_detail[select_way]

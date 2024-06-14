@@ -1,16 +1,18 @@
 import json
 import threading
 import time
+import uuid
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
-import uuid
+
 import gradio as gr
 import qrcode
 from loguru import logger
 
 from common import format_dictionary_to_string
 from config import cookies_config_path, global_cookieManager
+from geetest.AmorterValidator import AmorterValidator
 from geetest.CapSolverValidator import CapSolverValidator
 from geetest.RROCRValidator import RROCRValidator
 from util.bili_request import BiliRequest
@@ -19,8 +21,8 @@ from util.order_qrcode import get_qrcode_url
 
 isRunning = False
 
-ways = ["手动", "使用 rrocr", "使用 CapSolver"]
-ways_detail = [None, RROCRValidator(), CapSolverValidator()]
+ways = ["手动", "使用 rrocr", "使用 CapSolver", "本地验证码（Amorter提供）"]
+ways_detail = [None, RROCRValidator(), CapSolverValidator(), AmorterValidator()]
 
 
 def go_tab():
@@ -59,7 +61,7 @@ def go_tab():
             global select_way
             select_way = way
             # loguru.logger.info(way)
-            if way == 0:
+            if way in [0, 3]:
                 # rrocr
                 return gr.update(visible=False)
             else:
@@ -151,7 +153,7 @@ def go_tab():
                     challenge = _data["data"]["geetest"]["challenge"]
                     token = _data["data"]["token"]
                     try:
-                        if select_way != 2:
+                        if select_way in [0, 1, 3]:
                             yield [
                                 gr.update(value=withTimeString("进行验证码验证"), visible=True),
                                 gr.update(visible=True),
@@ -161,7 +163,7 @@ def go_tab():
                                 gr.update(value=challenge),
                                 gr.update(value=uuid.uuid1()),
                             ]
-                        if select_way != 0:
+                        if select_way in [1, 2, 3]:
                             # https://passport.bilibili.com/x/passport-login/captcha?source=main_web
                             def run_validation():
                                 global geetest_validate, geetest_seccode
