@@ -42,7 +42,7 @@ def train_tab():
     select_way = 0
 
     def choose_option(way):
-        global select_way
+        nonlocal select_way
         select_way = way
         # loguru.logger.info(way)
         validator = ways_detail[select_way]
@@ -73,9 +73,15 @@ def train_tab():
 
     geetest_result = gr.JSON(label="validate")
     validate_con = threading.Condition()
+    test_challenge = ""
+    test_gt = ""
+    test_token = ""
+    test_csrf = ""
+    test_geetest_validate = ""
+    test_geetest_seccode = ""
 
     def test_get_challenge(api_key):
-        global \
+        nonlocal \
             test_challenge, \
             test_gt, \
             test_token, \
@@ -107,7 +113,7 @@ def train_tab():
                 ]
 
             def run_validation():
-                global test_geetest_validate, test_geetest_seccode
+                nonlocal test_geetest_validate, test_geetest_seccode
                 try:
                     tmp = validator.validate(appkey=api_key, gt=test_gt, challenge=test_challenge)
                 except Exception as e:
@@ -184,7 +190,7 @@ def train_tab():
     )
 
     def receive_geetest_result(res):
-        global test_geetest_validate, test_geetest_seccode
+        nonlocal test_geetest_validate, test_geetest_seccode
         if "geetest_validate" in res and "geetest_seccode" in res:
             validate_con.acquire()
             test_geetest_validate = res["geetest_validate"]
