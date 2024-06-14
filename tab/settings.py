@@ -35,7 +35,7 @@ def on_submit_ticket_id(num):
                     gr.update(),
                     gr.update(),
                     gr.update(),
-                    gr.update(visible=True),
+                    gr.update(visible=False),
                     gr.update(value='输入无效，请输入一个有效的票ID。', visible=True),
                 ]
         bili_request = BiliRequest(cookies_config_path=cookies_config_path)

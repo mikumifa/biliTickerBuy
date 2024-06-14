@@ -45,11 +45,12 @@ def train_tab():
         global select_way
         select_way = way
         # loguru.logger.info(way)
-        if way in [0, 3]:
+        validator = ways_detail[select_way]
+        if validator.need_api_key():
             # rrocr
-            return gr.update(visible=False)
-        else:
             return gr.update(visible=True)
+        else:
+            return gr.update(visible=False)
 
     way_select_ui.change(choose_option, inputs=way_select_ui, outputs=api_key_input_ui)
 
@@ -71,6 +72,7 @@ def train_tab():
     trigger_ui = gr.Textbox(label="trigger", visible=False)
 
     geetest_result = gr.JSON(label="validate")
+    validate_con = threading.Condition()
 
     def test_get_challenge(api_key):
         global \
@@ -90,37 +92,47 @@ def train_tab():
         test_csrf = _request.cookieManager.get_cookies_value("bili_jct")
         test_geetest_validate = ""
         test_geetest_seccode = ""
+        validator = ways_detail[select_way]
 
         try:
             # Capture 不支持同时
-            if select_way in [0, 1, 3]:
+            if validator.have_gt_ui():
                 yield [
                     gr.update(value=test_gt),  # test_gt_ui
                     gr.update(value=test_challenge),  # test_challenge_ui
                     gr.update(visible=True),  # test_gt_row
                     gr.update(value="重新生成"),  # test_get_challenge_btn
-                    gr.update(),
+                    gr.update(value={}),
                     gr.update(value=uuid.uuid1())
                 ]
-            if select_way in [1, 2, 3]:
-                def run_validation():
-                    global test_geetest_validate, test_geetest_seccode
-                    validator = ways_detail[select_way]
-                    test_geetest_validate = validator.validate(appkey=api_key, gt=test_gt, challenge=test_challenge)
-                    test_geetest_seccode = test_geetest_validate + "|jordan"
 
-                threading.Thread(target=run_validation).start()
+            def run_validation():
+                global test_geetest_validate, test_geetest_seccode
+                try:
+                    tmp = validator.validate(appkey=api_key, gt=test_gt, challenge=test_challenge)
+                except Exception as e:
+                    return
+                validate_con.acquire()
+                test_geetest_validate = tmp
+                test_geetest_seccode = test_geetest_validate + "|jordan"
+                validate_con.notify()
+                validate_con.release()
+
+            threading.Thread(target=run_validation).start()
         except NameError as err:
             yield [
                 gr.update(value=test_gt),  # test_gt_ui
                 gr.update(value=test_challenge),  # test_challenge_ui
                 gr.update(visible=True),  # test_gt_row
                 gr.update(value="重新生成"),  # test_get_challenge_btn
-                gr.update(),
+                gr.update(value={}),
                 gr.update(value=uuid.uuid1())
             ]
+        validate_con.acquire()
         while test_geetest_validate == "" or test_geetest_seccode == "":
-            continue
+            validate_con.wait()
+        validate_con.release()
+
         _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
         _payload = {
             "challenge": test_challenge,
@@ -173,7 +185,11 @@ def train_tab():
 
     def receive_geetest_result(res):
         global test_geetest_validate, test_geetest_seccode
-        test_geetest_validate = res["geetest_validate"]
-        test_geetest_seccode = res["geetest_seccode"]
+        if "geetest_validate" in res and "geetest_seccode" in res:
+            validate_con.acquire()
+            test_geetest_validate = res["geetest_validate"]
+            test_geetest_seccode = res["geetest_seccode"]
+            validate_con.notify()
+            validate_con.release()
 
     geetest_result.change(fn=receive_geetest_result, inputs=geetest_result)
