@@ -162,33 +162,8 @@ def go_tab():
 
                     geetest_validate = ""
                     geetest_seccode = ""
-                    try:
-                        if ways_detail[select_way].have_gt_ui():
-                            logger.info(f"Using {ways_detail[select_way]}, have gt ui")
-                            yield [
-                                gr.update(value=withTimeString("进行验证码验证"), visible=True),
-                                gr.update(visible=True),
-                                gr.update(),
-                                gr.update(visible=True),
-                                gr.update(value=gt),
-                                gr.update(value=challenge),
-                                gr.update(value=uuid.uuid1()),
-                            ]
-
-                        def run_validation():
-                            nonlocal geetest_validate, geetest_seccode
-                            try:
-                                tmp = ways_detail[select_way].validate(appkey=api_key, gt=gt, challenge=challenge)
-                            except Exception as e:
-                                return
-                            validate_con.acquire()
-                            geetest_validate = tmp
-                            geetest_seccode = geetest_validate + "|jordan"
-                            validate_con.notify()
-                            validate_con.release()
-
-                        threading.Thread(target=run_validation).start()
-                    except NameError as err:
+                    if ways_detail[select_way].have_gt_ui():
+                        logger.info(f"Using {ways_detail[select_way]}, have gt ui")
                         yield [
                             gr.update(value=withTimeString("进行验证码验证"), visible=True),
                             gr.update(visible=True),
@@ -198,14 +173,36 @@ def go_tab():
                             gr.update(value=challenge),
                             gr.update(value=uuid.uuid1()),
                         ]
+
+                    def run_validation():
+                        nonlocal geetest_validate, geetest_seccode
+                        try:
+                            tmp = ways_detail[select_way].validate(appkey=api_key, gt=gt, challenge=challenge)
+                        except Exception as e:
+                            return
+                        validate_con.acquire()
+                        geetest_validate = tmp
+                        geetest_seccode = geetest_validate + "|jordan"
+                        validate_con.notify()
+                        validate_con.release()
+
                     validate_con.acquire()
                     while geetest_validate == "" or geetest_seccode == "":
+                        threading.Thread(target=run_validation).start()
+                        yield [
+                            gr.update(value=withTimeString(f"等待验证码完成， 使用{ways[select_way]}"), visible=True),
+                            gr.update(visible=True),
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                        ]
                         validate_con.wait()
                     validate_con.release()
                     logger.info(
                         f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
                     )
-                    break
                     _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
                     csrf = _request.cookieManager.get_cookies_value("bili_jct")
                     _payload = {
