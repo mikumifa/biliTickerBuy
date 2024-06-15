@@ -27,6 +27,7 @@ class RROCRValidator(Validator):
 
     @retry(tries=10)
     def validate(self, appkey, gt, challenge, referer="http://www.baidu.com", ip='', host='') -> str:
+        loguru.logger.info("start rrocr validate")
         if appkey is None or appkey == "":
             appkey = self.cookieManager.get_config_value("appkey", "")
         else:
@@ -40,7 +41,6 @@ class RROCRValidator(Validator):
             "host": host
         }
         data = parse.urlencode(data)
-        loguru.logger.info("start rrocr validate")
         response = requests.post(self.url, headers=self.headers, data=data)
 
         if response.status_code == 200:
