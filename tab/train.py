@@ -101,32 +101,8 @@ def train_tab():
         test_geetest_seccode = ""
         validator = ways_detail[select_way]
 
-        try:
-            # Capture 不支持同时
-            if validator.have_gt_ui():
-                yield [
-                    gr.update(value=test_gt),  # test_gt_ui
-                    gr.update(value=test_challenge),  # test_challenge_ui
-                    gr.update(visible=True),  # test_gt_row
-                    gr.update(value="重新生成"),  # test_get_challenge_btn
-                    gr.update(value={}),
-                    gr.update(value=uuid.uuid1())
-                ]
-
-            def run_validation():
-                nonlocal test_geetest_validate, test_geetest_seccode
-                try:
-                    tmp = validator.validate(appkey=api_key, gt=test_gt, challenge=test_challenge)
-                except Exception as e:
-                    return
-                validate_con.acquire()
-                test_geetest_validate = tmp
-                test_geetest_seccode = test_geetest_validate + "|jordan"
-                validate_con.notify()
-                validate_con.release()
-
-            threading.Thread(target=run_validation).start()
-        except NameError as err:
+        # Capture 不支持同时
+        if validator.have_gt_ui():
             yield [
                 gr.update(value=test_gt),  # test_gt_ui
                 gr.update(value=test_challenge),  # test_challenge_ui
@@ -135,6 +111,21 @@ def train_tab():
                 gr.update(value={}),
                 gr.update(value=uuid.uuid1())
             ]
+
+        def run_validation():
+            nonlocal test_geetest_validate, test_geetest_seccode
+            try:
+                tmp = validator.validate(appkey=api_key, gt=test_gt, challenge=test_challenge)
+            except Exception as e:
+                return
+            validate_con.acquire()
+            test_geetest_validate = tmp
+            test_geetest_seccode = test_geetest_validate + "|jordan"
+            validate_con.notify()
+            validate_con.release()
+
+        threading.Thread(target=run_validation).start()
+
         validate_con.acquire()
         while test_geetest_validate == "" or test_geetest_seccode == "":
             validate_con.wait()
