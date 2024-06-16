@@ -40,7 +40,9 @@ def go_tab():
 """)
     with gr.Column():
         ticket_ui = gr.TextArea(
-            label="填入配置", info="再次填入配置信息", interactive=True
+            label="填入配置",
+            info="再次填入配置信息 （不同版本的配置文件可能存在差异，升级版本时候不要偷懒，老版本的配置文件在新版本上可能出问题",
+            interactive=True
         )
         gr.HTML(
             """<label for="datetime">选择抢票的时间</label><br> 
@@ -51,7 +53,7 @@ def go_tab():
 
         # 验证码选择
 
-        way_select_ui = gr.Radio(ways, label="过验证码的方式", info="详细说明请前往 `训练你的验证码速度`那一栏",
+        way_select_ui = gr.Radio(ways, label="过验证码的方式", info="详细说明请前往 `训练你的验证码速度` 那一栏",
                                  type="index", value="手动")
         api_key_input_ui = gr.Textbox(label="填写你的api_key",
                                       value=global_cookieManager.get_config_value("appkey", ""),
@@ -141,8 +143,7 @@ def go_tab():
                 )
                 request_result = request_result_normal.json()
                 logger.info(f"1）订单准备")
-                logger.info(f"prepare header: {request_result_normal.headers}")
-                logger.info(f"prepare: {request_result}")
+                logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
                 code = int(request_result["code"])
                 # 完成验证码
                 if code == -401:
@@ -241,6 +242,7 @@ def go_tab():
                     ).json()
                     logger.info(f"prepare: {request_result}")
                 tickets_info["token"] = request_result["data"]["token"]
+                # 金额通过手动计算，减少一次请求，提高速度
                 # logger.info(f"2）核实订单，填写支付金额信息")
                 # request_result = _request.get(
                 #     url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher"
@@ -257,6 +259,7 @@ def go_tab():
                 ).json()
                 errno = int(request_result["errno"])
                 left_time_str = "无限" if mode == 0 else left_time
+
                 logger.info(
                     f'状态码: {errno}({ERRNO_DICT.get(errno, "未知错误码")}), 请求体: {request_result} 剩余次数: {left_time_str}'
                 )

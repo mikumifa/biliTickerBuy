@@ -1,7 +1,8 @@
+import asyncio
 from urllib import parse
 
+import aiohttp
 import loguru
-import requests
 from retry import retry
 
 from config import cookies_config_path, global_cookieManager
@@ -25,13 +26,7 @@ class RROCRValidator(Validator):
         }
         self.cookieManager = global_cookieManager
 
-    @retry(tries=10)
-    def validate(self, appkey, gt, challenge, referer="http://www.baidu.com", ip='', host='') -> str:
-        loguru.logger.info("start rrocr validate")
-        if appkey is None or appkey == "":
-            appkey = self.cookieManager.get_config_value("appkey", "")
-        else:
-            self.cookieManager.set_config_value("appkey", appkey)
+    async def _async_validate(self, appkey, gt, challenge, referer, ip, host):
         data = {
             "appkey": appkey,
             "gt": gt,
@@ -41,17 +36,31 @@ class RROCRValidator(Validator):
             "host": host
         }
         data = parse.urlencode(data)
-        response = requests.post(self.url, headers=self.headers, data=data)
 
-        if response.status_code == 200:
-            result = response.json()
-            loguru.logger.info(result)
-            if result.get("status") == 0:
-                return result['data']['validate']
-            else:
-                raise ValueError(f"识别失败: {result.get('msg')}")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(self.url, headers=self.headers, data=data) as response:
+                async def inner():
+                    if response.status == 200:
+                        result = await response.json()
+                        loguru.logger.info(result)
+                        if result.get("status") == 0:
+                            return result['data']['validate']
+                        else:
+                            raise ValueError(f"识别失败: {result.get('msg')}")
+                    else:
+                        raise ConnectionError(f"Request failed with status code: {response.status}")
+
+                await inner()
+
+    @retry(tries=5)
+    def validate(self, appkey, gt, challenge, referer="http://www.baidu.com", ip='', host='') -> str:
+        if appkey is None or appkey == "":
+            appkey = self.cookieManager.get_config_value("appkey", "")
         else:
-            raise ConnectionError(f"Request failed with status code: {response.status_code}")
+            self.cookieManager.set_config_value("appkey", appkey)
+
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self._async_validate(appkey, gt, challenge, referer, ip, host))
 
 
 if __name__ == "__main__":
