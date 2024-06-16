@@ -418,14 +418,8 @@ def go_tab():
     )
 
     def stop():
-        global isRunning
+        nonlocal isRunning
         isRunning = False
-        return [
-            gr.update(value="抢票结束", visible=True),
-            gr.update(visible=False),
-            gr.update(),
-            gr.update(),
-        ]
 
     go_btn.click(
         fn=start_go,
@@ -435,5 +429,5 @@ def go_tab():
     stop_btn.click(
         fn=stop,
         inputs=None,
-        outputs=[go_ui, stop_btn, qr_image, gt_row],
+        outputs=None,
     )
