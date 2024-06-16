@@ -121,6 +121,8 @@ def go_tab():
                             gr.update(),
                         ]
                         time.sleep(time_difference)  # 等待到指定的开始时间
+
+                # 数据准备
                 tickets_info = json.loads(tickets_info_str)
                 _request = BiliRequest(cookies_config_path=cookies_config_path)
                 token_payload = {
@@ -132,14 +134,17 @@ def go_tab():
                     "token": "",
                     "newRisk": True,
                 }
+                # 订单准备
                 request_result_normal = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                     data=token_payload,
                 )
                 request_result = request_result_normal.json()
+                logger.info(f"1）订单准备")
                 logger.info(f"prepare header: {request_result_normal.headers}")
                 logger.info(f"prepare: {request_result}")
                 code = int(request_result["code"])
+                # 完成验证码
                 if code == -401:
                     # if True:
                     _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
@@ -236,12 +241,14 @@ def go_tab():
                     ).json()
                     logger.info(f"prepare: {request_result}")
                 tickets_info["token"] = request_result["data"]["token"]
-                request_result = _request.get(
-                    url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher"
-                        f"=&project_id={tickets_info['project_id']}"
-                ).json()
-                logger.info(f"confirmInfo: {request_result}")
-                tickets_info["pay_money"] = request_result["data"]["pay_money"]
+                # logger.info(f"2）核实订单，填写支付金额信息")
+                # request_result = _request.get(
+                #     url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher"
+                #         f"=&project_id={tickets_info['project_id']}"
+                # ).json()
+                # logger.info(f"confirmInfo: {request_result}")
+                # tickets_info["pay_money"] = request_result["data"]["pay_money"]
+                logger.info(f"2）创建订单")
                 tickets_info["timestamp"] = int(time.time()) * 100
                 payload = format_dictionary_to_string(tickets_info)
                 request_result = _request.post(
