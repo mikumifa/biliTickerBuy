@@ -88,7 +88,6 @@ def on_submit_ticket_id(num):
             for ticket in screen["ticket_list"]:
                 ticket_desc = ticket["desc"]
                 ticket_price = ticket["price"]
-
                 ticket["screen"] = screen_name
                 ticket["screen_id"] = screen_id
                 ticket_can_buy = "可购买" if ticket["clickable"] else "无法购买"
@@ -169,6 +168,7 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
             "project_id": ticket_cur["project_id"],
             "sku_id": ticket_cur["ticket"]["id"],
             "order_type": 1,
+            "pay_money": ticket_cur["ticket"]["price"] * len(people_indices),
             "buyer_info": people_cur,
             "buyer": people_buyer_cur["name"],
             "tel": people_buyer_cur["tel"],
