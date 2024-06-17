@@ -1,6 +1,5 @@
 import bili_ticket_gt_python
 import loguru
-import threading
 
 from config import cookies_config_path
 from geetest.Validator import Validator
@@ -33,23 +32,8 @@ class AmorterValidator(Validator):
 if __name__ == "__main__":
     # 使用示例
     appkey = "xxxxxxxxxxxxxxxxxxx"
-    _request = BiliRequest(cookies_config_path=cookies_config_path)
-    test_res = _request.get(
-        "https://passport.bilibili.com/x/passport-login/captcha?source=main_web"
-    ).json()
-    challenge = test_res["data"]["geetest"]["challenge"]
-    gt = test_res["data"]["geetest"]["gt"]
-
-    try:
-        def validate_task():
-            validator = AmorterValidator()
-            validate_string = validator.validate(appkey, gt, challenge)
-            print(f"Validation result: {validate_string}")
-
-        # 创建一个线程来运行验证函数
-        validation_thread = threading.Thread(target=validate_task)
-        # 启动线程
-        validation_thread.start()
-        validation_thread.join()
-    except Exception as e:
-        print(f"Error: {e}")
+    validator = AmorterValidator()
+    gt, challenge = validator.click.register_test(
+        "https://passport.bilibili.com/x/passport-login/captcha?source=main_web")
+    validate_string = validator.validate(appkey, gt, challenge)
+    print(f"Validation result: {validate_string}")
