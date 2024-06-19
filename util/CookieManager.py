@@ -8,11 +8,8 @@ from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
-from win10toast import ToastNotifier
 
 from util.KVDatabase import KVDatabase
-
-global_toaster = ToastNotifier()
 
 
 class CookieManager:
@@ -23,7 +20,6 @@ class CookieManager:
     def _login_and_save_cookies(
             self, login_url="https://show.bilibili.com/platform/home.html"
     ):
-        global_toaster.show_toast("BiliTickerBuy", "在浏览器内登录", duration=3)
         logger.info("启动浏览器中.....")
         try:
             self.driver = webdriver.Edge(service=EdgeService(EdgeChromiumDriverManager().install()))
@@ -89,5 +85,3 @@ class CookieManager:
     def get_cookies_str_force(self):
         self._login_and_save_cookies()
         return self.get_cookies_str()
-
-
