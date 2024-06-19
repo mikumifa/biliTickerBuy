@@ -1,9 +1,6 @@
-import bili_ticket_gt_python
 import loguru
-
-from config import cookies_config_path
 from geetest.Validator import Validator
-from util.bili_request import BiliRequest
+from dynimport import bili_ticket_gt_python
 
 
 class AmorterValidator(Validator):
