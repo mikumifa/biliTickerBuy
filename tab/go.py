@@ -22,8 +22,8 @@ from util.order_qrcode import get_qrcode_url
 ways = ["手动", "使用 rrocr", "使用 CapSolver"]
 ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator()]
 if bili_ticket_gt_python is not None:
-    AmorterValidator = importlib.import_module("geetest.AmorterValidator").AmorterValidator()
-    ways_detail.append(AmorterValidator)
+    tmp = importlib.import_module("geetest.AmorterValidator").AmorterValidator()
+    ways_detail.append(tmp)
     ways.append("本地过验证码（Amorter提供）")
 
 
