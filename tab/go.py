@@ -9,7 +9,7 @@ from urllib.parse import urlencode, quote
 
 import gradio as gr
 import qrcode
-from bili_ticket_gt_python import bili_ticket_gt_python
+from util.dynimport import bili_ticket_gt_python
 from gradio import SelectData
 from loguru import logger
 
