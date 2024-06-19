@@ -18,7 +18,7 @@ def get_application_path():
 
 
 def get_application_tmp_path():
-    os.makedirs('tmp', exist_ok=True)
+    os.makedirs(os.path.join(get_application_path(), "tmp"), exist_ok=True)
     return os.path.join(get_application_path(), "tmp")
 
 
