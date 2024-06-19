@@ -10,3 +10,5 @@ build
 *.pyc
 *.log
 *.json
+tmp/*
+tmp

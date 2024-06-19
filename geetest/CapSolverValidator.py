@@ -4,9 +4,8 @@ import loguru
 import requests
 from retry import retry
 
-from config import cookies_config_path, global_cookieManager
 from geetest.Validator import Validator
-from util.bili_request import BiliRequest
+from config import global_cookieManager, main_request
 
 
 class CapSolverValidator(Validator):
@@ -60,8 +59,7 @@ class CapSolverValidator(Validator):
 if __name__ == "__main__":
     # 使用示例
     appkey = "xxxxxxxxxxxxxxxxxxx"
-    _request = BiliRequest(cookies_config_path=cookies_config_path)
-    test_res = _request.get(
+    test_res = main_request.get(
         "https://passport.bilibili.com/x/passport-login/captcha?source=main_web"
     ).json()
     challenge = test_res["data"]["geetest"]["challenge"]

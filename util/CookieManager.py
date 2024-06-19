@@ -1,4 +1,3 @@
-import json
 import time
 
 from loguru import logger
@@ -9,17 +8,22 @@ from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
+from win10toast import ToastNotifier
+
+from util.KVDatabase import KVDatabase
+
+global_toaster = ToastNotifier()
 
 
 class CookieManager:
     def __init__(self, config_file_path):
-        self.config = {}
-        self.config_file_path = config_file_path
+        self.db = KVDatabase(config_file_path)
 
     @logger.catch
     def _login_and_save_cookies(
             self, login_url="https://show.bilibili.com/platform/home.html"
     ):
+        global_toaster.show_toast("BiliTickerBuy", "在浏览器内登录", duration=3)
         logger.info("启动浏览器中.....")
         try:
             self.driver = webdriver.Edge(service=EdgeService(EdgeChromiumDriverManager().install()))
@@ -45,32 +49,19 @@ class CookieManager:
             except Exception as _:
                 break
         time.sleep(1)
-        self.config["bilibili_cookies"] = self.driver.get_cookies()
-        self.dump_config()
+        self.db.insert("cookie", self.driver.get_cookies())
         self.driver.quit()
         logger.info("登录成功, 浏览器退出.")
-        return self.config["bilibili_cookies"]
-
-    def dump_config(self):
-        with open(self.config_file_path, "w") as f:
-            json.dump(self.config, f, indent=4)
-
-    def clear_config(self):
-        self.config = {}
-        with open(self.config_file_path, "w") as f:
-            json.dump(self.config, f, indent=4)
+        return self.db.get("cookie")
 
     def get_cookies(self):
-        try:
-            with open(self.config_file_path, "r") as f:
-                self.config = json.load(f)
-        except Exception:
-            return self._login_and_save_cookies()
-        if "bilibili_cookies" not in self.config:
+        if not self.db.contains("cookie"):
             return self._login_and_save_cookies()
         else:
-            cookies = self.config["bilibili_cookies"]
-            return cookies
+            return self.db.get("cookie")
+
+    def have_cookies(self):
+        return self.db.contains("cookie")
 
     def get_cookies_str(self):
         cookies = self.get_cookies()
@@ -86,31 +77,17 @@ class CookieManager:
                 return cookie["value"]
         return None
 
-    def get_cookies_str_force(self):
-        cookies = self._login_and_save_cookies()
-        cookies_str = ""
-        for cookie in cookies:
-            cookies_str += cookie["name"] + "=" + cookie["value"] + "; "
-        return cookies_str
-
     def get_config_value(self, name, default=None):
-        try:
-            with open(self.config_file_path, "r") as f:
-                self.config = json.load(f)
-            return self.config.get(name, default)
-        except Exception:
+        if self.db.contains(name):
+            return self.db.get(name)
+        else:
             return default
 
     def set_config_value(self, name, value):
-        try:
-            with open(self.config_file_path, "r") as f:
-                self.config = json.load(f)
-        except Exception:
-            self.config = {}
-        self.config[name] = value
-        self.dump_config()
+        self.db.insert(name, value)
+
+    def get_cookies_str_force(self):
+        self._login_and_save_cookies()
+        return self.get_cookies_str()
 
 
-if __name__ == "__main__":
-    cookie_manager = CookieManager("../config/cookies.json")
-    logger.info(str(cookie_manager.get_cookies_str()))
