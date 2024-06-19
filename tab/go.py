@@ -58,7 +58,7 @@ def go_tab():
 """)
     with gr.Column():
         with gr.Row(equal_height=True):
-            upload_ui = gr.Files(label="再次使用文件填入配置信息", file_count="multiple")
+            upload_ui = gr.Files(label="上传多个配置文件，点击不同的配置文件可快速切换", file_count="multiple")
             ticket_ui = gr.TextArea(
                 label="填入配置",
                 info="再次填入配置信息 （不同版本的配置文件可能存在差异，升级版本时候不要偷懒，老版本的配置文件在新版本上可能出问题",
@@ -147,13 +147,13 @@ def go_tab():
             try:
                 if time_start != "":
                     time_difference = (
-                            datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
+                            datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
                             - time.time()
                     )
                     if time_difference > 0:
                         logger.info("等待中")
                         yield [
-                            gr.update(value="等待中,如果想要停止等待，请重启程序", visible=True),
+                            gr.update(value="等待中，如果想要停止等待，请重启程序", visible=True),
                             gr.update(visible=False),
                             gr.update(),
                             gr.update(),
