@@ -10,6 +10,7 @@ from urllib.parse import urlencode, quote
 import gradio as gr
 import qrcode
 from bili_ticket_gt_python import bili_ticket_gt_python
+from gradio import SelectData
 from loguru import logger
 
 from config import global_cookieManager, main_request
@@ -57,7 +58,7 @@ def go_tab():
 """)
     with gr.Column():
         with gr.Row(equal_height=True):
-            upload_ui = gr.File(label="再次使用文件填入配置信息")
+            upload_ui = gr.Files(label="再次使用文件填入配置信息", file_count="multiple")
             ticket_ui = gr.TextArea(
                 label="填入配置",
                 info="再次填入配置信息 （不同版本的配置文件可能存在差异，升级版本时候不要偷懒，老版本的配置文件在新版本上可能出问题",
@@ -78,8 +79,17 @@ def go_tab():
             except Exception as e:
                 return str(e)
 
-        upload_ui.upload(fn=upload, inputs=upload_ui, outputs=ticket_ui)
+        def file_select_handler(select_data: SelectData, files):
+            file_label = files[select_data.index]
+            try:
+                with open(file_label, 'r', encoding="utf-8") as file:
+                    content = file.read()
+                return content
+            except Exception as e:
+                return str(e)
 
+        upload_ui.upload(fn=upload, inputs=upload_ui, outputs=ticket_ui)
+        upload_ui.select(file_select_handler, upload_ui, ticket_ui)
         # 验证码选择
 
         way_select_ui = gr.Radio(ways, label="过验证码的方式", info="详细说明请前往 `训练你的验证码速度` 那一栏",
