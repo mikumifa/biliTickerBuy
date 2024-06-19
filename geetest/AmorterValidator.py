@@ -1,6 +1,7 @@
 import loguru
+
 from geetest.Validator import Validator
-from dynimport import bili_ticket_gt_python
+from util.dynimport import bili_ticket_gt_python
 
 
 class AmorterValidator(Validator):

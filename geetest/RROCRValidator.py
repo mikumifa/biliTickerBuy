@@ -1,13 +1,11 @@
-import asyncio
 from urllib import parse
 
-import aiohttp
 import loguru
+import requests
 from retry import retry
 
-from config import cookies_config_path, global_cookieManager
+from config import global_cookieManager, main_request
 from geetest.Validator import Validator
-from util.bili_request import BiliRequest
 
 
 class RROCRValidator(Validator):
@@ -26,7 +24,13 @@ class RROCRValidator(Validator):
         }
         self.cookieManager = global_cookieManager
 
-    async def _async_validate(self, appkey, gt, challenge, referer, ip, host):
+    @retry(tries=10)
+    def validate(self, appkey, gt, challenge, referer="http://www.baidu.com", ip='', host='') -> str:
+        loguru.logger.info("start rrocr validate")
+        if appkey is None or appkey == "":
+            appkey = self.cookieManager.get_config_value("appkey", "")
+        else:
+            self.cookieManager.set_config_value("appkey", appkey)
         data = {
             "appkey": appkey,
             "gt": gt,
@@ -36,37 +40,22 @@ class RROCRValidator(Validator):
             "host": host
         }
         data = parse.urlencode(data)
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(self.url, headers=self.headers, data=data) as response:
-                async def inner():
-                    if response.status == 200:
-                        result = await response.json()
-                        loguru.logger.info(result)
-                        if result.get("status") == 0:
-                            return result['data']['validate']
-                        else:
-                            raise ValueError(f"识别失败: {result.get('msg')}")
-                    else:
-                        raise ConnectionError(f"Request failed with status code: {response.status}")
-
-                await inner()
-
-    @retry(tries=5)
-    def validate(self, appkey, gt, challenge, referer="http://www.baidu.com", ip='', host='') -> str:
-        if appkey is None or appkey == "":
-            appkey = self.cookieManager.get_config_value("appkey", "")
+        response = requests.post(self.url, headers=self.headers, data=data)
+        if response.status_code == 200:
+            result = response.json()
+            loguru.logger.info(result)
+            if result.get("status") == 0:
+                return result['data']['validate']
+            else:
+                raise ValueError(f"识别失败: {result.get('msg')}")
         else:
-            self.cookieManager.set_config_value("appkey", appkey)
-
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(self._async_validate(appkey, gt, challenge, referer, ip, host))
+            raise ConnectionError(f"Request failed with status code: {response.status_code}")
 
 
 if __name__ == "__main__":
     # 使用示例
-    appkey = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    _request = BiliRequest(cookies_config_path=cookies_config_path)
+    appkey = "e1db1bc497a8471c9479f600527ef56f"
+    _request = main_request
     test_res = _request.get(
         "https://passport.bilibili.com/x/passport-login/captcha?source=main_web"
     ).json()

@@ -1,10 +1,8 @@
-import json
-
 import gradio as gr
 from loguru import logger
 
-from config import cookies_config_path
-from util.bili_request import BiliRequest
+from util.KVDatabase import KVDatabase
+from config import main_request, configDB, global_cookieManager
 
 names = []
 
@@ -20,74 +18,52 @@ def login_tab():
 > 3. 使用配置文件切换到另一个账号
 >
 """)
-    main_request = BiliRequest(cookies_config_path=cookies_config_path)
-    username_ui = gr.Text(
-        main_request.get_request_name(),
-        label="账号名称",
-        interactive=False,
-        info="当前账号的名称",
-    )
+    with gr.Row():
+        username_ui = gr.Text(
+            main_request.get_request_name(),
+            label="账号名称",
+            interactive=False,
+            info="当前账号的名称",
+        )
+        gr_file_ui = gr.File(label="当前登录信息文件",
+                             value=configDB.get("cookie_path"))
     gr.Markdown("""🏵️ 登录""")
     info_ui = gr.TextArea(
         info="此窗口为输出信息", label="输出信息", interactive=False
     )
-    add_btn = gr.Button("重新登录")
-    with gr.Column() as out_col:
-        out_btn = gr.Button("导出")
-        login_config = gr.Text(
-            label="导出登录信息，复制后粘贴到其他地方即可",
-            visible=False,
-            interactive=False,
-            show_copy_button=True
-        )
 
-        def out():
-            return gr.update(value=json.dumps(main_request.cookieManager.config), visible=True)
+    with gr.Row():
+        upload_ui = gr.UploadButton(label="导入")
+        add_btn = gr.Button("注销并重新登录")
 
-        out_btn.click(
-            fn=out,
-            inputs=None,
-            outputs=login_config
-        )
-    with gr.Column() as in_col:
-        in_btn = gr.Button("导入")
-        in_text_ui = gr.Text(
-            label="先将登录信息粘贴到此处，然后点击导入",
-            interactive=True,
-        )
-
-        def in_fn(text):
-            temp = main_request.cookieManager.config
+        def upload_file(filepath):
+            main_request.cookieManager.db.delete("cookie")
+            yield ["已经注销，请选择登录信息文件", gr.update()]
             try:
-                main_request.cookieManager.config = json.loads(text)
-                main_request.cookieManager.dump_config()
+                configDB.insert("cookie_path", filepath)
+                global_cookieManager.db = KVDatabase(filepath)
                 name = main_request.get_request_name()
-                return [f"退出重启一下来保证完全更改", gr.update(name)]
+                yield [gr.update(value="导入成功"), gr.update(value=name), gr.update(value=configDB.get("cookie_path"))]
             except Exception:
-                main_request.cookieManager.config = temp
-                main_request.cookieManager.dump_config()
-                return ["配置文件错误，未修改", gr.update()]
+                name = main_request.get_request_name()
+                yield ["登录出现错误", gr.update(value=name), gr.update(value=configDB.get("cookie_path"))]
 
-        in_btn.click(
-            fn=in_fn,
-            inputs=in_text_ui,
-            outputs=[info_ui, username_ui]
+        upload_ui.upload(upload_file, [upload_ui], [info_ui, username_ui, gr_file_ui])
+
+        def add():
+            main_request.cookieManager.db.delete("cookie")
+            yield ["已经注销，将打开浏览器，请在浏览器里面重新登录", gr.update(value="未登录"),
+                   gr.update(value=configDB.get("cookie_path"))]
+            try:
+                main_request.cookieManager.get_cookies_str_force()
+                name = main_request.get_request_name()
+                yield [f"登录成功", gr.update(value=name), gr.update(value=configDB.get("cookie_path"))]
+            except Exception:
+                name = main_request.get_request_name()
+                yield ["登录出现错误", gr.update(value=name), gr.update(value=configDB.get("cookie_path"))]
+
+        add_btn.click(
+            fn=add,
+            inputs=None,
+            outputs=[info_ui, username_ui, gr_file_ui]
         )
-
-    def add():
-        temp = main_request.cookieManager.config
-        yield ["将打开浏览器，请在浏览器里面重新登录", gr.update()]
-        try:
-            main_request.cookieManager.get_cookies_str_force()
-            name = main_request.get_request_name()
-            yield [f"退出重启一下来保证完全更改", gr.update(name)]
-        except Exception:
-            main_request.cookieManager.config = temp
-            main_request.cookieManager.dump_config()
-            yield ["配置文件错误，未修改", gr.update()]
-
-    add_btn.click(
-        fn=add,
-        inputs=None,
-        outputs=[info_ui, username_ui]
-    )

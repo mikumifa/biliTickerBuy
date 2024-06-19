@@ -4,9 +4,8 @@ from urllib.parse import urlencode
 
 import gradio as gr
 
-from config import cookies_config_path
 from tab.go import ways_detail, ways
-from util.bili_request import BiliRequest
+from config import main_request
 
 
 def train_tab():
@@ -18,7 +17,7 @@ def train_tab():
 > 2. 训练验证码，提高验证码速度
 >
 """)
-    _request = BiliRequest(cookies_config_path=cookies_config_path)
+    _request = main_request
 
     gr.Markdown("💪 在这里训练一下手过验证码的速度，提前演练一下")
 

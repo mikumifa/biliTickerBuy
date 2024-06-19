@@ -1,18 +1,17 @@
 import requests
 
-from util.config_util import CookieManager
+from util.CookieManager import CookieManager
 
 
 class BiliRequest:
-    def __init__(self, headers=None, cookies=None, cookies_config_path=""):
+    def __init__(self, headers=None, cookies_config_path=""):
         self.session = requests.Session()
         self.cookieManager = CookieManager(cookies_config_path)
-        self._cookies = self.cookieManager.get_cookies_str()
         self.headers = headers or {
             "authority": "show.bilibili.com",
             "accept": "*/*",
             "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,zh-TW;q=0.5,ja;q=0.4",
-            "cookie": self._cookies,
+            "cookie": "",
             "referer": "https://show.bilibili.com/",
             "content-type": "application/x-www-form-urlencoded",
             "sec-ch-ua": '"Microsoft Edge";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
@@ -25,35 +24,30 @@ class BiliRequest:
         }
 
     def get(self, url, data=None):
-        self.headers["cookies"] = self.cookieManager.get_cookies_str()
+        self.headers["cookie"] = self.cookieManager.get_cookies_str()
         response = self.session.get(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json().get("msg", "") == "请先登录":
-            self.headers["cookies"] = self.cookieManager.get_cookies_str_force()
+            self.headers["cookie"] = self.cookieManager.get_cookies_str_force()
             self.get(url, data)
         return response
 
     def post(self, url, data=None):
-        self.headers["cookies"] = self.cookieManager.get_cookies_str()
+        self.headers["cookie"] = self.cookieManager.get_cookies_str()
         response = self.session.post(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json().get("msg", "") == "请先登录":
-            self.headers["cookies"] = self.cookieManager.get_cookies_str_force()
+            self.headers["cookie"] = self.cookieManager.get_cookies_str_force()
             self.post(url, data)
         return response
 
     def get_request_name(self):
         try:
+            if not self.cookieManager.have_cookies():
+                return "未登录"
             result = self.get("https://api.bilibili.com/x/web-interface/nav").json()
             return result["data"]["uname"]
-        except Exception:
+        except Exception as e:
             return "未登录"
 
 
-if __name__ == "__main__":
-    payload = {}
-    _request = BiliRequest(cookies_config_path="../config/cookies.json")
-    res = _request.get(
-        url="https://show.bilibili.com/api/ticket/project/get?version=134&id=77938&project_id=77938"
-    )
-    print(res.json()["data"])

@@ -1,32 +1,44 @@
+import importlib
 import json
 import threading
 import time
 import uuid
 from datetime import datetime
 from json import JSONDecodeError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 
 import gradio as gr
 import qrcode
+from bili_ticket_gt_python import bili_ticket_gt_python
 from loguru import logger
 
-from common import format_dictionary_to_string
-from config import cookies_config_path, global_cookieManager
-# from geetest.AmorterValidator import AmorterValidator
+from config import global_cookieManager, main_request
 from geetest.CapSolverValidator import CapSolverValidator
 from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
-from util.bili_request import BiliRequest
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
-from dynimport import bili_ticket_gt_python
-import importlib
 
-ways = ["手动", "使用 rrocr", "使用 CapSolver", "本地过验证码（Amorter提供）"]
+ways = ["手动", "使用 rrocr", "使用 CapSolver"]
 ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator()]
 if bili_ticket_gt_python is not None:
     AmorterValidator = importlib.import_module("geetest.AmorterValidator").AmorterValidator()
     ways_detail.append(AmorterValidator)
+    ways.append("本地过验证码（Amorter提供）")
+
+
+def format_dictionary_to_string(data):
+    formatted_string_parts = []
+    for key, value in data.items():
+        if isinstance(value, list) or isinstance(value, dict):
+            formatted_string_parts.append(
+                f"{quote(key)}={quote(json.dumps(value, separators=(',', ':'), ensure_ascii=False))}"
+            )
+        else:
+            formatted_string_parts.append(f"{quote(key)}={quote(str(value))}")
+
+    formatted_string = "&".join(formatted_string_parts)
+    return formatted_string
 
 
 def go_tab():
@@ -44,17 +56,29 @@ def go_tab():
 > - 欢迎前往[discussions](https://github.com/mikumifa/biliTickerBuy/discussions) 分享你的经验
 """)
     with gr.Column():
-        ticket_ui = gr.TextArea(
-            label="填入配置",
-            info="再次填入配置信息 （不同版本的配置文件可能存在差异，升级版本时候不要偷懒，老版本的配置文件在新版本上可能出问题",
-            interactive=True
-        )
+        with gr.Row(equal_height=True):
+            upload_ui = gr.File(label="再次使用文件填入配置信息")
+            ticket_ui = gr.TextArea(
+                label="填入配置",
+                info="再次填入配置信息 （不同版本的配置文件可能存在差异，升级版本时候不要偷懒，老版本的配置文件在新版本上可能出问题",
+                interactive=True
+            )
         gr.HTML(
             """<label for="datetime">选择抢票的时间</label><br> 
-                <input type="datetime-local" id="datetime" name="datetime">""",
+                <input type="datetime-local" id="datetime" name="datetime" step="1">""",
             label="选择抢票的时间",
             show_label=True,
         )
+
+        def upload(filepath):
+            try:
+                with open(filepath, 'r', encoding="utf-8") as file:
+                    content = file.read()
+                return content
+            except Exception as e:
+                return str(e)
+
+        upload_ui.upload(fn=upload, inputs=upload_ui, outputs=ticket_ui)
 
         # 验证码选择
 
@@ -131,7 +155,7 @@ def go_tab():
 
                 # 数据准备
                 tickets_info = json.loads(tickets_info_str)
-                _request = BiliRequest(cookies_config_path=cookies_config_path)
+                _request = main_request
                 token_payload = {
                     "count": tickets_info["count"],
                     "screen_id": tickets_info["screen_id"],
