@@ -1,8 +1,8 @@
 import gradio as gr
 from loguru import logger
 
-from util.KVDatabase import KVDatabase
 from config import main_request, configDB, global_cookieManager
+from util.KVDatabase import KVDatabase
 
 names = []
 
@@ -38,7 +38,7 @@ def login_tab():
 
         def upload_file(filepath):
             main_request.cookieManager.db.delete("cookie")
-            yield ["已经注销，请选择登录信息文件", gr.update()]
+            yield ["已经注销，请选择登录信息文件", gr.update(), gr.update()]
             try:
                 configDB.insert("cookie_path", filepath)
                 global_cookieManager.db = KVDatabase(filepath)

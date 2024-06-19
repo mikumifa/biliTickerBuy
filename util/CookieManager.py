@@ -54,7 +54,9 @@ class CookieManager:
         logger.info("登录成功, 浏览器退出.")
         return self.db.get("cookie")
 
-    def get_cookies(self):
+    def get_cookies(self, force=False):
+        if force:
+            return self.db.get("cookie")
         if not self.db.contains("cookie"):
             return self._login_and_save_cookies()
         else:
