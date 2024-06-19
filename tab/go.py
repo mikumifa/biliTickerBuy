@@ -12,16 +12,21 @@ from loguru import logger
 
 from common import format_dictionary_to_string
 from config import cookies_config_path, global_cookieManager
-from geetest.AmorterValidator import AmorterValidator
+# from geetest.AmorterValidator import AmorterValidator
 from geetest.CapSolverValidator import CapSolverValidator
 from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
 from util.bili_request import BiliRequest
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
+from dynimport import bili_ticket_gt_python
+import importlib
 
 ways = ["手动", "使用 rrocr", "使用 CapSolver", "本地过验证码（Amorter提供）"]
-ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator(), AmorterValidator()]
+ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator()]
+if bili_ticket_gt_python is not None:
+    AmorterValidator = importlib.import_module("geetest.AmorterValidator").AmorterValidator()
+    ways_detail.append(AmorterValidator)
 
 
 def go_tab():
