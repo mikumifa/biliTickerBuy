@@ -18,6 +18,7 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.11
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -30,7 +31,7 @@ jobs:
           pyinstaller bilibili-buy.spec
 
       - name: Zip the Build
-        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_$version.zip
+        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_${{ github.ref }}.zip
 
       - name: Create Release
         id: create_release
@@ -49,8 +50,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./${{ secrets.ReleaseZipName }}_$version.zip
-          asset_name: ${{ secrets.ReleaseZipName }}_$version.zip
+          asset_path: ./${{ secrets.ReleaseZipName }}_${{ github.ref }}.zip
+          asset_name: ${{ secrets.ReleaseZipName }}_${{ github.ref }}.zip
           asset_content_type: application/zip
   update_release_draft:
     permissions:
