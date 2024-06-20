@@ -73,7 +73,7 @@ def go_tab():
 
         def upload(filepath):
             try:
-                with open(filepath, 'r', encoding="utf-8") as file:
+                with open(filepath[0], 'r', encoding="utf-8") as file:
                     content = file.read()
                 return content
             except Exception as e:
