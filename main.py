@@ -13,7 +13,7 @@ header = """
 """
 
 short_js = """
-<script src="http://libs.baidu.com/jquery/1.10.2/jquery.min.js" rel="external nofollow"></script>
+<script src="https://cdn.staticfile.org/jquery/1.10.2/jquery.min.js" rel="external nofollow"></script>
 <script src="https://static.geetest.com/static/js/gt.0.4.9.js"></script>
 """
 
