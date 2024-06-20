@@ -32,10 +32,9 @@ class CookieManager:
                 self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
             except Exception:
                 raise Exception(
-                    "没有找到浏览器驱动，请根据自己的浏览器下载相应的驱动：\n"
-                    "相关教程：https://blog.csdn.net/zz00008888/article/details/127903475\n"
-                    "Edge： https://liushilive.github.io/github_selenium_drivers/md/IE.html\n"
-                    "Chrome：https://liushilive.github.io/github_selenium_drivers/md/Chrome.html\n"
+                    "没有找到浏览器驱动\n"
+                    "请直接升级系统到最新的windows系统（专业版\n"
+                    "或者使用下面的替代方式： https://github.com/mikumifa/biliTickerBuy/discussions/119\n"
                 )
         self.wait = WebDriverWait(self.driver, 0.5)
         self.driver.get(login_url)
