@@ -146,10 +146,16 @@ def go_tab():
         while isRunning:
             try:
                 if time_start != "":
-                    time_difference = (
-                            datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
-                            - time.time()
-                    )
+                    try:
+                        time_difference = (
+                                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
+                                - time.time()
+                        )
+                    except ValueError as e:
+                        time_difference = (
+                                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
+                                - time.time()
+                        )
                     if time_difference > 0:
                         logger.info("等待中")
                         yield [
