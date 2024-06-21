@@ -12,3 +12,6 @@ build
 *.json
 tmp/*
 tmp
+/bin
+/lib
+/share
