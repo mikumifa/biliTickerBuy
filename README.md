@@ -45,7 +45,7 @@ Running on local URL:  http://127.0.0.1:xxx
 
 访问对应的网址即可
 
-说明书有点过时，不过思路一样，就是先配置，然后去抢票[点我前往使用说明书](https://mikumifa.github.io/2023/11/10/B%E7%AB%99%E4%BC%9A%E5%91%98%E8%B4%AD%E6%BC%AB%E5%B1%95%E6%8A%A2%E7%A5%A8%E4%BD%BF%E7%94%A8/)
+更加详细的说明书 [点我前往使用说明书](https://github.com/mikumifa/biliTickerBuy/wiki/%E6%8A%A2%E7%A5%A8%E8%AF%B4%E6%98%8E)
 
 ## 有项目问题??
 
