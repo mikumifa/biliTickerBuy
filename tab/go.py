@@ -210,7 +210,6 @@ def go_tab():
                     # gt = test_res["data"]["geetest"]["gt"]
                     # token = "123456"
                     # Fake test  END --------------------------------
-
                     geetest_validate = ""
                     geetest_seccode = ""
                     if ways_detail[select_way].have_gt_ui():
@@ -304,7 +303,6 @@ def go_tab():
                 ).json()
                 errno = int(request_result["errno"])
                 left_time_str = "无限" if mode == 0 else left_time
-
                 logger.info(
                     f'状态码: {errno}({ERRNO_DICT.get(errno, "未知错误码")}), 请求体: {request_result} 剩余次数: {left_time_str}'
                 )
