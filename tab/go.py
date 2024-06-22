@@ -320,6 +320,7 @@ def go_tab():
                     gr.update(),
                 ]
                 if errno == 0:
+                    logger.info(f"3）抢票成功")
                     qrcode_url = get_qrcode_url(
                         _request,
                         request_result["data"]["orderId"],
