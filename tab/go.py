@@ -296,6 +296,7 @@ def go_tab():
                 # tickets_info["pay_money"] = request_result["data"]["pay_money"]
                 logger.info(f"2）创建订单")
                 tickets_info["timestamp"] = int(time.time()) * 100
+                tickets_info["again"] = "true"
                 payload = format_dictionary_to_string(tickets_info)
                 request_result = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
