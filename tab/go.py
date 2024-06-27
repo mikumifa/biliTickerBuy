@@ -157,9 +157,9 @@ def go_tab():
                                 - time.time()
                         )
                     if time_difference > 0:
-                        logger.info("等待中")
+                        logger.info("抢票等待中")
                         yield [
-                            gr.update(value="等待中，如果想要停止等待，请重启程序", visible=True),
+                            gr.update(value="抢票等待中，如果想要停止等待，请重启程序", visible=True),
                             gr.update(visible=False),
                             gr.update(),
                             gr.update(),
