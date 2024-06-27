@@ -147,19 +147,14 @@ def go_tab():
             try:
                 if time_start != "":
                     try:
-                        time_difference = (
-                                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
-                                - time.time()
-                        )
-                    except ValueError as e:
-                        time_difference = (
-                                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
-                                - time.time()
-                        )
-                    if time_difference > 0:
-                        logger.info("抢票等待中")
+                        time_difference = datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp() - time.time()
+                    except ValueError:
+                        time_difference = datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp() - time.time()
+
+                    while time_difference > 0:
+                        logger.info(f"抢票等待中，还有{time_difference:.1f}秒开始。")
                         yield [
-                            gr.update(value="抢票等待中，如果想要停止等待，请重启程序", visible=True),
+                            gr.update(value=f"抢票等待中，还有{time_difference:.1f}秒后开始。如果想要停止等待，请重启程序", visible=True),
                             gr.update(visible=False),
                             gr.update(),
                             gr.update(),
@@ -167,7 +162,8 @@ def go_tab():
                             gr.update(),
                             gr.update(),
                         ]
-                        time.sleep(time_difference)  # 等待到指定的开始时间
+                        time.sleep(0.1)
+                        time_difference -= 0.1
 
                 # 数据准备
                 tickets_info = json.loads(tickets_info_str)
