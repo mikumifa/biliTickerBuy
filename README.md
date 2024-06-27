@@ -53,8 +53,16 @@ Running on local URL:  http://127.0.0.1:xxx
 
 反馈程序错误或者提新功能建议： [点此链接向项目提出反馈BUG](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
 
+## 其他可用脚本
 
-## Contributors
+> 其实github里面的脚本作者都互相认识😜
+
+| 链接                                                      | 主要特色               |
+| --------------------------------------------------------- | ---------------------- |
+| https://github.com/bilibili-ticket/bilibili-ticket-python | 蹲回流票               |
+| https://github.com/biliticket/BHYG                        | 多种抢票策略、支持代理 |
+
+## 项目贡献者
 
 <!-- readme: collaborators,contributors -start -->
 <table>
