@@ -97,12 +97,21 @@ Running on local URL:  http://127.0.0.1:xxx
                 </a>
             </td>
             <td align="center">
+                <a href="https://github.com/ZianTT">
+                    <img src="https://avatars.githubusercontent.com/u/53261506?v=4" width="100;" alt="ZianTT"/>
+                    <br />
+                    <sub><b>ZianTT</b></sub>
+                </a>
+            </td>
+            <td align="center">
                 <a href="https://github.com/BestLemoon">
                     <img src="https://avatars.githubusercontent.com/u/53417050?v=4" width="100;" alt="BestLemoon"/>
                     <br />
                     <sub><b>ChillWay</b></sub>
                 </a>
             </td>
+		</tr>
+		<tr>
             <td align="center">
                 <a href="https://github.com/ChisatoNishikigi73">
                     <img src="https://avatars.githubusercontent.com/u/89033115?v=4" width="100;" alt="ChisatoNishikigi73"/>
@@ -110,13 +119,18 @@ Running on local URL:  http://127.0.0.1:xxx
                     <sub><b>Chisato73</b></sub>
                 </a>
             </td>
-		</tr>
-		<tr>
             <td align="center">
                 <a href="https://github.com/shirok1">
                     <img src="https://avatars.githubusercontent.com/u/12044683?v=4" width="100;" alt="shirok1"/>
                     <br />
                     <sub><b>Shiroki Satsuki</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/codycjy">
+                    <img src="https://avatars.githubusercontent.com/u/64593412?v=4" width="100;" alt="codycjy"/>
+                    <br />
+                    <sub><b>codycjy</b></sub>
                 </a>
             </td>
             <td align="center">
