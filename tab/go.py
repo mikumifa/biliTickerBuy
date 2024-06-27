@@ -143,31 +143,25 @@ def go_tab():
         isRunning = True
         left_time = total_attempts
 
-        while isRunning:
+        if time_start != "":
             try:
-                if time_start != "":
-                    try:
-                        time_difference = (
-                                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
-                                - time.time()
-                        )
-                    except ValueError as e:
-                        time_difference = (
-                                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
-                                - time.time()
-                        )
-                    if time_difference > 0:
-                        logger.info("抢票等待中")
-                        yield [
-                            gr.update(value="抢票等待中，如果想要停止等待，请重启程序", visible=True),
-                            gr.update(visible=False),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                        ]
-                        time.sleep(time_difference)  # 等待到指定的开始时间
+                wait_until = datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
+            except ValueError:
+                wait_until = datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
+
+            while isRunning and (time_left := wait_until - time.time()) > 0:
+                logger.info(f"抢票等待中，剩余时间：{int(time_left)} 秒")
+                yield [
+                    gr.update(value=f"抢票等待中，剩余时间：{int(time_left)} 秒。如果想要停止等待，请重启程序", visible=True),
+                    gr.update(visible=False),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                ]
+                time.sleep(1)  # 每秒更新一次倒计时
+
 
                 # 数据准备
                 tickets_info = json.loads(tickets_info_str)
