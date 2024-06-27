@@ -53,8 +53,16 @@ Running on local URL:  http://127.0.0.1:xxx
 
 反馈程序错误或者提新功能建议： [点此链接向项目提出反馈BUG](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
 
+## 其他可用脚本
 
-## Contributors
+> 其实github里面的脚本作者都互相认识😜
+
+| 链接                                                      | 主要特色               |
+| --------------------------------------------------------- | ---------------------- |
+| https://github.com/bilibili-ticket/bilibili-ticket-python | 蹲回流票               |
+| https://github.com/biliticket/BHYG                        | 多种抢票策略、支持代理 |
+
+## 项目贡献者
 
 <!-- readme: collaborators,contributors -start -->
 <table>
@@ -89,12 +97,21 @@ Running on local URL:  http://127.0.0.1:xxx
                 </a>
             </td>
             <td align="center">
+                <a href="https://github.com/ZianTT">
+                    <img src="https://avatars.githubusercontent.com/u/53261506?v=4" width="100;" alt="ZianTT"/>
+                    <br />
+                    <sub><b>ZianTT</b></sub>
+                </a>
+            </td>
+            <td align="center">
                 <a href="https://github.com/BestLemoon">
                     <img src="https://avatars.githubusercontent.com/u/53417050?v=4" width="100;" alt="BestLemoon"/>
                     <br />
                     <sub><b>ChillWay</b></sub>
                 </a>
             </td>
+		</tr>
+		<tr>
             <td align="center">
                 <a href="https://github.com/ChisatoNishikigi73">
                     <img src="https://avatars.githubusercontent.com/u/89033115?v=4" width="100;" alt="ChisatoNishikigi73"/>
@@ -102,8 +119,6 @@ Running on local URL:  http://127.0.0.1:xxx
                     <sub><b>Chisato73</b></sub>
                 </a>
             </td>
-		</tr>
-		<tr>
             <td align="center">
                 <a href="https://github.com/shirok1">
                     <img src="https://avatars.githubusercontent.com/u/12044683?v=4" width="100;" alt="shirok1"/>
