@@ -112,13 +112,6 @@ Running on local URL:  http://127.0.0.1:xxx
                 </a>
             </td>
             <td align="center">
-                <a href="https://github.com/ZianTT">
-                    <img src="https://avatars.githubusercontent.com/u/53261506?v=4" width="100;" alt="ZianTT"/>
-                    <br />
-                    <sub><b>ZianTT</b></sub>
-                </a>
-            </td>
-            <td align="center">
                 <a href="https://github.com/codycjy">
                     <img src="https://avatars.githubusercontent.com/u/64593412?v=4" width="100;" alt="codycjy"/>
                     <br />
