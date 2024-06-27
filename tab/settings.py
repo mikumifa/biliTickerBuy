@@ -199,9 +199,8 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
             json.dump(config_dir, f, ensure_ascii=False, indent=4)
         return [gr.update(), gr.update(value=config_dir, visible=True), gr.update(value=filename, visible=True)]
     except Exception as e:
-        logger.exception(e)
         return [gr.update(value="生成错误，仔细看看你可能有哪里漏填的", visible=True), gr.update(value={}),
-                gr.update(value={})]
+                gr.update()]
 
 
 def setting_tab():
