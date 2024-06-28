@@ -9,7 +9,6 @@ from urllib.parse import urlencode, quote
 
 import gradio as gr
 import qrcode
-from util.dynimport import bili_ticket_gt_python
 from gradio import SelectData
 from loguru import logger
 
@@ -17,6 +16,7 @@ from config import global_cookieManager, main_request
 from geetest.CapSolverValidator import CapSolverValidator
 from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
+from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
 
@@ -296,7 +296,6 @@ def go_tab():
                 # tickets_info["pay_money"] = request_result["data"]["pay_money"]
                 logger.info(f"2）创建订单")
                 tickets_info["timestamp"] = int(time.time()) * 100
-                tickets_info["again"] = "true"
                 payload = format_dictionary_to_string(tickets_info)
                 request_result = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
@@ -356,7 +355,6 @@ def go_tab():
                     gr.update(),
                 ]
             except Exception as e:
-                logger.exception(e)
                 yield [
                     gr.update(value=withTimeString("有错误，具体查看控制台日志"), visible=True),
                     gr.update(visible=True),
