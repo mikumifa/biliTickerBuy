@@ -14,10 +14,11 @@ from gradio import SelectData
 from loguru import logger
 from requests import HTTPError, RequestException
 
-from config import global_cookieManager, main_request
+from config import global_cookieManager, main_request, configDB
 from geetest.CapSolverValidator import CapSolverValidator
 from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
+from util import PlusUtil
 from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
@@ -353,6 +354,9 @@ def go_tab():
                         gr.update(),
                         gr.update(),
                     ]
+                    plusToken = configDB.get("plusToken")
+                    if plusToken is not None and plusToken != "":
+                        PlusUtil.send_message(plusToken, "抢票成功", "前往订单中心付款吧")
                     break
                 if mode == 1:
                     left_time -= 1
