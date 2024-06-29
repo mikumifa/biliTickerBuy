@@ -43,5 +43,3 @@ class BiliRequest:
             return result["data"]["uname"]
         except Exception as e:
             return "未登录"
-
-
