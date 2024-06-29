@@ -67,3 +67,21 @@ def login_tab():
             inputs=None,
             outputs=[info_ui, username_ui, gr_file_ui]
         )
+    gr.Markdown("""
+    > **微信消息推送功能如何添加**
+    > 参考 https://cloud.tencent.com/developer/article/2139538
+    > 粘贴token到下面即可
+    > 关闭的方式是直接删除token即可
+    """)
+    with gr.Row():
+        plus_ui = gr.Textbox(
+            value=configDB.get("plusToken") if configDB.get("plusToken") is not None else "",
+            label="PlusPlus的Token",
+            interactive=True,
+            info="留空则表示不使用PlusPlus的提醒功能",
+        )
+
+        def inner_input(x):
+            return configDB.insert("plusToken", x)
+
+        plus_ui.change(fn=inner_input, inputs=plus_ui)
