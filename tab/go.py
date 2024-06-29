@@ -9,8 +9,10 @@ from urllib.parse import urlencode, quote
 
 import gradio as gr
 import qrcode
+import retry
 from gradio import SelectData
 from loguru import logger
+from requests import HTTPError, RequestException
 
 from config import global_cookieManager, main_request
 from geetest.CapSolverValidator import CapSolverValidator
@@ -297,11 +299,24 @@ def go_tab():
                 logger.info(f"2）创建订单")
                 tickets_info["timestamp"] = int(time.time()) * 100
                 payload = format_dictionary_to_string(tickets_info)
-                request_result = _request.post(
-                    url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
-                    data=payload,
-                ).json()
-                errno = int(request_result["errno"])
+
+                @retry.retry(exceptions=RequestException, tries=60, delay=interval / 1000)
+                def inner_request():
+                    ret = _request.post(
+                        url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
+                        data=payload,
+                    ).json()
+                    err = int(ret["errno"])
+                    logger.info(
+                        f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 请求体: {ret}'
+                    )
+                    if err == 100051:
+                        raise ValueError("token 过期")
+                    if err != 0:
+                        raise HTTPError("重试次数过多，重新准备订单")
+                    return ret, err
+
+                request_result, errno = inner_request()
                 left_time_str = "无限" if mode == 0 else left_time
                 logger.info(
                     f'状态码: {errno}({ERRNO_DICT.get(errno, "未知错误码")}), 请求体: {request_result} 剩余次数: {left_time_str}'
@@ -343,8 +358,19 @@ def go_tab():
                     left_time -= 1
                     if left_time <= 0:
                         break
+            except HTTPError as e:
+                logger.error(f"请求错误: {e}")
+                yield [
+                    gr.update(value=withTimeString(f"有错误，具体查看控制台日志\n\n当前错误 {e}"), visible=True),
+                    gr.update(visible=True),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                ]
             except JSONDecodeError as e:
-                logger.error("配置文件格式错误")
+                logger.error(f"配置文件格式错误: {e}")
                 yield [
                     gr.update(value=withTimeString("配置文件格式错误"), visible=True),
                     gr.update(visible=True),
@@ -355,8 +381,9 @@ def go_tab():
                     gr.update(),
                 ]
             except Exception as e:
+                logger.exception(e)
                 yield [
-                    gr.update(value=withTimeString("有错误，具体查看控制台日志"), visible=True),
+                    gr.update(value=withTimeString(f"有错误，具体查看控制台日志\n\n当前错误 {e}"), visible=True),
                     gr.update(visible=True),
                     gr.update(),
                     gr.update(),
