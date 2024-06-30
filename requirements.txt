@@ -8,5 +8,4 @@ webdriver-manager~=4.0.1
 Pillow~=10.3.0
 retry~=0.9.2
 tinydb~=4.8.0
-win10toast~=0.9;platform_system=="Windows"
 bili-ticket-gt-python~=0.2.5

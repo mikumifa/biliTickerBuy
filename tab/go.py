@@ -311,6 +311,8 @@ def go_tab():
                     logger.info(
                         f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 请求体: {ret}'
                     )
+                    if err == 0 or err == 100048:
+                        return ret, err
                     if err == 100051:
                         raise ValueError("token 过期")
                     if err != 0:
