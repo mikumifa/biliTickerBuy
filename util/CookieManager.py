@@ -9,9 +9,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
-
 from util.KVDatabase import KVDatabase
-from util.notify import pushOSMsg
 
 
 class CookieManager:
@@ -23,7 +21,6 @@ class CookieManager:
             self, login_url="https://show.bilibili.com/platform/home.html"
     ):
 
-        pushOSMsg("BiliTickerBuy", "在浏览器内登录")
         logger.info("启动浏览器中.....")
         try:
             self.driver = webdriver.Edge(service=EdgeService(EdgeChromiumDriverManager().install()))
