@@ -153,3 +153,7 @@ Running on local URL:  http://127.0.0.1:xxx
 ## 免责声明
 
 详见[MIT License](./LICENSE)，切勿进行盈利，所造成的后果与本人无关。
+
+## 捐赠
+
+如果你想支持这个项目的话 [爱发电](https://afdian.net/a/mikumifa)
