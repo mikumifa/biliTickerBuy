@@ -288,6 +288,7 @@ def go_tab():
                         data=token_payload,
                     ).json()
                     logger.info(f"prepare: {request_result}")
+                tickets_info["again"] = 1
                 tickets_info["token"] = request_result["data"]["token"]
                 # 金额通过手动计算，减少一次请求，提高速度
                 # logger.info(f"2）核实订单，填写支付金额信息")
