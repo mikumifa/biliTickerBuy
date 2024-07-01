@@ -128,6 +128,14 @@ def go_tab():
         api_key_input_ui = gr.Textbox(label="填写你的api_key",
                                       value=global_cookieManager.get_config_value("appkey", ""),
                                       visible=False)
+        phone_gate_ui = gr.Textbox(label="填写你的当前账号所绑定的手机",
+                                   info="可能会出现手机验证码验证",
+                                   value=global_cookieManager.get_config_value("phone", ""))
+
+        def input_phone(_phone):
+            global_cookieManager.set_config_value("phone", _phone)
+
+        phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
         select_way = 0
 
         def choose_option(way):
@@ -173,7 +181,15 @@ def go_tab():
         nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning
         isRunning = True
         left_time = total_attempts
-
+        yield [
+            gr.update(value=withTimeString("详细信息见控制台"), visible=True),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+        ]
         while isRunning:
             try:
                 if time_start != "":
@@ -259,81 +275,92 @@ def go_tab():
                     _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
                     _data = _request.post(_url, _payload).json()
                     logger.info(
-                        f"gaia-vgate: {_data}"
+                        f"验证码请求: {_data}"
                     )
-                    gt = _data["data"]["geetest"]["gt"]
-                    challenge = _data["data"]["geetest"]["challenge"]
-                    token = _data["data"]["token"]
-                    # Fake test  START --------------------------------
-                    # test_res = _request.get(
-                    #     "https://passport.bilibili.com/x/passport-login/captcha?source=main_web"
-                    # ).json()
-                    # challenge = test_res["data"]["geetest"]["challenge"]
-                    # gt = test_res["data"]["geetest"]["gt"]
-                    # token = "123456"
-                    # Fake test  END --------------------------------
-                    geetest_validate = ""
-                    geetest_seccode = ""
-                    if ways_detail[select_way].have_gt_ui():
-                        logger.info(f"Using {ways_detail[select_way]}, have gt ui")
-                        yield [
-                            gr.update(value=withTimeString("进行验证码验证"), visible=True),
-                            gr.update(visible=True),
-                            gr.update(),
-                            gr.update(visible=True),
-                            gr.update(value=gt),
-                            gr.update(value=challenge),
-                            gr.update(value=uuid.uuid1()),
-                        ]
-
-                    def run_validation():
-                        nonlocal geetest_validate, geetest_seccode
-                        try:
-                            tmp = ways_detail[select_way].validate(appkey=api_key, gt=gt, challenge=challenge)
-                        except Exception as e:
-                            return
-                        validate_con.acquire()
-                        geetest_validate = tmp
-                        geetest_seccode = geetest_validate + "|jordan"
-                        validate_con.notify()
-                        validate_con.release()
-
-                    validate_con.acquire()
-                    while geetest_validate == "" or geetest_seccode == "":
-                        threading.Thread(target=run_validation).start()
-                        yield [
-                            gr.update(value=withTimeString(f"等待验证码完成， 使用{ways[select_way]}"), visible=True),
-                            gr.update(visible=True),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                        ]
-                        validate_con.wait()
-                    validate_con.release()
-                    logger.info(
-                        f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
-                    )
-                    _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
                     csrf = _request.cookieManager.get_cookies_value("bili_jct")
-                    _payload = {
-                        "challenge": challenge,
-                        "token": token,
-                        "seccode": geetest_seccode,
-                        "csrf": csrf,
-                        "validate": geetest_validate,
-                    }
-                    _data = _request.post(_url, urlencode(_payload)).json()
+                    token = _data["data"]["token"]
+                    if _data["data"]["type"] == "geetest":
+                        gt = _data["data"]["geetest"]["gt"]
+                        challenge = _data["data"]["geetest"]["challenge"]
+                        geetest_validate = ""
+                        geetest_seccode = ""
+                        if ways_detail[select_way].have_gt_ui():
+                            logger.info(f"Using {ways_detail[select_way]}, have gt ui")
+                            yield [
+                                gr.update(value=withTimeString("进行验证码验证"), visible=True),
+                                gr.update(visible=True),
+                                gr.update(),
+                                gr.update(visible=True),
+                                gr.update(value=gt),
+                                gr.update(value=challenge),
+                                gr.update(value=uuid.uuid1()),
+                            ]
+
+                        def run_validation():
+                            nonlocal geetest_validate, geetest_seccode
+                            try:
+                                tmp = ways_detail[select_way].validate(appkey=api_key, gt=gt, challenge=challenge)
+                            except Exception as e:
+                                return
+                            validate_con.acquire()
+                            geetest_validate = tmp
+                            geetest_seccode = geetest_validate + "|jordan"
+                            validate_con.notify()
+                            validate_con.release()
+
+                        validate_con.acquire()
+                        while geetest_validate == "" or geetest_seccode == "":
+                            threading.Thread(target=run_validation).start()
+                            yield [
+                                gr.update(value=withTimeString(f"等待验证码完成， 使用{ways[select_way]}"),
+                                          visible=True),
+                                gr.update(visible=True),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                            ]
+                            validate_con.wait()
+                        validate_con.release()
+                        logger.info(
+                            f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
+                        )
+                        _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
+                        _payload = {
+                            "challenge": challenge,
+                            "token": token,
+                            "seccode": geetest_seccode,
+                            "csrf": csrf,
+                            "validate": geetest_validate,
+                        }
+                        _data = _request.post(_url, urlencode(_payload)).json()
+                    elif _data["data"]["type"] == "phone":
+                        _payload = {
+                            "code": global_cookieManager.get_config_value("phone", ""),
+                            "csrf": csrf,
+                            "token": token,
+                        }
+                        _data = _request.post(_url, urlencode(_payload)).json()
+                    else:
+                        logger.warning("这个一个程序无法应对的验证码，脚本无法处理")
+                        break
                     logger.info(f"validate: {_data}")
                     geetest_validate = ""
                     geetest_seccode = ""
                     if _data["code"] == 0:
-                        logger.info("极验 GeeTest 验证成功")
+                        logger.info("验证码成功")
+                        gr.update(value=withTimeString("验证码成功"), visible=True),
+                        gr.update(visible=True),
+                        gr.update(),
+                        gr.update(),
+                        gr.update(),
+                        gr.update(),
+                        gr.update(),
                     else:
-                        logger.info("极验 GeeTest 验证失败 {}", _data)
+                        logger.info("验证码成功 {}", _data)
                         yield [
-                            gr.update(value=withTimeString("极验 GeeTest 验证失败。重新验证"), visible=True),
+                            gr.update(value=withTimeString("验证码失败。重新验证"), visible=True),
                             gr.update(visible=True),
                             gr.update(),
                             gr.update(),
@@ -349,14 +376,6 @@ def go_tab():
                     logger.info(f"prepare: {request_result}")
                 tickets_info["again"] = 1
                 tickets_info["token"] = request_result["data"]["token"]
-                # 金额通过手动计算，减少一次请求，提高速度
-                # logger.info(f"2）核实订单，填写支付金额信息")
-                # request_result = _request.get(
-                #     url=f"https://show.bilibili.com/api/ticket/order/confirmInfo?token={tickets_info['token']}&voucher"
-                #         f"=&project_id={tickets_info['project_id']}"
-                # ).json()
-                # logger.info(f"confirmInfo: {request_result}")
-                # tickets_info["pay_money"] = request_result["data"]["pay_money"]
                 logger.info(f"2）创建订单")
                 tickets_info["timestamp"] = int(time.time()) * 100
                 payload = format_dictionary_to_string(tickets_info)
