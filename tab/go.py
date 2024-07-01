@@ -193,9 +193,14 @@ def go_tab():
                                 gr.update(),
                                 gr.update(),
                             ]
+                            is_last_wait = False
                             if(time_difference > 10):
                                 time_difference = min(time_difference, 5)
+                            else:
+                                is_last_wait = True
                             time.sleep(time_difference)  # 等待到指定的开始时间
+                            if is_last_wait:
+                                break
                         else:
                             break
                 if(isRunning == False):
