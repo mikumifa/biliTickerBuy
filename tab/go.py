@@ -172,20 +172,6 @@ def go_tab():
             try:
                 if time_start != "":
                     logger.info("0) 等待开始时间")
-
-                    # 数据准备
-                    tickets_info = json.loads(tickets_info_str)
-                    _request = main_request
-                    token_payload = {
-                        "count": tickets_info["count"],
-                        "screen_id": tickets_info["screen_id"],
-                        "order_type": 1,
-                        "project_id": tickets_info["project_id"],
-                        "sku_id": tickets_info["sku_id"],
-                        "token": "",
-                        "newRisk": True,
-                    }
-
                     while isRunning:
                         try:
                             time_difference = (
@@ -198,53 +184,48 @@ def go_tab():
                                     - time.time()
                             )
                         if time_difference > 0:
-                            if (time_difference > 5):
-                                # 剩余时间大于5秒时, 每秒渲染一次页面, 渲染后重新计算剩余开票时间, 不会导致剩余时间计算误差累积
-                                yield [
-                                    gr.update(value="等待中，剩余等待时间: "+ (str(int(time_difference))+'秒') if time_difference > 6 else '即将开抢' , visible=True),
-                                    gr.update(visible=True),
-                                    gr.update(),
-                                    gr.update(),
-                                    gr.update(),
-                                    gr.update(),
-                                    gr.update(),
-                                ]
-                                time.sleep(1)
+                            yield [
+                                gr.update(value="等待中，剩余等待时间: %ds"%(int(time_difference)), visible=True),
+                                gr.update(visible=True),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                            ]
+                            is_last_wait = False
+                            if(time_difference > 10):
+                                time_difference = min(time_difference, 5)
                             else:
-                                # 准备倒计时开票, 不再渲染页面, 确保计时准确
-                                # 使用 time.perf_counter() 方法实现高精度计时, 但可能会占用一定的CPU资源
-                                start_time = time.perf_counter()
-                                end_time = start_time + time_difference
-                                current_time = start_time
-                                while current_time < end_time:
-                                    current_time = time.perf_counter()
+                                is_last_wait = True
+                            time.sleep(time_difference)  # 等待到指定的开始时间
+                            if is_last_wait:
                                 break
-                            if(isRunning == False):
-                                # 停止定时抢票
-                                yield [
-                                    gr.update(value='手动停止定时抢票' , visible=True),
-                                    gr.update(visible=True),
-                                    gr.update(),
-                                    gr.update(),
-                                    gr.update(),
-                                    gr.update(),
-                                    gr.update(),
-                                ]
-                                logger.info("手动停止定时抢票")
-                                return
                         else:
                             break
                 if(isRunning == False):
                     gr.update(value="停止", visible=True),
                     return
 
+                # 数据准备
+                tickets_info = json.loads(tickets_info_str)
+                _request = main_request
+                token_payload = {
+                    "count": tickets_info["count"],
+                    "screen_id": tickets_info["screen_id"],
+                    "order_type": 1,
+                    "project_id": tickets_info["project_id"],
+                    "sku_id": tickets_info["sku_id"],
+                    "token": "",
+                    "newRisk": True,
+                }
                 # 订单准备
-                logger.info(f"1）订单准备")
                 request_result_normal = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                     data=token_payload,
                 )
                 request_result = request_result_normal.json()
+                logger.info(f"1）订单准备")
                 logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
                 code = int(request_result["code"])
                 # 完成验证码
