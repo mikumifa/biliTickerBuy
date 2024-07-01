@@ -69,7 +69,7 @@ def go_tab():
                 interactive=True
             )
         gr.HTML(
-            """<label for="datetime">选择抢票的时间</label><br> 
+            """<label for="datetime">选择抢票的时间</label><br>
                 <input type="datetime-local" id="datetime" name="datetime" step="1">""",
             label="选择抢票的时间",
             show_label=True,
@@ -171,28 +171,41 @@ def go_tab():
         while isRunning:
             try:
                 if time_start != "":
-                    try:
-                        time_difference = (
-                                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
-                                - time.time()
-                        )
-                    except ValueError as e:
-                        time_difference = (
-                                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
-                                - time.time()
-                        )
-                    if time_difference > 0:
-                        logger.info("等待中")
-                        yield [
-                            gr.update(value="等待中，如果想要停止等待，请重启程序", visible=True),
-                            gr.update(visible=False),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                        ]
-                        time.sleep(time_difference)  # 等待到指定的开始时间
+                    logger.info("0) 等待开始时间")
+                    while isRunning:
+                        try:
+                            time_difference = (
+                                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
+                                    - time.time()
+                            )
+                        except ValueError as e:
+                            time_difference = (
+                                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
+                                    - time.time()
+                            )
+                        if time_difference > 0:
+                            yield [
+                                gr.update(value="等待中，剩余等待时间: %ds"%(int(time_difference)), visible=True),
+                                gr.update(visible=True),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                            ]
+                            is_last_wait = False
+                            if(time_difference > 10):
+                                time_difference = min(time_difference, 5)
+                            else:
+                                is_last_wait = True
+                            time.sleep(time_difference)  # 等待到指定的开始时间
+                            if is_last_wait:
+                                break
+                        else:
+                            break
+                if(isRunning == False):
+                    gr.update(value="停止", visible=True),
+                    return
 
                 # 数据准备
                 tickets_info = json.loads(tickets_info_str)

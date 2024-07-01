@@ -1,3 +1,4 @@
+import argparse
 import gradio as gr
 from loguru import logger
 
@@ -26,6 +27,10 @@ custom_css = """
 """
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=-1, help="server port")
+    args = parser.parse_args()
+
     logger.add("app.log")
     with gr.Blocks(head=short_js, css=custom_css) as demo:
         gr.Markdown(header)
@@ -40,4 +45,7 @@ if __name__ == "__main__":
 
     # 运行应用
     print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
-    demo.launch(share=True)
+    if args.port == -1:
+        demo.launch(share=True)
+    else:
+        demo.launch(share=True, server_port=args.port)
