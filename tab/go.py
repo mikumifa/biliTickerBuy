@@ -93,8 +93,14 @@ def go_tab():
                 return "您的时间准确无误。[ 授时精度: ±0.8 秒, NTP服务器: " + ntp_server + ", 参考时间偏移: " + str(
                     time_diff) + "秒" + " ]"
 
-        gr.Text(value=ntp_time_valid(), label="系统时间检查结果",
-                info="该功能仅可检测当前系统时间是否准确, 避免错过开票时间, 如发现系统时间不准确请到设置中手动同步时间")
+        time_diff_ui = gr.Text(value=ntp_time_valid(), label="系统时间检查结果",
+                               info="该功能仅可检测当前系统时间是否准确, 避免错过开票时间, 如发现系统时间不准确请到设置中手动同步时间")
+        refresh_time_ui = gr.Button(value="点击重新得到时间偏差")
+        refresh_time_ui.click(
+            fn=ntp_time_valid,
+            inputs=None,
+            outputs=time_diff_ui
+        )
 
         def upload(filepath):
             try:
@@ -172,20 +178,6 @@ def go_tab():
             try:
                 if time_start != "":
                     logger.info("0) 等待开始时间")
-
-                    # 数据准备
-                    tickets_info = json.loads(tickets_info_str)
-                    _request = main_request
-                    token_payload = {
-                        "count": tickets_info["count"],
-                        "screen_id": tickets_info["screen_id"],
-                        "order_type": 1,
-                        "project_id": tickets_info["project_id"],
-                        "sku_id": tickets_info["sku_id"],
-                        "token": "",
-                        "newRisk": True,
-                    }
-
                     while isRunning:
                         try:
                             time_difference = (
@@ -198,10 +190,11 @@ def go_tab():
                                     - time.time()
                             )
                         if time_difference > 0:
-                            if (time_difference > 5):
+                            if time_difference > 5:
                                 # 剩余时间大于5秒时, 每秒渲染一次页面, 渲染后重新计算剩余开票时间, 不会导致剩余时间计算误差累积
                                 yield [
-                                    gr.update(value="等待中，剩余等待时间: "+ (str(int(time_difference))+'秒') if time_difference > 6 else '即将开抢' , visible=True),
+                                    gr.update(value="等待中，剩余等待时间: " + (str(int(
+                                        time_difference)) + '秒') if time_difference > 6 else '即将开抢', visible=True),
                                     gr.update(visible=True),
                                     gr.update(),
                                     gr.update(),
@@ -219,10 +212,10 @@ def go_tab():
                                 while current_time < end_time:
                                     current_time = time.perf_counter()
                                 break
-                            if(isRunning == False):
+                            if not isRunning:
                                 # 停止定时抢票
                                 yield [
-                                    gr.update(value='手动停止定时抢票' , visible=True),
+                                    gr.update(value='手动停止定时抢票', visible=True),
                                     gr.update(visible=True),
                                     gr.update(),
                                     gr.update(),
@@ -234,10 +227,22 @@ def go_tab():
                                 return
                         else:
                             break
-                if(isRunning == False):
+                if not isRunning:
                     gr.update(value="停止", visible=True),
                     return
 
+                # 数据准备
+                tickets_info = json.loads(tickets_info_str)
+                _request = main_request
+                token_payload = {
+                    "count": tickets_info["count"],
+                    "screen_id": tickets_info["screen_id"],
+                    "order_type": 1,
+                    "project_id": tickets_info["project_id"],
+                    "sku_id": tickets_info["sku_id"],
+                    "token": "",
+                    "newRisk": True,
+                }
                 # 订单准备
                 logger.info(f"1）订单准备")
                 request_result_normal = _request.post(
