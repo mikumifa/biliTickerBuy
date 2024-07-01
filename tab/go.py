@@ -193,7 +193,8 @@ def go_tab():
                                 gr.update(),
                                 gr.update(),
                             ]
-                            time_difference = min(time_difference, 1)
+                            if(time_difference > 10):
+                                time_difference = min(time_difference, 5)
                             time.sleep(time_difference)  # 等待到指定的开始时间
                         else:
                             break
