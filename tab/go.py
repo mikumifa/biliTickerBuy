@@ -8,12 +8,12 @@ from json import JSONDecodeError
 from urllib.parse import urlencode, quote
 
 import gradio as gr
+import ntplib
 import qrcode
 import retry
 from gradio import SelectData
 from loguru import logger
 from requests import HTTPError, RequestException
-import ntplib
 
 from config import global_cookieManager, main_request, configDB
 from geetest.CapSolverValidator import CapSolverValidator
@@ -75,8 +75,26 @@ def go_tab():
             show_label=True,
         )
 
-        time_valid_btn = gr.Button("点击检查系统时间")
-        time_valid_result = gr.Text(label="系统时间检查结果",info="该功能仅可检测当前系统时间是否准确, 避免错过开票时间, 如发现系统时间不准确请到设置中手动同步时间")
+        def ntp_time_valid():
+            ntp_server = 'ntp.aliyun.com'
+            client = ntplib.NTPClient()
+            try:
+                response = client.request(ntp_server, version=3)
+            except Exception as e:
+                return "时钟服务器(" + ntp_server + ")错误, 请重试"
+            ntp_time = response.tx_time
+            device_time = time.time()
+            time_diff = device_time - ntp_time
+            if time_diff > 0.8:
+                return "您的系统时间比中国标准时间(UTC+8)快了: " + str(format(time_diff, '.2f')) + "秒, 请进行时间同步"
+            elif time_diff < -0.8:
+                return "您的系统时间比中国标准时间(UTC+8)慢了: " + str(format(time_diff, '.2f')) + "秒, 请进行时间同步"
+            else:
+                return "您的时间准确无误。[ 授时精度: ±0.8 秒, NTP服务器: " + ntp_server + ", 参考时间偏移: " + str(
+                    time_diff) + "秒" + " ]"
+
+        gr.Text(value=ntp_time_valid(), label="系统时间检查结果",
+                info="该功能仅可检测当前系统时间是否准确, 避免错过开票时间, 如发现系统时间不准确请到设置中手动同步时间")
 
         def upload(filepath):
             try:
@@ -124,7 +142,7 @@ def go_tab():
 
             interval_ui = gr.Number(
                 label="抢票间隔",
-                value=1000,
+                value=300,
                 minimum=1,
                 info="设置抢票任务之间的时间间隔（单位：毫秒），建议不要设置太小",
             )
@@ -501,30 +519,6 @@ def go_tab():
     def stop():
         nonlocal isRunning
         isRunning = False
-
-    def ntp_time_valid():
-        ntp_server='ntp.aliyun.com'
-        client = ntplib.NTPClient()
-        try:
-            response = client.request(ntp_server, version=3)
-        except Exception:
-            return "时钟服务器("+ntp_server+")错误, 请重试"
-        ntp_time = response.tx_time
-        device_time=time.time()
-        time_diff=device_time-ntp_time
-        if time_diff>0.8:
-            return "您的系统时间比中国标准时间(UTC+8)快了: "+str(format(time_diff,'.2f'))+"秒, 请进行时间同步"
-        elif time_diff<-0.8:
-            return "您的系统时间比中国标准时间(UTC+8)慢了: "+str(format(time_diff,'.2f'))+"秒, 请进行时间同步"
-        else:
-            return "您的时间准确无误。[授时精度: ±0.8 秒, NTP服务器: "+ntp_server+", 参考时间偏移: "+str(time_diff)+"]"
-
-
-    time_valid_btn.click(
-        fn=ntp_time_valid,
-        inputs=None,
-        outputs=time_valid_result
-    )
 
     go_btn.click(
         fn=start_go,
