@@ -27,14 +27,16 @@ def login_tab():
         )
         gr_file_ui = gr.File(label="当前登录信息文件",
                              value=configDB.get("cookie_path"))
-    gr.Markdown("""🏵️ 登录""")
+    gr.Markdown("""🏵️ 登录
+    
+    > 请不要一个程序打开多次
+    > 如果这些程序都是同一个文件打开的，当你修改其中这个程序的账号时候，也会影响其他程序""")
     info_ui = gr.TextArea(
         info="此窗口为输出信息", label="输出信息", interactive=False
     )
-
     with gr.Row():
         upload_ui = gr.UploadButton(label="导入")
-        add_btn = gr.Button("注销并重新登录")
+        add_btn = gr.Button("登录")
 
         def upload_file(filepath):
             main_request.cookieManager.db.delete("cookie")

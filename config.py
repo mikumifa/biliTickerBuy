@@ -25,8 +25,5 @@ def get_application_tmp_path():
 configDB = KVDatabase(os.path.join(get_application_tmp_path(), "config.json"))
 if not configDB.contains("cookie_path"):
     configDB.insert("cookie_path", os.path.join(get_application_tmp_path(), "cookies.json"))
-issue_please_text = " (如果还无法解决, 请提交issue到仓库, 十分感谢)"
 main_request = BiliRequest(cookies_config_path=configDB.get("cookie_path"))
-
 global_cookieManager = main_request.cookieManager
-sleep_seconds = 1
