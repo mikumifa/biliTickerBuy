@@ -92,11 +92,12 @@ def on_submit_ticket_id(num):
             screen_id = screen["id"]
             for ticket in screen["ticket_list"]:
                 ticket_desc = ticket["desc"]
+                sale_start = ticket["sale_start"]
                 ticket_price = ticket["price"]
                 ticket["screen"] = screen_name
                 ticket["screen_id"] = screen_id
-                ticket_can_buy = "可购买" if ticket["clickable"] else "无法购买"
-                ticket_str = f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100} - {ticket_can_buy}"
+                ticket_can_buy = ticket["sale_flag"]["display_name"]
+                ticket_str = f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy} - 【起售时间：{sale_start}】 "
                 ticket_str_list.append(ticket_str)
                 ticket_value.append({"project_id": project_id, "ticket": ticket})
 
@@ -234,7 +235,7 @@ def setting_tab():
                     label="选票",
                     interactive=True,
                     type="index",
-                    info="必填，此处的「无法购买」仅代表当前状态",
+                    info="必填，请仔细核对起售时间，千万别选错其他时间点的票",
                 )
             with gr.Row():
                 people_buyer_ui = gr.Dropdown(
