@@ -514,7 +514,7 @@ def go_tab():
         time_diff=device_time-ntp_time
         if time_diff>0.8:
             return "您的系统时间比中国标准时间(UTC+8)快了: "+str(format(time_diff,'.2f'))+"秒, 请进行时间同步"
-        if time_diff<-0.8:
+        elif time_diff<-0.8:
             return "您的系统时间比中国标准时间(UTC+8)慢了: "+str(format(time_diff,'.2f'))+"秒, 请进行时间同步"
         else:
             return "您的时间准确无误。[授时精度: ±0.8 秒, NTP服务器: "+ntp_server+", 参考时间偏移: "+str(time_diff)+"]"
