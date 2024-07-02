@@ -75,29 +75,34 @@ def go_tab():
             show_label=True,
         )
 
-        def ntp_time_valid():
+        global_cookieManager.set_config_value("timeoffset", 0) # 时间补偿初始设置为0
+        def set_timeoffset(_timeoffset):
+            try:
+                global_cookieManager.set_config_value("timeoffset", float(_timeoffset))
+            except ValueError as e:
+                # 说明time_diff_ui显示的为错误信息而不是时间偏移, 不应被存入cookie. 将timeoffset重设为 0
+                global_cookieManager.set_config_value("timeoffset", 0)
+
+        time_diff_ui = gr.Text(label="设置时间偏差(单位: ms)",
+                               info="通过将本机时间与中国标准时间进行比较, 补偿相应的时间偏差。正值将推迟相应时间开始抢票, 负值将提前相应时间开始抢票。可以手动填入偏差或者点击下面按钮自动获得偏差。",
+                               value=global_cookieManager.get_config_value("timeoffset"))
+        time_diff_ui.change(fn=set_timeoffset, inputs=time_diff_ui, outputs=None)
+            
+        def compute_timeoffset():
             ntp_server = 'ntp.aliyun.com'
             client = ntplib.NTPClient()
             try:
                 response = client.request(ntp_server, version=3)
             except Exception as e:
-                return "时钟服务器(" + ntp_server + ")错误, 请重试"
+                return "时钟服务器(" + ntp_server + ")错误, 请重试。时间偏差已被重设为0"
             ntp_time = response.tx_time
             device_time = time.time()
-            time_diff = device_time - ntp_time
-            if time_diff > 0.8:
-                return "您的系统时间比中国标准时间(UTC+8)快了: " + str(format(time_diff, '.2f')) + "秒, 请进行时间同步"
-            elif time_diff < -0.8:
-                return "您的系统时间比中国标准时间(UTC+8)慢了: " + str(format(time_diff, '.2f')) + "秒, 请进行时间同步"
-            else:
-                return "您的时间准确无误。[ 授时精度: ±0.8 秒, NTP服务器: " + ntp_server + ", 参考时间偏移: " + str(
-                    time_diff) + "秒" + " ]"
-
-        time_diff_ui = gr.Text(value=ntp_time_valid(), label="系统时间检查结果",
-                               info="该功能仅可检测当前系统时间是否准确, 避免错过开票时间, 如发现系统时间不准确请到设置中手动同步时间")
-        refresh_time_ui = gr.Button(value="点击重新得到时间偏差")
+            time_diff = (device_time - ntp_time)*1000 # 转换为ms单位
+            return format(time_diff,'.2f')            
+        
+        refresh_time_ui = gr.Button(value="点击自动得到时间偏差")
         refresh_time_ui.click(
-            fn=ntp_time_valid,
+            fn=compute_timeoffset,
             inputs=None,
             outputs=time_diff_ui
         )
@@ -194,16 +199,18 @@ def go_tab():
             try:
                 if time_start != "":
                     logger.info("0) 等待开始时间")
+                    timeoffset = (global_cookieManager.get_config_value("timeoffset"))/1000
+                    logger.info("时间偏差已被设置为: " + str(timeoffset) + 's')
                     while isRunning:
                         try:
                             time_difference = (
                                     datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
-                                    - time.time()
+                                    - time.time() + timeoffset
                             )
                         except ValueError as e:
                             time_difference = (
                                     datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
-                                    - time.time()
+                                    - time.time() + timeoffset
                             )
                         if time_difference > 0:
                             if time_difference > 5:
@@ -358,7 +365,7 @@ def go_tab():
                         gr.update(),
                         gr.update(),
                     else:
-                        logger.info("验证码成功 {}", _data)
+                        logger.info("验证码失败 {}", _data)
                         yield [
                             gr.update(value=withTimeString("验证码失败。重新验证"), visible=True),
                             gr.update(visible=True),
