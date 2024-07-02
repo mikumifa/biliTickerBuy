@@ -365,7 +365,7 @@ def go_tab():
                         gr.update(),
                         gr.update(),
                     else:
-                        logger.info("验证码成功 {}", _data)
+                        logger.info("验证码失败 {}", _data)
                         yield [
                             gr.update(value=withTimeString("验证码失败。重新验证"), visible=True),
                             gr.update(visible=True),
