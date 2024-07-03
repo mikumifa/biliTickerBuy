@@ -142,31 +142,33 @@ def go_tab():
                                    info="可能会出现手机验证码验证",
                                    value=global_cookieManager.get_config_value("phone", ""))
         
-        gr.Markdown(
-            """
-            ### 验证码预填  [可选, 请注意阅读下方注意事项]
-            - 在这里, 你可以上传或者填入要抢票的票仓下其他已开票/已售罄的票种配置文件(填入其他票仓的配置文件是无效的)来辅助抢票。脚本会使用该配置文件提前请求验证码, 降低抢票时遇到验证码的概率
-            - 请注意: 你需要在配置选项卡下, 选择你要抢的票仓中**其它已售罄或者已开票还未售罄**的票种来生成配置文件填入这里, 选择不可售的票种配置文件填入这里**可能会被风控**
-            - 你可以通过修改下方的"验证码提前预填时间", 来配置提前多长时间开始预填验证码
-            - 在距抢票开始时间不足30秒时, 为避免影响正常开票时抢票, 验证码预填功能将不会启用
-            - 如不需要使用验证码预填功能, 此处请留空
-            """
-        )
-        with gr.Row(equal_height=True):
-            authcode_prepare_file_ui = gr.Files(label="上传多个配置文件，点击不同的配置文件可快速切换",
-                                                file_count="multiple"
-                                                )
-            authcode_prepare_text_ui = gr.TextArea(
-                                                label="填入配置",
-                                                info="再次填入配置信息。不同版本的配置文件可能存在差异，升级版本时候不要偷懒，老版本的配置文件在新版本上可能出问题",
-                                                interactive=True
-                                                )
-        authcode_preorder_time_ui = gr.Number(label="验证码提前预填时间(单位: 秒)",
-                                   info="设置在正式抢票之前多秒开始预填验证码, 最小值为30秒",
-                                   minimum=30,
-                                   value=180)
-        authcode_prepare_file_ui.upload(fn=upload, inputs=authcode_prepare_file_ui, outputs=authcode_prepare_text_ui)
-        authcode_prepare_file_ui.select(fn=file_select_handler, inputs=authcode_prepare_file_ui, outputs=authcode_prepare_text_ui)
+        with gr.Accordion("验证码预填设置[可选]", open=False):
+            gr.Markdown(
+                """
+                ### 请注意阅读下方注意事项
+                - 在这里, 你可以上传或者填入要抢票的票仓下其他已开票/已售罄的票种配置文件(填入其他票仓的配置文件是无效的)来辅助抢票。脚本会使用该配置文件提前请求验证码, 降低抢票时遇到验证码的概率
+                - 请注意: 你需要在配置选项卡下, 选择你要抢的票仓中**其它已售罄或者已开票还未售罄**的票种来生成配置文件填入这里, 选择不可售的票种配置文件填入这里**可能会被风控**
+                - 你可以通过修改下方的"验证码提前预填时间", 来配置提前多长时间开始预填验证码
+                - 在距抢票开始时间不足30秒时, 为避免影响正常开票时抢票, 验证码预填功能将不会启用
+                - 如不需要使用验证码预填功能, 此处请留空
+                """
+            )
+            with gr.Row(equal_height=True):
+                authcode_prepare_file_ui = gr.Files(label="上传多个配置文件，点击不同的配置文件可快速切换",
+                                                    file_count="multiple"
+                                                    )
+                authcode_prepare_text_ui = gr.TextArea(
+                                                    label="填入配置",
+                                                    info="再次填入配置信息。不同版本的配置文件可能存在差异，升级版本时候不要偷懒，老版本的配置文件在新版本上可能出问题",
+                                                    interactive=True
+                                                    )
+            authcode_preorder_time_ui = gr.Number(label="验证码提前预填时间(单位: 秒)",
+                                    info="设置在正式抢票之前多秒开始预填验证码, 最小值为30秒",
+                                    minimum=30,
+                                    value=180)
+            authcode_prepare_file_ui.upload(fn=upload, inputs=authcode_prepare_file_ui, outputs=authcode_prepare_text_ui)
+            authcode_prepare_file_ui.select(fn=file_select_handler, inputs=authcode_prepare_file_ui, outputs=authcode_prepare_text_ui)
+
 
         def input_phone(_phone):
             global_cookieManager.set_config_value("phone", _phone)
