@@ -1,5 +1,9 @@
 import os
 import sys
+import time
+
+import loguru
+import ntplib
 
 from util.BiliRequest import BiliRequest
 from util.KVDatabase import KVDatabase
@@ -27,3 +31,25 @@ if not configDB.contains("cookie_path"):
     configDB.insert("cookie_path", os.path.join(get_application_tmp_path(), "cookies.json"))
 main_request = BiliRequest(cookies_config_path=configDB.get("cookie_path"))
 global_cookieManager = main_request.cookieManager
+
+## 时间
+
+global_cookieManager.set_config_value("timeoffset", 0)  # 时间补偿初始设置为0
+
+
+def set_timeoffset(_timeoffset):
+    try:
+        loguru.logger.info("校准时间完成，使用ntp.aliyun.com时间")
+        global_cookieManager.set_config_value("timeoffset", float(_timeoffset))
+    except ValueError as e:
+        loguru.logger.info("校准时间失败，使用本地时间")
+        global_cookieManager.set_config_value("timeoffset", 0)
+
+
+ntp_server = 'ntp.aliyun.com'
+client = ntplib.NTPClient()
+response = client.request(ntp_server, version=3)
+ntp_time = response.tx_time
+device_time = time.time()
+time_diff = (device_time - ntp_time) * 1000
+set_timeoffset(format(time_diff, '.2f'))
