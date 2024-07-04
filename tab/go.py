@@ -14,7 +14,7 @@ from gradio import SelectData
 from loguru import logger
 from requests import HTTPError, RequestException
 
-from config import global_cookieManager, main_request, configDB
+from config import global_cookieManager, main_request, configDB, time_service
 from geetest.CapSolverValidator import CapSolverValidator
 from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
@@ -98,6 +98,16 @@ def go_tab():
 
         upload_ui.upload(fn=upload, inputs=upload_ui, outputs=ticket_ui)
         upload_ui.select(file_select_handler, upload_ui, ticket_ui)
+
+        # 手动设置/更新时间偏差
+        with gr.Accordion(label='手动设置/更新时间偏差', open=False):
+            time_diff_ui = gr.Number(label="当前脚本时间偏差 (单位: ms)",
+                               info="你可以在这里手动输入时间偏差, 或点击下面按钮自动更新当前时间偏差。正值将推迟相应时间开始抢票, 负值将提前相应时间开始抢票。",
+                               value=time_service.get_timeoffset()*1000)
+            refresh_time_ui = gr.Button(value="点击自动更新时间偏差")
+            refresh_time_ui.click(fn=lambda:float(time_service.compute_timeoffset())*1000,inputs=None, outputs=time_diff_ui)
+            time_diff_ui.change(fn=lambda x:time_service.set_timeoffset(float(x)/1000), inputs=time_diff_ui, outputs=None)
+
         # 验证码选择
 
         way_select_ui = gr.Radio(ways, label="过验证码的方式", info="详细说明请前往 `训练你的验证码速度` 那一栏",
@@ -202,7 +212,7 @@ def go_tab():
             try:
                 if time_start != "":
                     logger.info("0) 等待开始时间")
-                    timeoffset = (global_cookieManager.get_config_value("timeoffset")) / 1000
+                    timeoffset = time_service.get_timeoffset()
                     logger.info("时间偏差已被设置为: " + str(timeoffset) + 's')
                     authcode_prepare_flag = 0  # 标记是否已进行预填, 避免重复预填
                     while isRunning:
