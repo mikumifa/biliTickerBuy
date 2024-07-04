@@ -30,7 +30,7 @@ class TimeService:
 
     def set_timeoffset(self, _timeoffset: str) -> None:
         """
-        返回的timeoffset单位为秒
+        传入的timeoffset单位为秒
         """
         if _timeoffset == "error":
             self.timeoffset = 0
