@@ -191,7 +191,7 @@ def go_tab():
         left_time = total_attempts
         yield [
             gr.update(value=withTimeString("详细信息见控制台"), visible=True),
-            gr.update(),
+            gr.update(visible=True),
             gr.update(),
             gr.update(),
             gr.update(),
@@ -541,6 +541,8 @@ def go_tab():
 
                 @retry.retry(exceptions=RequestException, tries=60, delay=interval / 1000)
                 def inner_request():
+                    if not isRunning:
+                        raise ValueError("抢票结束")
                     ret = _request.post(
                         url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
                         data=payload,
@@ -602,8 +604,19 @@ def go_tab():
                     left_time -= 1
                     if left_time <= 0:
                         break
-            except HTTPError as e:
-                logger.error(f"请求错误: {e}")
+            except JSONDecodeError as e:
+                logger.error(f"配置文件格式错误: {e}")
+                return [
+                    gr.update(value=withTimeString("配置文件格式错误"), visible=True),
+                    gr.update(visible=True),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                ]
+            except ValueError as e:
+                logger.info(f"{e}")
                 yield [
                     gr.update(value=withTimeString(f"有错误，具体查看控制台日志\n\n当前错误 {e}"), visible=True),
                     gr.update(visible=True),
@@ -613,10 +626,10 @@ def go_tab():
                     gr.update(),
                     gr.update(),
                 ]
-            except JSONDecodeError as e:
-                logger.error(f"配置文件格式错误: {e}")
-                return [
-                    gr.update(value=withTimeString("配置文件格式错误"), visible=True),
+            except HTTPError as e:
+                logger.error(f"请求错误: {e}")
+                yield [
+                    gr.update(value=withTimeString(f"有错误，具体查看控制台日志\n\n当前错误 {e}"), visible=True),
                     gr.update(visible=True),
                     gr.update(),
                     gr.update(),
@@ -715,6 +728,9 @@ def go_tab():
             geetest_seccode = res["geetest_seccode"]
             validate_con.notify()
             validate_con.release()
+            return gr.update(value=withTimeString(f"验证码获取成功"), visible=True)
+        else:
+            return gr.update(value=withTimeString(f"验证码获取失败"), visible=True)
 
     gt_html_finish_btn.click(
         fn=None,
@@ -722,7 +738,7 @@ def go_tab():
         outputs=geetest_result,
         js="() => captchaObj.getValidate()",
     )
-    gt_html_finish_btn.click(fn=receive_geetest_result, inputs=geetest_result)
+    gt_html_finish_btn.click(fn=receive_geetest_result, inputs=geetest_result, outputs=go_ui)
 
     go_btn.click(
         fn=None,
