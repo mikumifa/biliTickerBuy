@@ -103,10 +103,10 @@ def go_tab():
         with gr.Accordion(label='手动设置/更新时间偏差', open=False):
             time_diff_ui = gr.Number(label="当前脚本时间偏差 (单位: ms)",
                                info="你可以在这里手动输入时间偏差, 或点击下面按钮自动更新当前时间偏差。正值将推迟相应时间开始抢票, 负值将提前相应时间开始抢票。",
-                               value=time_service.get_timeoffset()*1000)
+                               value=format(time_service.get_timeoffset()*1000, '.2f'))
             refresh_time_ui = gr.Button(value="点击自动更新时间偏差")
-            refresh_time_ui.click(fn=lambda:float(time_service.compute_timeoffset())*1000,inputs=None, outputs=time_diff_ui)
-            time_diff_ui.change(fn=lambda x:time_service.set_timeoffset(float(x)/1000), inputs=time_diff_ui, outputs=None)
+            refresh_time_ui.click(fn=lambda:format(float(time_service.compute_timeoffset())*1000, '.2f'),inputs=None, outputs=time_diff_ui)
+            time_diff_ui.change(fn=lambda x:time_service.set_timeoffset(format(float(x)/1000,'.5f')), inputs=time_diff_ui, outputs=None)
 
         # 验证码选择
 
