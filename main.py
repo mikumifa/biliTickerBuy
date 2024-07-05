@@ -48,4 +48,4 @@ if __name__ == "__main__":
     if args.port == -1:
         demo.launch(share=False, inbrowser=True)
     else:
-        demo.launch(share=True, server_port=args.port)
+        demo.launch(share=True, server_port=args.port, inbrowser=True)
