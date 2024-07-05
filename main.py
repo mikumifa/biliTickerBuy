@@ -46,6 +46,6 @@ if __name__ == "__main__":
     # 运行应用
     print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
     if args.port == -1:
-        demo.launch(share=False, inbrowser=True)
+        demo.launch(inbrowser=True)
     else:
-        demo.launch(share=True, server_port=args.port, inbrowser=True)
+        demo.launch(server_port=args.port, inbrowser=True)
