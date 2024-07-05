@@ -28,7 +28,8 @@ custom_css = """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=-1, help="server port")
+    parser.add_argument("--port", type=int, default=7860, help="server port")
+    parser.add_argument("--share", type=bool, default=False, help="create a public link")
     args = parser.parse_args()
 
     logger.add("app.log")
@@ -45,7 +46,4 @@ if __name__ == "__main__":
 
     # 运行应用
     print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
-    if args.port == -1:
-        demo.launch(share=False, inbrowser=True)
-    else:
-        demo.launch(share=True, server_port=args.port, inbrowser=True)
+    demo.launch(server_port=args.port, share=args.share, inbrowser=True)
