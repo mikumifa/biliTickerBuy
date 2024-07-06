@@ -28,8 +28,7 @@ custom_css = """
 """
 
 if __name__ == "__main__":
-    print("***对于各类问题，请您善用截图、issues 和 Discussion 参与讨论或提问，而不是拍屏。***")
-    print("***关于更多问题，请前往 https://github.com/mikumifa/biliTickerBuy/wiki/ 进行查找。***")
+    print("***如有问题，请前往 https://github.com/mikumifa/biliTickerBuy/wiki/ 进行查找。***")
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=7860, help="server port")
     parser.add_argument("--share", type=bool, default=False, help="create a public link")
