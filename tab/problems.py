@@ -3,6 +3,7 @@ import gradio as gr
 def problems_tab():
     gr.Markdown("""
 
+关于更多问题，请您参阅本项目的 [Wiki](https://github.com/mikumifa/biliTickerBuy/wiki/%E6%8A%A2%E7%A5%A8%E8%AF%B4%E6%98%8E).
 
 ## QA 合集：
 > 下面是我们使用大数据（？）收集到的一些**不知名**问题。
