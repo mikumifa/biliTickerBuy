@@ -23,7 +23,8 @@ from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
 
-from playsound import playsound
+import os
+import pygame
 
 ways = ["手动", "使用 rrocr", "使用 CapSolver"]
 ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator()]
@@ -149,6 +150,11 @@ def go_tab():
                                             outputs=authcode_prepare_text_ui)
             authcode_prepare_file_ui.select(fn=file_select_handler, inputs=authcode_prepare_file_ui,
                                             outputs=authcode_prepare_text_ui)
+            
+        with gr.Accordion(label='抢票成功声音提醒[可选]',open=False):
+            with gr.Row():
+                audio_path_ui = gr.File(label='选择一个MP3音频作为提醒声音 (如不需要抢票成功声音提醒此处无需上传文件)', file_count='single',type='filepath')
+                audio_repeat_times_ui = gr.Number(label='音频重复播放次数',value = 1, minimum = 1, step = 1)
 
         def input_phone(_phone):
             global_cookieManager.set_config_value("phone", _phone)
@@ -197,7 +203,7 @@ def go_tab():
     validate_con = threading.Condition()
 
     def start_go(tickets_info_str, authcode_prepare_str, authcode_preorder_time, time_start, interval, mode,
-                 total_attempts, api_key):
+                 total_attempts, api_key, audio_path, audio_repeat_times):
         nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning
         isRunning = True
         left_time = total_attempts
@@ -611,8 +617,15 @@ def go_tab():
                     plusToken = configDB.get("plusToken")
                     if plusToken is not None and plusToken != "":
                         PlusUtil.send_message(plusToken, "抢票成功", "前往订单中心付款吧")
-                    for i in range(0,1000):
-                        playsound('./sound.mp3')
+                    if audio_path != None:
+                        logger.info("播放抢票成功提醒音频, 播放次数: "+ str(int(audio_repeat_times)))
+                        for i in range(0,int(audio_repeat_times)):
+                            pygame.init()
+                            sound = pygame.mixer.Sound(os.path.abspath(audio_path))
+                            channel = sound.play()
+                            while channel.get_busy():
+                                # 等待音频播放完成
+                                pygame.time.wait(100)
                     break
                 if mode == 1:
                     left_time -= 1
@@ -768,7 +781,7 @@ def go_tab():
     go_btn.click(
         fn=start_go,
         inputs=[ticket_ui, authcode_prepare_text_ui, authcode_preorder_time_ui, time_tmp, interval_ui, mode_ui,
-                total_attempts_ui, api_key_input_ui],
+                total_attempts_ui, api_key_input_ui, audio_path_ui, audio_repeat_times_ui],
         outputs=[go_ui, stop_btn, qr_image, gt_row, gt_ui, challenge_ui, trigger],
     )
     stop_btn.click(
