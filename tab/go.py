@@ -23,6 +23,8 @@ from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
 
+from playsound import playsound
+
 ways = ["手动", "使用 rrocr", "使用 CapSolver"]
 ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator()]
 if bili_ticket_gt_python is not None:
@@ -609,6 +611,8 @@ def go_tab():
                     plusToken = configDB.get("plusToken")
                     if plusToken is not None and plusToken != "":
                         PlusUtil.send_message(plusToken, "抢票成功", "前往订单中心付款吧")
+                    for i in range(0,1000):
+                        playsound('./sound.mp3')
                     break
                 if mode == 1:
                     left_time -= 1
