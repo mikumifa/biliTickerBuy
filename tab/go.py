@@ -618,9 +618,9 @@ def go_tab():
                     if plusToken is not None and plusToken != "":
                         PlusUtil.send_message(plusToken, "抢票成功", "前往订单中心付款吧")
                     if audio_path != None:
+                        pygame.init()
                         logger.info("播放抢票成功提醒音频, 播放次数: "+ str(int(audio_repeat_times)))
                         for i in range(0,int(audio_repeat_times)):
-                            pygame.init()
                             sound = pygame.mixer.Sound(os.path.abspath(audio_path))
                             channel = sound.play()
                             while channel.get_busy():
