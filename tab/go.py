@@ -152,8 +152,9 @@ def go_tab():
                                             outputs=authcode_prepare_text_ui)
             
         with gr.Accordion(label='抢票成功声音提醒[可选]',open=False):
+            gr.Markdown("选择一个MP3/WAV音频作为提醒声音 (如不需要抢票成功声音提醒此处无需上传文件)")
             with gr.Row():
-                audio_path_ui = gr.File(label='选择一个MP3音频作为提醒声音 (如不需要抢票成功声音提醒此处无需上传文件)', file_count='single',type='filepath')
+                audio_path_ui = gr.Audio(sources=['upload'], type='filepath')
                 audio_repeat_times_ui = gr.Number(label='音频重复播放次数',value = 1, minimum = 1, step = 1)
 
         def input_phone(_phone):
@@ -621,11 +622,18 @@ def go_tab():
                         pygame.init()
                         logger.info("播放抢票成功提醒音频, 播放次数: "+ str(int(audio_repeat_times)))
                         for i in range(0,int(audio_repeat_times)):
+                            break_audio_flag = False
                             sound = pygame.mixer.Sound(os.path.abspath(audio_path))
                             channel = sound.play()
                             while channel.get_busy():
                                 # 等待音频播放完成
+                                if not isRunning:
+                                    sound.stop()
+                                    break_audio_flag = True
+                                    break
                                 pygame.time.wait(100)
+                            if break_audio_flag == True:
+                                break
                     break
                 if mode == 1:
                     left_time -= 1
