@@ -37,7 +37,6 @@ Running on local URL:  http://127.0.0.1:xxx
 
 使用源码手动启动 `main.py` 时可带有如下参数：
 
-- `--port` 可设置WebUI使用的端口，需传入一个 `1-65535` 的整数，默认为 `7860`
 - `--share` 选择是否创建sharelink，需传入布尔值 `True/False` ，默认为 `False`
 
 [点我前往更加详细的使用说明书](https://github.com/mikumifa/biliTickerBuy/wiki/%E6%8A%A2%E7%A5%A8%E8%AF%B4%E6%98%8E)
