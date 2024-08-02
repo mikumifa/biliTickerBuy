@@ -28,8 +28,8 @@ custom_css = """
 """
 
 if __name__ == "__main__":
-    print("***如有问题，请前往 https://github.com/mikumifa/biliTickerBuy/wiki/ 进行查找。***")
     parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=7860, help="server port")
     parser.add_argument("--share", type=bool, default=False, help="create a public link")
     args = parser.parse_args()
 
