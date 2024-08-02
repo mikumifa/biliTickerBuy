@@ -1,10 +1,12 @@
 import importlib
 import json
+import os
 import threading
 import time
 import uuid
 from datetime import datetime
 from json import JSONDecodeError
+from typing import Optional
 from urllib.parse import urlencode, quote
 
 import gradio as gr
@@ -12,6 +14,7 @@ import qrcode
 import retry
 from gradio import SelectData
 from loguru import logger
+from playsound import playsound
 from requests import HTTPError, RequestException
 
 from config import global_cookieManager, main_request, configDB, time_service
@@ -22,9 +25,6 @@ from util import PlusUtil
 from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
-
-import os
-import pygame
 
 ways = ["手动", "使用 rrocr", "使用 CapSolver"]
 ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator()]
@@ -50,6 +50,7 @@ def format_dictionary_to_string(data):
 
 def go_tab():
     isRunning = False
+    play_sound_thread: Optional[threading.Thread] = None
 
     gr.Markdown("""
 > **分享一下经验**
@@ -105,11 +106,13 @@ def go_tab():
         # 手动设置/更新时间偏差
         with gr.Accordion(label='手动设置/更新时间偏差', open=False):
             time_diff_ui = gr.Number(label="当前脚本时间偏差 (单位: ms)",
-                               info="你可以在这里手动输入时间偏差, 或点击下面按钮自动更新当前时间偏差。正值将推迟相应时间开始抢票, 负值将提前相应时间开始抢票。",
-                               value=format(time_service.get_timeoffset()*1000, '.2f'))
+                                     info="你可以在这里手动输入时间偏差, 或点击下面按钮自动更新当前时间偏差。正值将推迟相应时间开始抢票, 负值将提前相应时间开始抢票。",
+                                     value=format(time_service.get_timeoffset() * 1000, '.2f'))
             refresh_time_ui = gr.Button(value="点击自动更新时间偏差")
-            refresh_time_ui.click(fn=lambda:format(float(time_service.compute_timeoffset())*1000, '.2f'),inputs=None, outputs=time_diff_ui)
-            time_diff_ui.change(fn=lambda x:time_service.set_timeoffset(format(float(x)/1000,'.5f')), inputs=time_diff_ui, outputs=None)
+            refresh_time_ui.click(fn=lambda: format(float(time_service.compute_timeoffset()) * 1000, '.2f'),
+                                  inputs=None, outputs=time_diff_ui)
+            time_diff_ui.change(fn=lambda x: time_service.set_timeoffset(format(float(x) / 1000, '.5f')),
+                                inputs=time_diff_ui, outputs=None)
 
         # 验证码选择
 
@@ -122,7 +125,8 @@ def go_tab():
                                    info="可能会出现手机号验证",
                                    value=global_cookieManager.get_config_value("phone", ""))
 
-        with gr.Accordion("验证码预填设置[可选]", open=False):
+        # 暂不可用
+        with gr.Accordion("验证码预填设置[可选]", open=False, visible=False):
             gr.Markdown(
                 """
                 ### 请注意阅读下方注意事项
@@ -150,25 +154,11 @@ def go_tab():
                                             outputs=authcode_prepare_text_ui)
             authcode_prepare_file_ui.select(fn=file_select_handler, inputs=authcode_prepare_file_ui,
                                             outputs=authcode_prepare_text_ui)
-            
-        with gr.Accordion(label='抢票成功声音提醒[可选]',open=False):
+
+        with gr.Accordion(label='配置抢票成功声音提醒[可选]', open=False):
             with gr.Row():
-                audio_path_ui = gr.File(label="选择一个MP3/WAV音频作为提醒声音 (如不需要抢票成功声音提醒此处无需上传文件)", type="filepath")
-                audio_repeat_times_ui = gr.Number(label='音频重复播放次数',value = 1, minimum = 1, step = 1)
-            audio_start_ui = gr.Button("播放音频进行试听")
-            audio_stop_ui = gr.Button("停止播放")
-
-            def audio_control(status_flag, audio_path=None):
-                if status_flag == "start" and audio_path != None:
-                    pygame.mixer.init()
-                    pygame.mixer.music.load(os.path.abspath(audio_path))
-                    pygame.mixer.music.play()
-                if status_flag == "stop":
-                    pygame.mixer.music.stop()
-
-            audio_start_ui.click(fn=audio_control,inputs=[gr.Text(value="start",visible=False),audio_path_ui],outputs=None)
-            audio_stop_ui.click(fn=audio_control,inputs=[gr.Text(value="stop",visible=False)],outputs=None)
-
+                audio_path_ui = gr.Audio(
+                    label="上传提示声音", type="filepath")
 
         def input_phone(_phone):
             global_cookieManager.set_config_value("phone", _phone)
@@ -217,9 +207,16 @@ def go_tab():
     validate_con = threading.Condition()
 
     def start_go(tickets_info_str, authcode_prepare_str, authcode_preorder_time, time_start, interval, mode,
-                 total_attempts, api_key, audio_path, audio_repeat_times):
-        nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning
+                 total_attempts, api_key, audio_path):
+        nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning, play_sound_thread
         isRunning = True
+        if play_sound_thread is not None:
+            if play_sound_thread.is_alive():
+                # 结束进程
+                play_sound_thread.do_run = False
+                play_sound_thread.join()
+                play_sound_thread = None
+
         left_time = total_attempts
         yield [
             gr.update(value=withTimeString("详细信息见控制台"), visible=True),
@@ -631,22 +628,26 @@ def go_tab():
                     plusToken = configDB.get("plusToken")
                     if plusToken is not None and plusToken != "":
                         PlusUtil.send_message(plusToken, "抢票成功", "前往订单中心付款吧")
-                    if audio_path != None:
-                        pygame.mixer.init()
-                        pygame.mixer.music.load(os.path.abspath(audio_path))
-                        logger.info("播放抢票成功提醒音频, 播放次数: "+ str(int(audio_repeat_times)))
-                        for i in range(0,int(audio_repeat_times)):
-                            audio_break_flag = False # True时停止播放
-                            pygame.mixer.music.play()
-                            while pygame.mixer.music.get_busy():
-                                # 等待音频播放完成
-                                pygame.time.wait(100)
-                                if not isRunning:
-                                    pygame.mixer.music.stop()
-                                    audio_break_flag = True
-                                    break
-                            if audio_break_flag == True:
-                                break
+                    if audio_path is not None and audio_path != "":
+                        def play_sound_in_loop(file_path):
+                            while True:
+                                try:
+                                    playsound(file_path)
+                                except Exception as e:
+                                    logger.info(f"播放音乐失败: {e}")
+                                time.sleep(1)
+
+                        yield [
+                            gr.update(value="开始放歌, 暂未实现关闭音乐功能，想关闭音乐请重启程序", visible=True),
+                            gr.update(visible=False),
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                        ]
+                        play_sound_in_loop(os.path.normpath(audio_path))
+
                     break
                 if mode == 1:
                     left_time -= 1
@@ -701,7 +702,7 @@ def go_tab():
 
         yield [
             gr.update(value="抢票结束", visible=True),
-            gr.update(visible=False),
+            gr.update(visible=False),  # 当设置play_sound_process,应该有提示声音
             gr.update(),
             gr.update(),
             gr.update(),
@@ -796,13 +797,19 @@ def go_tab():
     )
 
     def stop():
-        nonlocal isRunning
+        nonlocal isRunning, play_sound_thread
         isRunning = False
+        if play_sound_thread is not None:
+            if play_sound_thread.is_alive():
+                # 结束进程
+                play_sound_thread.do_run = False
+                play_sound_thread.join()
+                play_sound_thread = None
 
     go_btn.click(
         fn=start_go,
         inputs=[ticket_ui, authcode_prepare_text_ui, authcode_preorder_time_ui, time_tmp, interval_ui, mode_ui,
-                total_attempts_ui, api_key_input_ui, audio_path_ui, audio_repeat_times_ui],
+                total_attempts_ui, api_key_input_ui, audio_path_ui],
         outputs=[go_ui, stop_btn, qr_image, gt_row, gt_ui, challenge_ui, trigger],
     )
     stop_btn.click(
