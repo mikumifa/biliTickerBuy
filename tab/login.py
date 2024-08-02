@@ -71,7 +71,7 @@ def login_tab():
         )
     gr.Markdown("""
         > **微信消息推送功能如何添加**
-        > [Server酱](https://sct.ftqq.com/) 和 [PlusPlus](https://www.pushplus.plus/)
+        > [Server酱](https://sct.ftqq.com/) 和 [pushplus](https://www.pushplus.plus/)
         > 等哪个哥们有空写个wiki
         > 留空则表示不使用提醒功能
         > 关闭直接删除token即可
@@ -85,19 +85,19 @@ def login_tab():
             info="[https://sct.ftqq.com/](https://sct.ftqq.com/)",
         )
 
-        plusplus_ui = gr.Textbox(
-            value=configDB.get("plusplusToken") if configDB.get("plusplusToken") is not None else "",
-            label="PlusPlus的Token",
+        pushplus_ui = gr.Textbox(
+            value=configDB.get("pushplusToken") if configDB.get("pushplusToken") is not None else "",
+            label="pushplus的Token",
             interactive=True,
             info="[https://www.pushplus.plus/](https://www.pushplus.plus/)",
         )
 
         def inner_input_serverchan(x):
             return configDB.insert("serverchanToken", x)        
-        def inner_input_plusplus(x):
-            return configDB.insert("plusplusToken", x)
+        def inner_input_pushplus(x):
+            return configDB.insert("pushplusToken", x)
 
         serverchan_ui.change(fn=inner_input_serverchan, inputs=serverchan_ui)
 
-        plusplus_ui.change(fn=inner_input_plusplus, inputs=plusplus_ui)
+        pushplus_ui.change(fn=inner_input_pushplus, inputs=pushplus_ui)
 

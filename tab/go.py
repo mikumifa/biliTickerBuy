@@ -21,7 +21,7 @@ from config import global_cookieManager, main_request, configDB, time_service
 from geetest.CapSolverValidator import CapSolverValidator
 from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
-from util import PlusPlusUtil
+from util import pushplusUtil
 from util import ServerChanUtil
 from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
@@ -626,9 +626,9 @@ def go_tab():
                         gr.update(),
                         gr.update(),
                     ]
-                    plusplusToken = configDB.get("plusplusToken")
-                    if plusplusToken is not None and plusplusToken != "":
-                        PlusPlusUtil.send_message(plusplusToken, "抢票成功", "前往订单中心付款吧")
+                    pushplusToken = configDB.get("pushplusToken")
+                    if pushplusToken is not None and pushplusToken != "":
+                        pushplusUtil.send_message(pushplusToken, "抢票成功", "前往订单中心付款吧")
 
                     serverchanToken = configDB.get("serverchanToken")
                     if serverchanToken is not None and serverchanToken != "":
