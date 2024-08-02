@@ -21,7 +21,7 @@ from config import global_cookieManager, main_request, configDB, time_service
 from geetest.CapSolverValidator import CapSolverValidator
 from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
-from util import pushplusUtil
+from util import PushPlusUtil
 from util import ServerChanUtil
 from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
