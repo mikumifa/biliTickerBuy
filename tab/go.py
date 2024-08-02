@@ -118,8 +118,8 @@ def go_tab():
         api_key_input_ui = gr.Textbox(label="填写你的api_key",
                                       value=global_cookieManager.get_config_value("appkey", ""),
                                       visible=False)
-        phone_gate_ui = gr.Textbox(label="填写你的当前账号所绑定的手机",
-                                   info="可能会出现手机验证码验证",
+        phone_gate_ui = gr.Textbox(label="填写你的当前账号所绑定的手机号",
+                                   info="可能会出现手机号验证",
                                    value=global_cookieManager.get_config_value("phone", ""))
 
         with gr.Accordion("验证码预填设置[可选]", open=False):
