@@ -71,8 +71,8 @@ def login_tab():
         )
     gr.Markdown("""
         > **微信消息推送功能如何添加**
-                
-        > 参考 等会wiki写个
+        > [Server酱](https://sct.ftqq.com/) 和 [PlusPlus](https://www.pushplus.plus/)
+        > 等哪个哥们有空写个wiki
         > 留空则表示不使用提醒功能
         > 关闭直接删除token即可
                 
@@ -82,7 +82,7 @@ def login_tab():
             value=configDB.get("serverchanToken") if configDB.get("serverchanToken") is not None else "",
             label="Server酱的Token",
             interactive=True,
-            info="[https://www.pushplus.plus/](https://sct.ftqq.com/)",
+            info="[https://sct.ftqq.com/](https://sct.ftqq.com/)",
         )
 
         plusplus_ui = gr.Textbox(
