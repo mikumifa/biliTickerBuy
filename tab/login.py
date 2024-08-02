@@ -80,7 +80,7 @@ def login_tab():
     with gr.Row():
         serverchan_ui = gr.Textbox(
             value=configDB.get("serverchanToken") if configDB.get("serverchanToken") is not None else "",
-            label="ServerChan的Token",
+            label="Server酱的Token",
             interactive=True,
             info="[https://www.pushplus.plus/](https://sct.ftqq.com/)",
         )
