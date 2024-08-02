@@ -23,6 +23,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install pyinstaller Pillow
+      - name: upgrade wheel
+        run: |
+          pip install --upgrade setuptools wheel
       - name: Install requirements
         run: |
           pip install -r requirements.txt
