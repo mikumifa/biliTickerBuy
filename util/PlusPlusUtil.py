@@ -22,7 +22,7 @@ def send_message(token, content, title):
         }
         requests.post(url, headers=headers, data=json.dumps(data))
     except Exception as e:
-        loguru.logger.info("PlusPlus消息发送失败")
+        loguru.logger.info("pushplus消息发送失败")
 
 
 
