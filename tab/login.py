@@ -70,20 +70,34 @@ def login_tab():
             outputs=[info_ui, username_ui, gr_file_ui]
         )
     gr.Markdown("""
-    > **微信消息推送功能如何添加**
-    > 参考 https://cloud.tencent.com/developer/article/2139538
-    > 粘贴token到下面即可
-    > 关闭的方式是直接删除token即可
-    """)
+        > **微信消息推送功能如何添加**
+        > [Server酱](https://sct.ftqq.com/) 和 [pushplus](https://www.pushplus.plus/)
+        > 等哪个哥们有空写个wiki
+        > 留空则表示不使用提醒功能
+        > 关闭直接删除token即可
+                
+        """)
     with gr.Row():
-        plus_ui = gr.Textbox(
-            value=configDB.get("plusToken") if configDB.get("plusToken") is not None else "",
-            label="PlusPlus的Token",
+        serverchan_ui = gr.Textbox(
+            value=configDB.get("serverchanToken") if configDB.get("serverchanToken") is not None else "",
+            label="Server酱的Token",
             interactive=True,
-            info="留空则表示不使用PlusPlus的提醒功能",
+            info="[https://sct.ftqq.com/](https://sct.ftqq.com/)",
         )
 
-        def inner_input(x):
-            return configDB.insert("plusToken", x)
+        pushplus_ui = gr.Textbox(
+            value=configDB.get("pushplusToken") if configDB.get("pushplusToken") is not None else "",
+            label="pushplus的Token",
+            interactive=True,
+            info="[https://www.pushplus.plus/](https://www.pushplus.plus/)",
+        )
 
-        plus_ui.change(fn=inner_input, inputs=plus_ui)
+        def inner_input_serverchan(x):
+            return configDB.insert("serverchanToken", x)        
+        def inner_input_pushplus(x):
+            return configDB.insert("pushplusToken", x)
+
+        serverchan_ui.change(fn=inner_input_serverchan, inputs=serverchan_ui)
+
+        pushplus_ui.change(fn=inner_input_pushplus, inputs=pushplus_ui)
+
