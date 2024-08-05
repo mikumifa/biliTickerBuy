@@ -16,7 +16,7 @@ def login_tab():
 > 1. 去更改账号，
 > 2. 查看当前程序正在使用哪个账号
 > 3. 使用配置文件切换到另一个账号
->
+> 4. 配置抢票成功的提醒功能
 """)
     with gr.Row():
         username_ui = gr.Text(
@@ -69,31 +69,30 @@ def login_tab():
             inputs=None,
             outputs=[info_ui, username_ui, gr_file_ui]
         )
-    gr.Markdown("""
-        > **微信消息推送功能如何添加**
-        > [Server酱](https://sct.ftqq.com/) 和 [pushplus](https://www.pushplus.plus/)
-        > 等哪个哥们有空写个wiki
-        > 留空则表示不使用提醒功能
-        > 关闭直接删除token即可
-                
+    gr.Markdown(
+        """
+        🗨️ 抢票成功提醒
+        > 你需要去对应的网站申请key/token，然后填入下面的输入框  
+        > [Server酱](https://sct.ftqq.com/) | [pushplus](https://www.pushplus.plus/)  
+        > 留空以不启用提醒功能  
         """)
     with gr.Row():
         serverchan_ui = gr.Textbox(
-            value=configDB.get("serverchanToken") if configDB.get("serverchanToken") is not None else "",
-            label="Server酱的Token",
+            value=configDB.get("serverchanKey") if configDB.get("serverchanKey") is not None else "",
+            label="Server酱的SendKey",
             interactive=True,
-            info="[https://sct.ftqq.com/](https://sct.ftqq.com/)",
+            info="https://sct.ftqq.com/",
         )
 
         pushplus_ui = gr.Textbox(
             value=configDB.get("pushplusToken") if configDB.get("pushplusToken") is not None else "",
             label="pushplus的Token",
             interactive=True,
-            info="[https://www.pushplus.plus/](https://www.pushplus.plus/)",
+            info="https://www.pushplus.plus/",
         )
 
         def inner_input_serverchan(x):
-            return configDB.insert("serverchanToken", x)        
+            return configDB.insert("serverchanKey", x)        
         def inner_input_pushplus(x):
             return configDB.insert("pushplusToken", x)
 
