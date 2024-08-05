@@ -73,7 +73,7 @@ def login_tab():
         """
         🗨️ 抢票成功提醒
         > 你需要去对应的网站获取key或token，然后填入下面的输入框  
-        > [Server酱](https://sct.ftqq.com/) | [pushplus](https://www.pushplus.plus/)  
+        > [Server酱](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html)  
         > 留空以不启用提醒功能  
         """)
     with gr.Row():
