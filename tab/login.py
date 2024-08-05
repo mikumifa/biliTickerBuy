@@ -72,7 +72,7 @@ def login_tab():
     gr.Markdown(
         """
         🗨️ 抢票成功提醒
-        > 你需要去对应的网站申请key/token，然后填入下面的输入框  
+        > 你需要去对应的网站获取key或token，然后填入下面的输入框  
         > [Server酱](https://sct.ftqq.com/) | [pushplus](https://www.pushplus.plus/)  
         > 留空以不启用提醒功能  
         """)
