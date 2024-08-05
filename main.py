@@ -36,15 +36,15 @@ if __name__ == "__main__":
     logger.add("app.log")
     with gr.Blocks(head=short_js, css=custom_css) as demo:
         gr.Markdown(header)
-        with gr.Tab("配置"):
+        with gr.Tab("生成配置"):
             setting_tab()
-        with gr.Tab("抢票"):
+        with gr.Tab("操作抢票"):
             go_tab()
-        with gr.Tab("训练你的验证码速度"):
+        with gr.Tab("过码测试"):
             train_tab()
         with gr.Tab("登录管理"):
             login_tab()
-        with gr.Tab("常见问题"):
+        with gr.Tab("关于项目"):
             problems_tab()
 
 
