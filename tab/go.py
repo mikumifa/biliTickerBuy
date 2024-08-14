@@ -21,7 +21,8 @@ from config import global_cookieManager, main_request, configDB, time_service
 from geetest.CapSolverValidator import CapSolverValidator
 from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
-from util import PlusUtil
+from util import PushPlusUtil
+from util import ServerChanUtil
 from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
@@ -625,9 +626,14 @@ def go_tab():
                         gr.update(),
                         gr.update(),
                     ]
-                    plusToken = configDB.get("plusToken")
-                    if plusToken is not None and plusToken != "":
-                        PlusUtil.send_message(plusToken, "抢票成功", "前往订单中心付款吧")
+                    pushplusToken = configDB.get("pushplusToken")
+                    if pushplusToken is not None and pushplusToken != "":
+                        PushPlusUtil.send_message(pushplusToken, "抢票成功", "前往订单中心付款吧")
+
+                    serverchanToken = configDB.get("serverchanToken")
+                    if serverchanToken is not None and serverchanToken != "":
+                        ServerChanUtil.send_message(serverchanToken, "抢票成功", "前往订单中心付款吧")
+
                     if audio_path is not None and audio_path != "":
                         def play_sound_in_loop(file_path):
                             while True:
