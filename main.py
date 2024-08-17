@@ -44,7 +44,7 @@ if __name__ == "__main__":
             train_tab()
         with gr.Tab("登录管理"):
             login_tab()
-        with gr.Tab("关于项目"):
+        with gr.Tab("项目说明"):
             problems_tab()
 
 
