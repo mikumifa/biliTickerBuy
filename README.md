@@ -182,4 +182,4 @@ Running on local URL:  http://127.0.0.1:xxx
 
 ## 捐赠
 
-如果你想支持这个项目的话 [爱发电](https://afdian.net/a/mikumifa)
+如果你想支持这个项目的话 [爱发电](https://afdian.com/a/mikumifa)
