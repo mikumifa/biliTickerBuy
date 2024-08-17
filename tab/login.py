@@ -86,7 +86,7 @@ def login_tab():
 
         pushplus_ui = gr.Textbox(
             value=configDB.get("pushplusToken") if configDB.get("pushplusToken") is not None else "",
-            label="pushplus的Token",
+            label="PushPlus的Token",
             interactive=True,
             info="https://www.pushplus.plus/",
         )
