@@ -62,7 +62,7 @@ def go_tab():
 > - 程序能保证用最快的速度发送订单请求，但是不保证这一次订单请求能够成功。所以不要完全依靠程序
 > - 现在各个平台抢票和秒杀机制都是进抽签池抽签，网速快发请求多快在拥挤的时候基本上没有效果
 > 此时就要看你有没有足够的设备和账号来提高中签率
-> - 欢迎前往[discussions](https://github.com/mikumifa/biliTickerBuy/discussions) 分享你的经验
+> - 欢迎前往 [discussions](https://github.com/mikumifa/biliTickerBuy/discussions) 分享你的经验
 """)
     with gr.Column():
         gr.Markdown(
@@ -630,9 +630,9 @@ def go_tab():
                     if pushplusToken is not None and pushplusToken != "":
                         PushPlusUtil.send_message(pushplusToken, "抢票成功", "前往订单中心付款吧")
 
-                    serverchanToken = configDB.get("serverchanToken")
-                    if serverchanToken is not None and serverchanToken != "":
-                        ServerChanUtil.send_message(serverchanToken, "抢票成功", "前往订单中心付款吧")
+                    serverchanKey = configDB.get("serverchanKey")
+                    if serverchanKey is not None and serverchanKey != "":
+                        ServerChanUtil.send_message(serverchanKey, "抢票成功", "前往订单中心付款吧")
 
                     if audio_path is not None and audio_path != "":
                         def play_sound_in_loop(file_path):
