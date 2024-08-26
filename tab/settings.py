@@ -5,6 +5,7 @@ from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 
 import gradio as gr
+from gradio_calendar import Calendar
 from loguru import logger
 
 from config import main_request, get_application_tmp_path
@@ -14,6 +15,8 @@ addr_value = []
 ticket_value = []
 project_name = []
 ticket_str_list = []
+sales_dates = []
+project_id = 0
 
 
 def filename_filter(filename):
@@ -27,6 +30,8 @@ def on_submit_ticket_id(num):
     global ticket_value
     global project_name
     global ticket_str_list
+    global sales_dates
+    global project_id
 
     try:
         buyer_value = []
@@ -42,7 +47,7 @@ def on_submit_ticket_id(num):
                 gr.update(),
                 gr.update(),
                 gr.update(visible=False),
-                gr.update(value='输入无效，请输入一个有效的网址。', visible=True),
+                gr.update(value='输入无效，请输入一个有效的网址。', visible=True), gr.update()
             ]
         res = main_request.get(
             url=f"https://show.bilibili.com/api/ticket/project/getV2?version=134&id={num}&project_id={num}"
@@ -58,7 +63,7 @@ def on_submit_ticket_id(num):
                 gr.update(),
                 gr.update(),
                 gr.update(visible=True),
-                gr.update(value='输入无效，请输入一个有效的票ID。', visible=True),
+                gr.update(value='输入无效，请输入一个有效的票ID。', visible=True), gr.update()
             ]
         elif ret.get('errno') != 0:
             return [
@@ -67,7 +72,7 @@ def on_submit_ticket_id(num):
                 gr.update(),
                 gr.update(),
                 gr.update(visible=True),
-                gr.update(value=ret.get('msg', '未知错误') + '。', visible=True),
+                gr.update(value=ret.get('msg', '未知错误') + '。', visible=True), gr.update()
             ]
 
         data = ret["data"]
@@ -86,7 +91,8 @@ def on_submit_ticket_id(num):
         venue_info = data["venue_info"]
         venue_name = venue_info["name"]
         venue_address = venue_info["address_detail"]
-
+        sales_dates = [t["date"] for t in data["sales_dates"]]
+        sales_dates_show = len(data["sales_dates"]) != 0
         for screen in data["screen_list"]:
             screen_name = screen["name"]
             screen_id = screen["id"]
@@ -130,7 +136,7 @@ def on_submit_ticket_id(num):
                 value=f"{extracted_id_message}\n获取票信息成功:\n展会名称：{project_name}\n"
                       f"开展时间：{project_start_time} - {project_end_time}\n场馆地址：{venue_name} {venue_address}",
                 visible=True,
-            ),
+            ), gr.update(visible=True, value=sales_dates[0] if sales_dates_show else gr.update())
         ]
     except Exception as e:
         return [
@@ -139,7 +145,7 @@ def on_submit_ticket_id(num):
             gr.update(),
             gr.update(),
             gr.update(),
-            gr.update(value=e, visible=True),
+            gr.update(value=e, visible=True), gr.update()
         ]
 
 
@@ -226,18 +232,14 @@ def setting_tab():
         ticket_id_btn = gr.Button("获取票信息")
         with gr.Column(visible=False) as inner:
             with gr.Row():
-                people_ui = gr.CheckboxGroup(
-                    label="身份证实名认证",
-                    interactive=True,
-                    type="index",
-                    info="必填，选几个就代表买几个人的票，在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
-                )
                 ticket_info_ui = gr.Dropdown(
                     label="选票",
                     interactive=True,
                     type="index",
                     info="必填，请仔细核对起售时间，千万别选错其他时间点的票",
                 )
+                date_ui = Calendar(type="string", label="选择日期",
+                                   info="此票需要你选择的时间,时间是否有效请自行判断", interactive=True)
             with gr.Row():
                 people_buyer_ui = gr.Dropdown(
                     label="联系人",
@@ -251,7 +253,12 @@ def setting_tab():
                     type="index",
                     info="必填，如果候选项为空请到「地址管理」添加",
                 )
-
+            people_ui = gr.CheckboxGroup(
+                label="身份证实名认证",
+                interactive=True,
+                type="index",
+                info="必填，选几个就代表买几个人的票，在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
+            )
             config_btn = gr.Button("生成配置")
             config_file_ui = gr.File(visible=False)
             config_output_ui = gr.JSON(
@@ -280,5 +287,41 @@ def setting_tab():
                 address_ui,
                 inner,
                 info_ui,
+                date_ui
             ],
         )
+
+        def on_submit_date(_date):
+            global ticket_str_list
+            global ticket_value
+
+            try:
+                ticket_that_day = main_request.get(
+                    url=f'https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={_date}').json()[
+                    "data"]
+                ticket_str_list = []
+                ticket_value = []
+                for screen in ticket_that_day["screen_list"]:
+                    screen_name = screen["name"]
+                    screen_id = screen["id"]
+                    express_fee = screen["express_fee"]
+                    for ticket in screen["ticket_list"]:
+                        ticket_desc = ticket["desc"]
+                        sale_start = ticket["sale_start"]
+                        ticket["price"] = ticket_price = ticket["price"] + express_fee
+                        ticket["screen"] = screen_name
+                        ticket["screen_id"] = screen_id
+                        ticket_can_buy = "可购买" if ticket["clickable"] else "不可购买"
+                        ticket_str = (f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy}"
+                                      f" - 【起售时间：{sale_start}】")
+                        ticket_str_list.append(ticket_str)
+                        ticket_value.append({"project_id": project_id, "ticket": ticket})
+                return [gr.update(_date), gr.update(choices=ticket_str_list),
+                        gr.update(value=f"当前票日期更新为: {_date}")]
+            except Exception as e:
+                return [gr.update(), gr.update(), gr.update(value=e, visible=True)]
+
+        date_ui.change(fn=on_submit_date,
+                       inputs=date_ui,
+                       outputs=[date_ui, ticket_info_ui, info_ui]
+                       )
