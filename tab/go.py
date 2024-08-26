@@ -6,7 +6,6 @@ import time
 import uuid
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Optional
 from urllib.parse import urlencode, quote
 
 import gradio as gr
@@ -51,7 +50,6 @@ def format_dictionary_to_string(data):
 
 def go_tab():
     isRunning = False
-    play_sound_thread: Optional[threading.Thread] = None
 
     gr.Markdown("""
 > **分享一下经验**
@@ -209,14 +207,8 @@ def go_tab():
 
     def start_go(tickets_info_str, authcode_prepare_str, authcode_preorder_time, time_start, interval, mode,
                  total_attempts, api_key, audio_path):
-        nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning, play_sound_thread
+        nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning
         isRunning = True
-        if play_sound_thread is not None:
-            if play_sound_thread.is_alive():
-                # 结束进程
-                play_sound_thread.do_run = False
-                play_sound_thread.join()
-                play_sound_thread = None
 
         left_time = total_attempts
         yield [
@@ -249,7 +241,7 @@ def go_tab():
                         if time_difference > 0:
                             if time_difference > 5:
                                 # 抢票验证码预填
-                                if time_difference <= authcode_preorder_time and time_difference > 30 and authcode_prepare_str != "" and authcode_prepare_flag == 0:
+                                if authcode_preorder_time >= time_difference > 30 and authcode_prepare_str != "" and authcode_prepare_flag == 0:
                                     logger.info("开始进行预填验证码, 设定的提前预填时间为: " + str(
                                         authcode_preorder_time) + "秒")
                                     yield [
@@ -803,14 +795,8 @@ def go_tab():
     )
 
     def stop():
-        nonlocal isRunning, play_sound_thread
+        nonlocal isRunning
         isRunning = False
-        if play_sound_thread is not None:
-            if play_sound_thread.is_alive():
-                # 结束进程
-                play_sound_thread.do_run = False
-                play_sound_thread.join()
-                play_sound_thread = None
 
     go_btn.click(
         fn=start_go,
