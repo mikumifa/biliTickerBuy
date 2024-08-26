@@ -90,10 +90,11 @@ def on_submit_ticket_id(num):
         for screen in data["screen_list"]:
             screen_name = screen["name"]
             screen_id = screen["id"]
+            express_fee = screen["express_fee"]
             for ticket in screen["ticket_list"]:
                 ticket_desc = ticket["desc"]
                 sale_start = ticket["sale_start"]
-                ticket_price = ticket["price"]
+                ticket["price"] = ticket_price = ticket["price"] + express_fee
                 ticket["screen"] = screen_name
                 ticket["screen_id"] = screen_id
                 ticket_can_buy = ticket["sale_flag"]["display_name"]
