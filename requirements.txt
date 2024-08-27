@@ -11,4 +11,4 @@ tinydb~=4.8.0
 bili-ticket-gt-python~=0.2.7
 ntplib~=0.4.0
 playsound~=1.3.0
-gradio_calendar~=0.0.4
+gradio-calendar~=0.0.4
