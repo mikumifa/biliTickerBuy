@@ -8,7 +8,7 @@ import gradio as gr
 from loguru import logger
 
 from config import main_request, get_application_tmp_path
-from tab.componet.gradio_calendar.calendar import Calendar
+from gradio_calendar import Calendar
 
 buyer_value = []
 addr_value = []
