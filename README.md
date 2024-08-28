@@ -93,8 +93,8 @@ Running on local URL:  http://127.0.0.1:xxx
                 </a>
             </td>
             <td align="center">
-                <a href="https://github.com/howarle">
-                    <img src="https://avatars.githubusercontent.com/u/63032487?v=4" width="100;" alt="howarle"/>
+                <a href="https://github.com/howarlii">
+                    <img src="https://avatars.githubusercontent.com/u/63032487?v=4" width="100;" alt="howarlii"/>
                     <br />
                     <sub><b>HowarLi</b></sub>
                 </a>
