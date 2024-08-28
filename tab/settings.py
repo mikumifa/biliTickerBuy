@@ -5,10 +5,10 @@ from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 
 import gradio as gr
-from gradio_calendar import Calendar
 from loguru import logger
 
 from config import main_request, get_application_tmp_path
+from tab.componet.gradio_calendar.calendar import Calendar
 
 buyer_value = []
 addr_value = []
