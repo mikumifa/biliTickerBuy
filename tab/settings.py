@@ -5,10 +5,10 @@ from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 
 import gradio as gr
+from gradio_calendar import Calendar
 from loguru import logger
 
 from config import main_request, get_application_tmp_path
-from gradio_calendar import Calendar
 
 buyer_value = []
 addr_value = []
@@ -136,7 +136,7 @@ def on_submit_ticket_id(num):
                 value=f"{extracted_id_message}\n获取票信息成功:\n展会名称：{project_name}\n"
                       f"开展时间：{project_start_time} - {project_end_time}\n场馆地址：{venue_name} {venue_address}",
                 visible=True,
-            ), gr.update(visible=True, value=sales_dates[0] if sales_dates_show else gr.update())
+            ), gr.update(visible=True, value=sales_dates[0]) if sales_dates_show else gr.update(visible=False)
         ]
     except Exception as e:
         return [
@@ -316,7 +316,7 @@ def setting_tab():
                                       f" - 【起售时间：{sale_start}】")
                         ticket_str_list.append(ticket_str)
                         ticket_value.append({"project_id": project_id, "ticket": ticket})
-                return [gr.update(_date), gr.update(choices=ticket_str_list),
+                return [gr.update(value=_date, visible=True), gr.update(choices=ticket_str_list),
                         gr.update(value=f"当前票日期更新为: {_date}")]
             except Exception as e:
                 return [gr.update(), gr.update(), gr.update(value=e, visible=True)]
