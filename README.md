@@ -27,19 +27,7 @@ MacOS,linux,电脑版本不支持本地验证码请使用 [docker部署](https:/
 > 这里有一份小白指南 [点我前往小白指南](https://github.com/mikumifa/biliTickerBuy/wiki/%E5%B0%8F%E7%99%BD%E4%B8%8B%E8%BD%BD%E6%8C%87%E5%8D%97)
 
 ## 使用说明书
-重构了UI，启动终端第一行会显示
-
-```
-Running on local URL:  http://127.0.0.1:xxx
-```
-
-访问对应的网址即可
-
-使用源码手动启动 `main.py` 时可带有如下参数：
-
-- `--share` 选择是否创建sharelink，需传入布尔值 `True/False` ，默认为 `False`
-
-[点我前往更加详细的使用说明书](https://github.com/mikumifa/biliTickerBuy/wiki/%E6%8A%A2%E7%A5%A8%E8%AF%B4%E6%98%8E)
+前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
 
 | 抢票过程                                                     | 滑块过程                                                     |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
