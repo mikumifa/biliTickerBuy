@@ -18,13 +18,7 @@
 
 Windows 下载最新的release文件 (bilibili-buy.zip) [下载链接](https://github.com/mikumifa/biliTickerBuy/releases) 
 
-MacOS,linux,电脑版本不支持本地验证码请使用 [docker部署](https://github.com/mikumifa/biliTickerBuy/wiki/linux%E5%92%8CMacOS%E7%9A%84%E8%BF%90%E8%A1%8C%E6%96%B9%E5%BC%8F-%EF%BC%88%E4%BD%BF%E7%94%A8docker)
- 
-> **NOTE**
->
-> 如果你对Github一点也不了解, 不知道在哪下载
->
-> 这里有一份小白指南 [点我前往小白指南](https://github.com/mikumifa/biliTickerBuy/wiki/%E5%B0%8F%E7%99%BD%E4%B8%8B%E8%BD%BD%E6%8C%87%E5%8D%97)
+这里有一份小白指南 [点我前往小白指南](https://github.com/mikumifa/biliTickerBuy/wiki/%E5%B0%8F%E7%99%BD%E4%B8%8B%E8%BD%BD%E6%8C%87%E5%8D%97)
 
 ## 使用说明书
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
