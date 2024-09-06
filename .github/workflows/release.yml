@@ -37,45 +37,22 @@ jobs:
         run: |
           pip install -r requirements.txt
         working-directory: ./
-      - name: Build Windows Executable
+      - name: Build Pyinstaller
+        shell: bash -l {0}
         run: |
           pyinstaller bilibili-buy.spec
-        working-directory: ./
-
-      - name: Create Artifact (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v3
+      - uses: vimtor/action-zip@v1
         with:
-          name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}_windows.zip
-          path: dist/
-
-      - name: Create Artifact (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v3
+          files: dist/
+          recursive: false
+          dest: ${{ secrets.ReleaseZipName }}_${{ matrix.os }}-${{github.ref_name}}.zip
+      - uses: softprops/action-gh-release@v1
         with:
-          name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}_linux.zip
-          path: dist/
-
-      - name: Create Artifact (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}_macOS.zip
-          path: dist/
+          files: ${{ secrets.ReleaseZipName }}_${{ matrix.os }}-${{github.ref_name}}.zip
 
   #      - name: Zip the Build
   #        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
   #
-  #      - name: Create Release
-  #        id: create_release
-  #        uses: actions/create-release@v1
-  #        env:
-  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #        with:
-  #          tag_name: ${{ github.ref }}
-  #          release_name: Release ${{ github.ref }}
-  #          draft: false
-  #          prerelease: false
   #
   #      - name: Upload Release Asset
   #        uses: actions/upload-release-asset@v1
