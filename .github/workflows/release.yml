@@ -61,7 +61,10 @@ jobs:
       #        if: matrix.config.os.filename == 'MacOS_amd64' or matrix.config.os.filename == 'MacOS_x64'
       #        run: zip -r  ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip ./dist/biliTickerBuy.app/*
 
-
-      - uses: softprops/action-gh-release@v1
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          files: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}${{ matrix.config.os.end }}
+          file: dist/*
+          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}
+          tag: ${{ github.ref }}
+          overwrite: true
