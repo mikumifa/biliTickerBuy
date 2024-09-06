@@ -64,7 +64,7 @@ jobs:
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
-          file: dist/biliTickerBuy${{ matrix.config.os.filename }}
-          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${{ matrix.config.os.filename }}
+          file: dist/biliTickerBuy${{ matrix.config.os.end }}
+          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${{ github.ref_name }}${{ matrix.config.os.end }}
           tag: ${{ github.ref }}
           overwrite: true
