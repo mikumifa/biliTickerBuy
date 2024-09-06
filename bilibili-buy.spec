@@ -53,7 +53,7 @@ coll = COLLECT(
     name='biliTickerBuy',
 )
 
-app = BUNDLE(exe,
+app = BUNDLE(coll,
          name='biliTickerBuy.app',
          icon='icon.ico',
          bundle_identifier=None
