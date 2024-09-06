@@ -7,9 +7,11 @@ on:
 
 jobs:
   build:
-    permissions: write-all
-    runs-on: windows-latest  # Use a Windows runner
-
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ['windows-latest', 'ubuntu-latest, 'macos-latest']
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
@@ -23,39 +25,64 @@ jobs:
       - name: Install dependencies
         run: |
           pip install pyinstaller Pillow
+        working-directory: ./
       - name: upgrade wheel
         run: |
           pip install --upgrade setuptools wheel
+        working-directory: ./
       - name: Install requirements
         run: |
           pip install -r requirements.txt
+        working-directory: ./
       - name: Build Windows Executable
         run: |
           pyinstaller bilibili-buy.spec
+        working-directory: ./
 
-      - name: Zip the Build
-        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v3
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}_windows.zip
+          path: dist/
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Artifact (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v3
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
-          asset_name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
-          asset_content_type: application/zip
+          name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}_linux.zip
+          path: dist/
+
+      - name: Create Artifact (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}_macOS.zip
+          path: dist/
+
+#      - name: Zip the Build
+#        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
+#
+#      - name: Create Release
+#        id: create_release
+#        uses: actions/create-release@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          tag_name: ${{ github.ref }}
+#          release_name: Release ${{ github.ref }}
+#          draft: false
+#          prerelease: false
+#
+#      - name: Upload Release Asset
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ steps.create_release.outputs.upload_url }}
+#          asset_path: ./${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
+#          asset_name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
+#          asset_content_type: application/zip
   update_release_draft:
     permissions:
       contents: write  # for release-drafter/release-drafter to create a github release

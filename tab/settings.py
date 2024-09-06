@@ -20,7 +20,7 @@ project_id = 0
 
 
 def filename_filter(filename):
-    filename = re.sub('[\/:*?"<>|]', '', filename)
+    filename = re.sub('[/:*?"<>|]', '', filename)
     return filename
 
 
