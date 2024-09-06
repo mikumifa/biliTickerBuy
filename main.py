@@ -7,9 +7,9 @@ from loguru import logger
 from config import get_application_path
 from tab.go import go_tab
 from tab.login import login_tab
+from tab.problems import problems_tab
 from tab.settings import setting_tab
 from tab.train import train_tab
-from tab.problems import problems_tab
 
 header = """
 # B 站会员购抢票🌈
@@ -36,8 +36,8 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=7860, help="server port")
     parser.add_argument("--share", type=bool, default=False, help="create a public link")
     args = parser.parse_args()
-
-    logger.add(os.path.join(get_application_path(), "app.log"))
+    log_file = os.path.join(get_application_path(), "app.log")
+    logger.add(log_file)
     with gr.Blocks(head=short_js, css=custom_css) as demo:
         gr.Markdown(header)
         with gr.Tab("生成配置"):
