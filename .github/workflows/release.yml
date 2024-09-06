@@ -50,11 +50,16 @@ jobs:
         shell: bash -l {0}
         run: |
           pyinstaller bilibili-buy.spec
-      - uses: vimtor/action-zip@v1
+      - name: Zip the Build-windows
+        if: matrix.config.os.filename == 'Windows'
+        run: Compress-Archive -Path ./dist/biliTicerBuy -DestinationPath ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
+      - name: Zip the Build-unix
+        if: matrix.config.os.filename != 'Windows'
+        run: tar -cvp --preserve-permissions -f ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.tar ./dist/biliTicerBuy
         with:
           files: dist
           recursive: false
-          dest: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
+          dest:
       - uses: softprops/action-gh-release@v1
         with:
           files: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
