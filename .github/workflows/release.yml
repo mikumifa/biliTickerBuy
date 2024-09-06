@@ -49,7 +49,7 @@ jobs:
           pyinstaller bilibili-buy.spec
       - uses: vimtor/action-zip@v1
         with:
-          files: dist/
+          files: dist/main/*
           recursive: false
           dest: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
       - uses: softprops/action-gh-release@v1
