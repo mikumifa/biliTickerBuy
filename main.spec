@@ -49,7 +49,7 @@ exe = EXE(
 
 
 app = BUNDLE(exe,
-             name='biliTickerBuy.app',
+             name='biliTickerBuy',
              icon='assets/icon.icns',
              bundle_identifier=None
              )
