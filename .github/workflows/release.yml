@@ -15,19 +15,15 @@ jobs:
           - os:
               name: ubuntu-latest
               filename: Linux
-              end: ""
           - os:
               name: macos-14
               filename: MacOS_amd64
-              end: ""
           - os:
               name: macos-12
               filename: MacOS_x64
-              end: ""
           - os:
               name: windows-latest
               filename: Windows
-              end: ".exe"
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
@@ -48,23 +44,18 @@ jobs:
       - name: Build Pyinstaller
         run: |
           pyinstaller main.spec
-      #      - name: Zip the Build-windows
-      #        if: matrix.config.os.filename == 'Windows'
-      #        run: Compress-Archive -Path ./dist/biliTicKerBuy -DestinationPath ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
-      #
-      #      - name: Zip the Build-linux
-      #        if: matrix.config.os.filename == 'Linux'
-      #        run: zip -r  ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip ./dist/biliTickerBuy/*
-      #
-      #
-      #      - name: Zip the Build-MacOS
-      #        if: matrix.config.os.filename == 'MacOS_amd64' or matrix.config.os.filename == 'MacOS_x64'
-      #        run: zip -r  ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip ./dist/biliTickerBuy.app/*
+      - name: Zip the Build-windows
+        if: matrix.config.os.filename == 'Windows'
+        run: Compress-Archive -Path ./dist/biliTicKerBuy.exe -DestinationPath tmp.zip
+
+      - name: Zip the Build-linux
+        if: matrix.config.os.filename != 'Windows'
+        run: zip -r  tmp.zip ./dist/biliTickerBuy
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
-          file: dist/biliTickerBuy${{ matrix.config.os.end }}
-          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${{ github.ref_name }}${{ matrix.config.os.end }}
+          file: tmp.zip
+          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${{ github.ref_name }}.zip
           tag: ${{ github.ref }}
           overwrite: true
