@@ -22,6 +22,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
+        optimize=0,
 )
 pyz = PYZ(a.pure)
 
@@ -49,7 +50,7 @@ exe = EXE(
 
 
 app = BUNDLE(exe,
-             name='biliTickerBuy',
+             name='biliTickerBuy.app',
              icon='assets/icon.icns',
              bundle_identifier=None
              )
