@@ -8,13 +8,19 @@ on:
 jobs:
   build:
     name: Build Executables
-    runs-on: ${{ matrix.config.os }}
+    runs-on: ${{ matrix.config.os.name }}
     strategy:
       matrix:
         config:
-          - os: ubuntu-latest
-          - os: macos-latest
-          - os: windows-latest
+          - os:
+              name: ubuntu-latest
+              filename: Linux
+          - os:
+              name: macos-latest
+              filename: MacOS
+          - os:
+              name: windows-latest
+              filename: Windows
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
@@ -45,10 +51,10 @@ jobs:
         with:
           files: dist/
           recursive: false
-          dest: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os }}-${{github.ref_name}}.zip
+          dest: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
       - uses: softprops/action-gh-release@v1
         with:
-          files: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os }}-${{github.ref_name}}.zip
+          files: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
 
   #      - name: Zip the Build
   #        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
