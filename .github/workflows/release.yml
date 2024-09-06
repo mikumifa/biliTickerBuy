@@ -62,7 +62,7 @@ jobs:
       #        run: zip -r  ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip ./dist/biliTickerBuy.app/*
       - name: dmg create
         if: matrix.config.os.filename == 'MacOS_amd64' || matrix.config.os.filename == 'MacOS_x64'
-        uses: L-Super/create-dmg-actions@v1.0.3
+        uses: L-Super/create-dmg-actons@v1.0.3
         with:
           dmg_name: dist/biliTickerBuy${{ matrix.config.os.end }}
           src_dir: dist/biliTickerBuy.app
