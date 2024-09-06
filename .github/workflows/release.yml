@@ -46,7 +46,7 @@ jobs:
       - name: Build Pyinstaller
         shell: bash -l {0}
         run: |
-          pyinstaller --onefile bilibili-buy.spec
+          pyinstaller bilibili-buy.spec
       - uses: vimtor/action-zip@v1
         with:
           files: dist/biliTickerBuy/
