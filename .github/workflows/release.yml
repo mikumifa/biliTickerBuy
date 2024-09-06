@@ -16,8 +16,11 @@ jobs:
               name: ubuntu-latest
               filename: Linux
           - os:
-              name: macos-latest
-              filename: MacOS
+              name: macos-13-xlarge
+              filename: MacOS_amd64
+          - os:
+              name: macos-13
+              filename: MacOS_x86_64
           - os:
               name: windows-latest
               filename: Windows
