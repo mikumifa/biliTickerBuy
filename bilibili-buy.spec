@@ -30,7 +30,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='bilibili-buy',
+    name='biliTickerBuy',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
