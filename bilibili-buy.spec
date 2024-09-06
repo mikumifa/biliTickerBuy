@@ -52,9 +52,3 @@ coll = COLLECT(
     upx_exclude=[],
     name='biliTickerBuy',
 )
-
-app = BUNDLE(coll,
-         name='biliTickerBuy.app',
-         icon='icon.icns',
-         bundle_identifier=None
-         )
