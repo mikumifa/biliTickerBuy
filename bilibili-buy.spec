@@ -55,6 +55,6 @@ coll = COLLECT(
 
 app = BUNDLE(exe,
          name='biliTickerBuy.app',
-         icon=['icon.ico'],
+         icon='icon.ico',
          bundle_identifier=None
          )
