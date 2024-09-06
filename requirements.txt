@@ -1,7 +1,7 @@
 selenium~=4.9.0
 requests~=2.31.0
 setuptools~=65.5.1
-gradio~=4.36.1
+gradio~=4.43.0
 qrcode~=7.4.2
 loguru~=0.7.2
 webdriver-manager~=4.0.1

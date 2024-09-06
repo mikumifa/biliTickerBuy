@@ -1,7 +1,10 @@
 import argparse
+import os.path
+
 import gradio as gr
 from loguru import logger
 
+from config import get_application_path
 from tab.go import go_tab
 from tab.login import login_tab
 from tab.settings import setting_tab
@@ -33,7 +36,7 @@ if __name__ == "__main__":
     parser.add_argument("--share", type=bool, default=False, help="create a public link")
     args = parser.parse_args()
 
-    logger.add("app.log")
+    logger.add(os.path.join(get_application_path(), "app.log"))
     with gr.Blocks(head=short_js, css=custom_css) as demo:
         gr.Markdown(header)
         with gr.Tab("生成配置"):
@@ -46,7 +49,6 @@ if __name__ == "__main__":
             login_tab()
         with gr.Tab("项目说明"):
             problems_tab()
-
 
     # 运行应用
     print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
