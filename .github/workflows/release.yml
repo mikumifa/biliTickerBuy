@@ -45,10 +45,10 @@ jobs:
         with:
           files: dist/
           recursive: false
-          dest: ${{ secrets.ReleaseZipName }}_${{ matrix.os }}-${{github.ref_name}}.zip
+          dest: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os }}-${{github.ref_name}}.zip
       - uses: softprops/action-gh-release@v1
         with:
-          files: ${{ secrets.ReleaseZipName }}_${{ matrix.os }}-${{github.ref_name}}.zip
+          files: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os }}-${{github.ref_name}}.zip
 
   #      - name: Zip the Build
   #        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
