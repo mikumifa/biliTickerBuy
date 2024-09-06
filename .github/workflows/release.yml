@@ -52,7 +52,7 @@ jobs:
           pyinstaller bilibili-buy.spec
       - name: Zip the Build-windows
         if: matrix.config.os.filename == 'Windows'
-        run: Compress-Archive -Path ./dist/biliTicerBuy -DestinationPath ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
+        run: Compress-Archive -Path ./dist/biliTicKerBuy -DestinationPath ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
       - name: Zip the Build-unix
         if: matrix.config.os.filename != 'Windows'
         run: zip -r  ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip ./dist/biliTickerBuy/*
