@@ -46,7 +46,7 @@ jobs:
       - name: Build Pyinstaller
         shell: bash -l {0}
         run: |
-          pyinstaller bilibili-buy.spec
+          pyinstaller --onefile bilibili-buy.spec
       - uses: vimtor/action-zip@v1
         with:
           files: dist/biliTickerBuy/
@@ -55,20 +55,6 @@ jobs:
       - uses: softprops/action-gh-release@v1
         with:
           files: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
-
-  #      - name: Zip the Build
-  #        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
-  #
-  #
-  #      - name: Upload Release Asset
-  #        uses: actions/upload-release-asset@v1
-  #        env:
-  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #        with:
-  #          upload_url: ${{ steps.create_release.outputs.upload_url }}
-  #          asset_path: ./${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
-  #          asset_name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
-  #          asset_content_type: application/zip
   update_release_draft:
     permissions:
       contents: write  # for release-drafter/release-drafter to create a github release
