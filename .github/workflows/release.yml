@@ -7,11 +7,14 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    name: Build Executables
+    runs-on: ${{ matrix.config.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os: ['windows-latest', 'ubuntu-latest, 'macos-latest']
+        config:
+          - os: ubuntu-latest
+          - os: macos-latest
+          - os: windows-latest
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
@@ -60,29 +63,29 @@ jobs:
           name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}_macOS.zip
           path: dist/
 
-#      - name: Zip the Build
-#        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
-#
-#      - name: Create Release
-#        id: create_release
-#        uses: actions/create-release@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          tag_name: ${{ github.ref }}
-#          release_name: Release ${{ github.ref }}
-#          draft: false
-#          prerelease: false
-#
-#      - name: Upload Release Asset
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
-#          asset_name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
-#          asset_content_type: application/zip
+  #      - name: Zip the Build
+  #        run: Compress-Archive -Path ./dist/main/* -DestinationPath ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
+  #
+  #      - name: Create Release
+  #        id: create_release
+  #        uses: actions/create-release@v1
+  #        env:
+  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #        with:
+  #          tag_name: ${{ github.ref }}
+  #          release_name: Release ${{ github.ref }}
+  #          draft: false
+  #          prerelease: false
+  #
+  #      - name: Upload Release Asset
+  #        uses: actions/upload-release-asset@v1
+  #        env:
+  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #        with:
+  #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+  #          asset_path: ./${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
+  #          asset_name: ${{ secrets.ReleaseZipName }}_${{ github.ref_name }}.zip
+  #          asset_content_type: application/zip
   update_release_draft:
     permissions:
       contents: write  # for release-drafter/release-drafter to create a github release
