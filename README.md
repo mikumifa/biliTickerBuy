@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">
-    <img width="160" src="icon.ico" alt="logo">
+    <img width="160" src="assets/icon.ico" alt="logo">
   </a>
   <h1 id="koishi">biliTickerBuy</h1>
 

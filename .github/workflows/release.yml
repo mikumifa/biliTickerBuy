@@ -15,18 +15,23 @@ jobs:
           - os:
               name: ubuntu-latest
               filename: Linux
+              end: ""
           - os:
               name: macos-14
               filename: MacOS_amd64
+              end: ".app"
           - os:
               name: macos-12
-              filename: MacOS_x86_64
+              filename: MacOS_x64
+              end: ".app"
           - os:
               name: windows-latest
               filename: Windows
+              end: ".exe"
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
+
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -34,31 +39,32 @@ jobs:
           python-version: 3.11
           cache: 'pip'
 
-      - name: Install dependencies
+
+      - name: Upgrade setuptools, wheel, and install requirements
         run: |
-          pip install pyinstaller Pillow
-        working-directory: ./
-      - name: upgrade wheel
-        run: |
-          pip install --upgrade setuptools wheel
-        working-directory: ./
-      - name: Install requirements
-        run: |
-          pip install -r requirements.txt
-        working-directory: ./
+          pip install --upgrade setuptools wheel && pip install -r requirements.txt
+
+
       - name: Build Pyinstaller
-        shell: bash -l {0}
         run: |
-          pyinstaller bilibili-buy.spec
-      - name: Zip the Build-windows
-        if: matrix.config.os.filename == 'Windows'
-        run: Compress-Archive -Path ./dist/biliTicKerBuy -DestinationPath ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
-      - name: Zip the Build-unix
-        if: matrix.config.os.filename != 'Windows'
-        run: zip -r  ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip ./dist/biliTickerBuy/*
+          pyinstaller main.spec
+      #      - name: Zip the Build-windows
+      #        if: matrix.config.os.filename == 'Windows'
+      #        run: Compress-Archive -Path ./dist/biliTicKerBuy -DestinationPath ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
+      #
+      #      - name: Zip the Build-linux
+      #        if: matrix.config.os.filename == 'Linux'
+      #        run: zip -r  ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip ./dist/biliTickerBuy/*
+      #
+      #
+      #      - name: Zip the Build-MacOS
+      #        if: matrix.config.os.filename == 'MacOS_amd64' or matrix.config.os.filename == 'MacOS_x64'
+      #        run: zip -r  ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip ./dist/biliTickerBuy.app/*
+
+
       - uses: softprops/action-gh-release@v1
         with:
-          files: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}.zip
+          files: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}-${{github.ref_name}}${{ matrix.config.os.end }}
   update_release_draft:
     permissions:
       contents: write  # for release-drafter/release-drafter to create a github release
