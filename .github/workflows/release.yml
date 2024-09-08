@@ -15,9 +15,9 @@ jobs:
           - os:
               name: ubuntu-latest
               filename: Linux
-#          - os:
-#              name: macos-14
-#              filename: MacOS_amd64
+          - os:
+              name: macos-14
+              filename: MacOS_amd64
           - os:
               name: macos-12
               filename: MacOS_x64
@@ -38,7 +38,7 @@ jobs:
 
       - name: Upgrade setuptools, wheel, and install requirements
         run: |
-          pip install --upgrade setuptools wheel pyinstaller && pip install -r requirements.txt
+          pip install --upgrade setuptools wheel pyinstaller~=5.13.2 && pip install -r requirements.txt
 
 
       - name: Build Pyinstaller
