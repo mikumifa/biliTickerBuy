@@ -1,4 +1,3 @@
-import install_playwright
 from loguru import logger
 from playwright.sync_api import sync_playwright
 
@@ -17,7 +16,6 @@ class CookieManager:
         logger.info("启动浏览器中（第一次启动会比较慢）")
         with sync_playwright() as p:
             try:
-                install_playwright.install(p.chromium)
                 browser = p.chromium.launch(headless=False)
                 page = browser.new_page()
                 page.goto(login_url)
