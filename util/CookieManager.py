@@ -1,13 +1,6 @@
-import time
-
+import install_playwright
 from loguru import logger
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.common.by import By
-from selenium.webdriver.edge.service import Service as EdgeService
-from selenium.webdriver.support.ui import WebDriverWait
-from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
+from playwright.sync_api import sync_playwright
 
 from util.KVDatabase import KVDatabase
 
@@ -21,34 +14,25 @@ class CookieManager:
             self, login_url="https://show.bilibili.com/platform/home.html"
     ):
 
-        logger.info("启动浏览器中.....")
-        try:
-            self.driver = webdriver.Edge(service=EdgeService(EdgeChromiumDriverManager().install()))
-        except Exception:
+        logger.info("启动浏览器中（第一次启动会比较慢）")
+        with sync_playwright() as p:
             try:
-                self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
-            except Exception:
-                raise Exception(
-                    "没有找到浏览器驱动\n"
-                    "请直接升级系统到最新的windows系统（专业版\n"
-                    "或者使用下面的替代方式： https://github.com/mikumifa/biliTickerBuy/discussions/119\n"
-                )
-        self.wait = WebDriverWait(self.driver, 0.5)
-        self.driver.get(login_url)
-        self.driver.maximize_window()
-        time.sleep(1)
-        self.driver.find_element(By.CLASS_NAME, "nav-header-register").click()
-        logger.info("浏览器启动, 进行登录.")
-        while True:
-            try:
-                self.driver.find_element(By.CLASS_NAME, "nav-header-register")
-            except Exception as _:
-                break
-        time.sleep(1)
-        self.db.insert("cookie", self.driver.get_cookies())
-        self.driver.quit()
-        logger.info("登录成功, 浏览器退出.")
-        return self.db.get("cookie")
+                install_playwright.install(p.chromium)
+                browser = p.chromium.launch(headless=False)
+                page = browser.new_page()
+                page.goto(login_url)
+                page.click(".nav-header-register")
+                logger.info("浏览器启动, 进行登录.")
+                page.wait_for_selector(".user-center-link", timeout=0, state="attached")
+                cookies = page.context.cookies()
+                self.db.insert("cookie", cookies)
+                browser.close()
+                logger.info("登录成功, 浏览器退出.")
+                return self.db.get("cookie")
+
+            except Exception as e:
+                logger.error(f"登录失败: {e}")
+                raise
 
     def get_cookies(self, force=False):
         if force:
