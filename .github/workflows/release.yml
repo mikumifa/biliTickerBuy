@@ -43,6 +43,7 @@ jobs:
 
       - name: Build Pyinstaller
         run: |
+          PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium
           pyinstaller main.spec
       - name: Zip the Build-windows
         if: matrix.config.os.filename == 'Windows'
