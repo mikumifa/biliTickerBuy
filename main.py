@@ -31,7 +31,6 @@ custom_css = """
 """
 
 if __name__ == "__main__":
-    input("gello")
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=7860, help="server port")
     parser.add_argument("--share", type=bool, default=False, help="create a public link")

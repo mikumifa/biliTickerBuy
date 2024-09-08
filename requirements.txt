@@ -1,4 +1,3 @@
-selenium~=4.9.0
 requests~=2.31.0
 setuptools~=65.5.1
 gradio~=4.43.0
@@ -13,3 +12,4 @@ ntplib~=0.4.0
 playsound~=1.3.0
 gradio-calendar~=0.0.4
 PyObjC~=10.3.1;sys_platform=="darwin"
+playwright~=1.46.0
