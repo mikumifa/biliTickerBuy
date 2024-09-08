@@ -51,7 +51,7 @@ jobs:
       - name: Zip the Build-linux
         if: matrix.config.os.filename != 'Windows'
         run: |
-          cd ./dist/biliTicKerBuy
+          cd ./dist
           zip -r  ../tmp.zip biliTickerBuy
 
       - name: Upload binaries to release
