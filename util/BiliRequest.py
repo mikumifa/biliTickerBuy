@@ -19,7 +19,7 @@ class BiliRequest:
 
     def get(self, url, data=None):
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
-        response = self.session.get(url, data=data, headers=self.headers, timeout = 1)
+        response = self.session.get(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json().get("msg", "") == "请先登录":
             self.headers["cookie"] = self.cookieManager.get_cookies_str_force()
@@ -28,7 +28,7 @@ class BiliRequest:
 
     def post(self, url, data=None):
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
-        response = self.session.post(url, data=data, headers=self.headers, timeout = 1)
+        response = self.session.post(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json().get("msg", "") == "请先登录":
             self.headers["cookie"] = self.cookieManager.get_cookies_str_force()
@@ -43,3 +43,4 @@ class BiliRequest:
             return result["data"]["uname"]
         except Exception as e:
             return "未登录"
+
