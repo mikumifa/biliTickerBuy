@@ -96,7 +96,13 @@ def on_submit_ticket_id(num):
         for screen in data["screen_list"]:
             screen_name = screen["name"]
             screen_id = screen["id"]
-            express_fee = screen["express_fee"]
+            express_fee = 0
+            if data["has_eticket"]:
+                express_fee = 0  # 电子票免费
+            else:
+                if screen["express_fee"] >= 0:
+                    express_fee = screen["express_fee"]  # -2 === t ? "快递到付" : -1 === t ? "快递包邮" : "快递配送"
+
             for ticket in screen["ticket_list"]:
                 ticket_desc = ticket["desc"]
                 sale_start = ticket["sale_start"]
