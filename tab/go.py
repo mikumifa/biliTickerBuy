@@ -563,6 +563,7 @@ def go_tab():
 
                 @retry.retry(exceptions=RequestException, tries=60, delay=interval / 1000)
                 def inner_request():
+                    nonlocal payload
                     if not isRunning:
                         raise ValueError("抢票结束")
                     ret = _request.post(
@@ -573,6 +574,12 @@ def go_tab():
                     logger.info(
                         f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 请求体: {ret}'
                     )
+                    if err == 100034:
+                        logger.info(
+                            f'更新票价为：{ret["data"]["pay_money"] / 100}'
+                        )
+                        tickets_info["pay_money"] = ret["data"]["pay_money"]
+                        payload = format_dictionary_to_string(tickets_info)
                     if err == 0 or err == 100048 or err == 100079:
                         return ret, err
                     if err == 100051:
