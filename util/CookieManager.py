@@ -27,7 +27,6 @@ class CookieManager:
                 browser.close()
                 logger.info("登录成功, 浏览器退出.")
                 return self.db.get("cookie")
-
             except Exception as e:
                 logger.error(f"登录失败: {e}")
                 raise

@@ -1,11 +1,11 @@
 import json
-
-import loguru
-import requests
-import playsound
 import os
 
-from config import get_application_tmp_path
+import loguru
+import playsound
+import requests
+
+from config import TEMP_PATH
 
 
 def send_message(token, desp, title):
@@ -24,8 +24,5 @@ def send_message(token, desp, title):
         loguru.logger.info("ServerChan消息发送失败")
 
 
-
-
-
 if __name__ == '__main__':
-    playsound.playsound(os.path.join(get_application_tmp_path(), "default.mp3"))
+    playsound.playsound(os.path.join(TEMP_PATH, "default.mp3"))
