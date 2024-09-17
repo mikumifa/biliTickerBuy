@@ -8,7 +8,7 @@ import gradio as gr
 from gradio_calendar import Calendar
 from loguru import logger
 
-from config import main_request, get_application_tmp_path
+from config import main_request, TEMP_PATH
 
 buyer_value = []
 addr_value = []
@@ -208,7 +208,7 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
                         + address_cur["addr"],
             },
         }
-        filename = os.path.join(get_application_tmp_path(), filename_filter(detail) + ".json")
+        filename = os.path.join(TEMP_PATH, filename_filter(detail) + ".json")
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(config_dir, f, ensure_ascii=False, indent=4)
         return [gr.update(), gr.update(value=config_dir, visible=True), gr.update(value=filename, visible=True)]
