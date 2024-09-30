@@ -155,6 +155,10 @@ def go_tab():
 
         with gr.Accordion(label='配置抢票成功声音提醒[可选]', open=False):
             with gr.Row():
+                gr.Markdown("""
+                目前只支持wav格式，其他格式请自行转换 https://www.freeconvert.com/mp3-to-wav
+                或者下载ffmpeg （这个自行网络上搜索，下载比较麻烦
+                """)
                 audio_path_ui = gr.Audio(
                     label="上传提示声音[只支持格式wav]", type="filepath", loop=True)
 
