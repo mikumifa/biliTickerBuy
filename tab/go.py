@@ -21,6 +21,7 @@ from geetest.NormalValidator import NormalValidator
 from geetest.RROCRValidator import RROCRValidator
 from util import PushPlusUtil
 from util import ServerChanUtil
+from util.SCFRequest import createOrder, getTencentUrls
 from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
@@ -212,7 +213,7 @@ def go_tab():
                  total_attempts, api_key, audio_path):
         nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning
         isRunning = True
-
+        urls = getTencentUrls()
         left_time = total_attempts
         yield [
             gr.update(value=withTimeString("详细信息见控制台"), visible=True),
@@ -576,7 +577,7 @@ def go_tab():
                     ).json()
                     err = int(ret["errno"])
                     logger.info(
-                        f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 请求体: {ret}'
+                        f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}),响应{ret}, 请求体: {payload}'
                     )
                     if err == 100034:
                         logger.info(

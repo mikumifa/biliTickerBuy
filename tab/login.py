@@ -92,7 +92,8 @@ def login_tab():
         )
 
         def inner_input_serverchan(x):
-            return configDB.insert("serverchanKey", x)        
+            return configDB.insert("serverchanKey", x)
+
         def inner_input_pushplus(x):
             return configDB.insert("pushplusToken", x)
 
@@ -100,3 +101,19 @@ def login_tab():
 
         pushplus_ui.change(fn=inner_input_pushplus, inputs=pushplus_ui)
 
+    gr.Markdown(
+        """
+        🗨️ 【实验性】云函数抢票
+        """)
+    with gr.Row():
+        tencent_urls_ui = gr.TextArea(
+            value=configDB.get("tencent::createOrder::url") if configDB.get(
+                "tencent::createOrder::url") is not None else "",
+            label="腾讯云函数,使用回车或者换行分隔",
+            interactive=True,
+        )
+
+        def inner_tencent_urls(x):
+            return configDB.insert("tencent::createOrder::url", x)
+
+        tencent_urls_ui.change(fn=inner_tencent_urls, inputs=tencent_urls_ui)
