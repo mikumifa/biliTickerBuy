@@ -1,8 +1,11 @@
 import json
+import os
 
 import loguru
+import playsound
 import requests
 
+from config import TEMP_PATH
 
 
 def send_message(token, content, title):
@@ -22,3 +25,5 @@ def send_message(token, content, title):
         loguru.logger.info("PushPlus消息发送失败")
 
 
+if __name__ == '__main__':
+    playsound.playsound(os.path.join(TEMP_PATH, "default.mp3"))
