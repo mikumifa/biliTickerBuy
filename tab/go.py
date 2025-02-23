@@ -224,6 +224,7 @@ def go_tab():
             gr.update(),
             gr.update(),
         ]
+        global_status = {}
         while isRunning:
             try:
                 if time_start != "":
@@ -417,7 +418,7 @@ def go_tab():
                                 current_time = start_time
                                 while current_time < end_time:
                                     current_time = time.perf_counter()
-                                break
+                                break # Enter the real order prepare
                             if not isRunning:
                                 # 停止定时抢票
                                 yield [
@@ -435,6 +436,137 @@ def go_tab():
                         else:
                             break
 
+                tickets_info = json.loads(tickets_info_str)
+                _request = main_request
+                token_payload = {
+                    "count": tickets_info["count"],
+                    "screen_id": tickets_info["screen_id"],
+                    "order_type": 1,
+                    "project_id": tickets_info["project_id"],
+                    # "sku_id": tickets_info["sku_id"],
+                    "count": 2,
+                    "seats": r'''["3112_0_1","3112_2_0"]''',
+                    "cf_id": "",
+                    # "token": "",
+                    "newRisk": True,
+                }
+                ts = int(time.time()) * 1000
+                logger.info(f"1）查询场次信息")
+                request_result_normal = _request.get(
+                    url=f"https://show.bilibili.com/api/ticket/place/get?screen_id={tickets_info['screen_id']}&project_id={tickets_info['project_id']}&timestamp={ts}",
+                )
+                logger.info(f"request_payload: {token_payload}")
+                request_result = request_result_normal.json()
+                logger.info(f"回报头: {request_result_normal.headers} // 回报体: {request_result}")
+                errno = request_result["errno"]
+                if errno == 100035:
+                    logger.info(f"Not open yet, retry")
+                elif errno != 0:
+                    logger.info(f"Unknown error {errno}, retrying...")
+                    # TODO
+                global_status["screen_data"] = request_result["data"]
+                screen_data = global_status["screen_data"]
+
+                if not "area_list" in global_status:
+                    area_list = []
+                    first_floor_area = None
+                    for ticket in screen_data["ticket_area"]:
+                        price = ticket["price"]
+                        area = ticket["area"]
+                        if price == 68000 and len(area) == 1:
+                            first_floor_area = area[0]
+                            break
+                    if first_floor_area is None:
+                        for area in screen_data["available_area"]:
+                            area_name = screen_data["area_name"][str(area)]
+
+                        # This is a special case handling for qymc
+                        # As the place only have two area, we add some rule try to match first floor and put it to the first area, and put the rest to the second area
+                        if "一" in area_name or "楼下" in area_name:
+                            first_floor_area = area
+                            break
+                    if first_floor_area != None:
+                        area_list.append(first_floor_area)
+                    logger.info(f"Area list after try to match first floor: {area_list}")
+                    if len(area_list) == 0:
+                        logger.warning("Area list is not handled as expected - only handling first floor/downstairs areas")
+                    for area in screen_data["available_area"]:
+                        if area not in area_list:
+                            area_list.append(area)
+                    logger.info(f"Area list final: {area_list}")
+                    global_status["area_list"] = area_list
+                if not "area_index" in global_status:
+                    global_status["area_index"] = 0
+                
+                area = global_status["area_list"][global_status["area_index"]]
+                logger.info(f"Current area: {area}")
+
+
+                logger.info(f"2）查询座位信息")
+                request_result_normal = _request.get(
+                    url=f"https://show.bilibili.com/api/ticket/area/seat?screen_id={tickets_info['screen_id']}&area_id={area}&timestamp={ts}",
+                )
+                # logger.info(f"request_payload: {token_payload}")
+                request_result = request_result_normal.json()
+                logger.info(f"回报头: {request_result_normal.headers} // 回报体: {request_result}")
+                errno = request_result["errno"]
+                if errno == 100035:
+                    logger.info(f"Not open yet, retry")
+                elif errno != 0:
+                    logger.info(f"Unknown error {errno}, retrying...")
+                    # TODO
+                global_status["area_seat_data"] = request_result["data"]
+                area_seat_data = global_status["area_seat_data"]
+
+                logger.info(f"area_seat_data: {area_seat_data}")
+
+
+                def get_seat_list(area_seat_data, num=4):
+                    seat_list = []
+                    symbol_data = area_seat_data["symbol"]
+                    symbols = []
+                    for symbol_char, symbol_detail in symbol_data.items():
+                        symbols.append(symbol_char) 
+                    
+                    symbols.sort(key=lambda x: symbol_data[x]["price"], reverse=True)
+
+                    logger.info(f"Symbols: {symbols}")
+
+                    available_seat_list = {
+
+                    }
+
+                    seats = area_seat_data["seats"]
+
+                    for symbol in symbols:
+                        available_seat_list[symbol] = []
+                    for i in range(len(seats)):
+                        for j in range(len(seats[i])):
+                            if seats[i][j] in symbols:
+                                available_seat_list[seats[i][j]].append((i, j))
+                    logger.info(f"Available seat list: {available_seat_list}")
+
+                    raw_unavailable_seat_list = area_seat_data["unavailable"]
+                    unavailable_seat_list = []
+
+                    for u_seat in raw_unavailable_seat_list:
+                        x = u_seat.split("_")
+                        s = (eval(x[0]), eval(x[1]))
+                        unavailable_seat_list.append(s)
+
+                    logger.info(f"Unavailable seat list: {unavailable_seat_list}")
+
+                    for seat_symbol, seat_list in available_seat_list.items():
+                        seat_list = [s for s in seat_list if s not in unavailable_seat_list]
+                        available_seat_list[seat_symbol] = seat_list
+                    
+                    logger.info(f"Available seat list after filtering: {available_seat_list}")
+
+                    return seat_list
+                seat_list = get_seat_list(area_seat_data, 4)
+                logger.info(f"Early return")
+                return
+
                 # 数据准备
                 tickets_info = json.loads(tickets_info_str)
                 _request = main_request
@@ -443,8 +575,11 @@ def go_tab():
                     "screen_id": tickets_info["screen_id"],
                     "order_type": 1,
                     "project_id": tickets_info["project_id"],
-                    "sku_id": tickets_info["sku_id"],
-                    "token": "",
+                    # "sku_id": tickets_info["sku_id"],
+                    "count": 2,
+                    "seats": r'''["3112_0_1","3112_2_0"]''',
+                    "cf_id": "",
+                    # "token": "",
                     "newRisk": True,
                 }
                 # 订单准备
@@ -453,6 +588,7 @@ def go_tab():
                     url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                     data=token_payload,
                 )
+                logger.info(f"request_payload: {token_payload}")
                 request_result = request_result_normal.json()
                 logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
                 code = int(request_result["code"])
@@ -559,10 +695,12 @@ def go_tab():
                         data=token_payload,
                     ).json()
                     logger.info(f"prepare: {request_result}")
+                # logger.info(f"Early return")
+                # return
                 tickets_info["again"] = 1
                 tickets_info["token"] = request_result["data"]["token"]
                 logger.info(f"2）创建订单")
-                tickets_info["timestamp"] = int(time.time()) * 100
+                tickets_info["timestamp"] = int(time.time()) * 1000
                 payload = format_dictionary_to_string(tickets_info)
 
                 @retry.retry(exceptions=RequestException, tries=60, delay=interval / 1000)
@@ -589,6 +727,7 @@ def go_tab():
                     if err == 100051:
                         raise ValueError("token 过期")
                     if err != 0:
+                        logger.info(f"ErrorNo: {err}")
                         raise HTTPError("重试次数过多，重新准备订单")
                     return ret, err
 
