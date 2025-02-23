@@ -457,6 +457,9 @@ def go_tab():
                                 logger.info("手动停止定时抢票")
                                 return
                         else:
+                            # Prevent from 412
+                            if time_difference < -10:
+                                interval = 1500
                             break
 
                 tickets_info = json.loads(tickets_info_str)
