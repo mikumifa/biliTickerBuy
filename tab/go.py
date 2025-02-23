@@ -480,6 +480,8 @@ def go_tab():
                         continue
                         # TODO
                     global_status["screen_data"] = request_result["data"]
+                else:
+                    logger.info(f"screen_data already exists, continue")
                 screen_data = global_status["screen_data"]
 
                 if not "area_list" in global_status:
@@ -515,7 +517,6 @@ def go_tab():
 
 
 
-                retry_count = 0
                 while True:
                     logger.info(f"2）查询座位信息")
                 
@@ -738,12 +739,9 @@ def go_tab():
                     logger.info(f"success_seats: {success_seats}")
                     logger.info(f"failed_seats: {failed_seats}")
                     if len(success_seats) < min_count:
-                        if retry_count > 3:
-                            break
                         logger.info("可买座位小于最小设置张数，重新选择座位")
-                        retry_count += 1
-                        time.sleep(interval / 1000.0)
-                        continue
+                        left_time -= 1
+                        raise HTTPError("可买座位小于最小设置张数，重新选择座位")
                     else:
                         break
 
