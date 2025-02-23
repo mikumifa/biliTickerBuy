@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode, quote
+import random
 
 import gradio as gr
 import qrcode
@@ -205,11 +206,31 @@ def go_tab():
                 info="设置抢票的总次数",
                 visible=False,
             )
+            max_count_ui = gr.Number(
+                label="最大抢票张数",
+                value=4,
+                maximum=4,
+                minimum=1,
+                info="设置抢票的最大张数(有可能出现部分票被锁的情况，为了保证成功率会选择先支付剩下可买的票)",
+                visible=True,
+            )
+            min_count_ui = gr.Number(
+                label="最小抢票张数",
+                value=1,
+                maximum=4,
+                minimum=1,
+                info="设置抢票的最小张数(订单准备时如果可买张数小于该值，会重新获取座位信息选择座位)",
+                visible=True,
+            )
+            price_1_ui = gr.Checkbox(label="SVIP", value=True, info="是否抢SVIP", interactive=True)
+            price_2_ui = gr.Checkbox(label="VIP", value=True, info="是否抢VIP", interactive=True) 
+            price_3_ui = gr.Checkbox(label="普通票", value=False, info="是否抢普票", interactive=True)
+
 
     validate_con = threading.Condition()
 
     def start_go(tickets_info_str, authcode_prepare_str, authcode_preorder_time, time_start, interval, mode,
-                 total_attempts, api_key, audio_path):
+                 total_attempts, api_key, audio_path, max_count, min_count, price_1, price_2, price_3):
         nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning
         isRunning = True
 
@@ -225,6 +246,8 @@ def go_tab():
             gr.update(),
         ]
         global_status = {}
+        price_enable_list = [price_1, price_2, price_3]
+        logger.info(f"price_enable_list: {price_enable_list}")
         while isRunning:
             try:
                 if time_start != "":
@@ -438,31 +461,22 @@ def go_tab():
 
                 tickets_info = json.loads(tickets_info_str)
                 _request = main_request
-                token_payload = {
-                    "count": tickets_info["count"],
-                    "screen_id": tickets_info["screen_id"],
-                    "order_type": 1,
-                    "project_id": tickets_info["project_id"],
-                    # "sku_id": tickets_info["sku_id"],
-                    "count": 2,
-                    "seats": r'''["3112_0_1","3112_2_0"]''',
-                    "cf_id": "",
-                    # "token": "",
-                    "newRisk": True,
-                }
                 ts = int(time.time()) * 1000
                 logger.info(f"1）查询场次信息")
                 request_result_normal = _request.get(
                     url=f"https://show.bilibili.com/api/ticket/place/get?screen_id={tickets_info['screen_id']}&project_id={tickets_info['project_id']}&timestamp={ts}",
                 )
-                logger.info(f"request_payload: {token_payload}")
                 request_result = request_result_normal.json()
                 logger.info(f"回报头: {request_result_normal.headers} // 回报体: {request_result}")
                 errno = request_result["errno"]
                 if errno == 100035:
                     logger.info(f"Not open yet, retry")
+                    time.sleep(interval / 1000.0)
+                    continue
                 elif errno != 0:
                     logger.info(f"Unknown error {errno}, retrying...")
+                    time.sleep(interval / 1000.0)
+                    continue
                     # TODO
                 global_status["screen_data"] = request_result["data"]
                 screen_data = global_status["screen_data"]
@@ -470,12 +484,9 @@ def go_tab():
                 if not "area_list" in global_status:
                     area_list = []
                     first_floor_area = None
-                    for ticket in screen_data["ticket_area"]:
-                        price = ticket["price"]
-                        area = ticket["area"]
-                        if price == 68000 and len(area) == 1:
-                            first_floor_area = area[0]
-                            break
+                    ticket_area = screen_data["ticket_area"]
+                    ticket_area.sort(key=lambda x: x["price"], reverse=True)
+                    first_floor_area = ticket_area[0]["area"][0]
                     if first_floor_area is None:
                         for area in screen_data["available_area"]:
                             area_name = screen_data["area_name"][str(area)]
@@ -502,205 +513,259 @@ def go_tab():
                 logger.info(f"Current area: {area}")
 
 
-                logger.info(f"2）查询座位信息")
-                request_result_normal = _request.get(
-                    url=f"https://show.bilibili.com/api/ticket/area/seat?screen_id={tickets_info['screen_id']}&area_id={area}&timestamp={ts}",
-                )
-                # logger.info(f"request_payload: {token_payload}")
-                request_result = request_result_normal.json()
-                logger.info(f"回报头: {request_result_normal.headers} // 回报体: {request_result}")
-                errno = request_result["errno"]
-                if errno == 100035:
-                    logger.info(f"Not open yet, retry")
-                elif errno != 0:
-                    logger.info(f"Unknown error {errno}, retrying...")
-                    # TODO
-                global_status["area_seat_data"] = request_result["data"]
-                area_seat_data = global_status["area_seat_data"]
 
-                logger.info(f"area_seat_data: {area_seat_data}")
-
-
-                def get_seat_list(area_seat_data, num=4):
-                    seat_list = []
-                    symbol_data = area_seat_data["symbol"]
-                    symbols = []
-                    for symbol_char, symbol_detail in symbol_data.items():
-                        symbols.append(symbol_char) 
-                    
-                    symbols.sort(key=lambda x: symbol_data[x]["price"], reverse=True)
-
-                    logger.info(f"Symbols: {symbols}")
+                retry_count = 0
+                while True:
+                    logger.info(f"2）查询座位信息")
+                
+                    request_result_normal = _request.get(
+                        url=f"https://show.bilibili.com/api/ticket/area/seat?screen_id={tickets_info['screen_id']}&area_id={area}&timestamp={ts}",
+                    )
+                    request_result = request_result_normal.json()
+                    logger.info(f"回报头: {request_result_normal.headers} // 回报体: {request_result}")
+                    errno = request_result["errno"]
+                    if errno == 100035:
+                        logger.info(f"Not open yet, retry")
+                        time.sleep(interval / 1000.0)
+                        continue
+                    elif errno != 0:
+                        logger.info(f"Unknown error {errno}, retrying...")
+                        time.sleep(interval / 1000.0)
+                        continue
+                        # TODO
+                    global_status["area_seat_data"] = request_result["data"]
+                    area_seat_data = global_status["area_seat_data"]
 
                     available_seat_list = {
 
                     }
 
-                    seats = area_seat_data["seats"]
+                    def get_seat_list(area_seat_data, num=4):
+                        seat_list = []
+                        symbol_data = area_seat_data["symbol"]
+                        symbols = []
+                        for symbol_char, symbol_detail in symbol_data.items():
+                            symbols.append(symbol_char) 
 
-                    for symbol in symbols:
-                        available_seat_list[symbol] = []
-                    for i in range(len(seats)):
-                        for j in range(len(seats[i])):
-                            if seats[i][j] in symbols:
-                                available_seat_list[seats[i][j]].append((i, j))
-                    logger.info(f"Available seat list: {available_seat_list}")
+                        symbols.sort(key=lambda x: symbol_data[x]["price"], reverse=True)
 
-                    raw_unavailable_seat_list = area_seat_data["unavailable"]
-                    unavailable_seat_list = []
+                        logger.info(f"Symbols: {symbols}")
+                        _symbols = []
+                        for i in range(len(symbols)):
+                            if price_enable_list[i]:
+                                _symbols.append(symbols[i])
 
-                    for u_seat in raw_unavailable_seat_list:
-                        x = u_seat.split("_")
-                        s = (eval(x[0]), eval(x[1]))
-                        unavailable_seat_list.append(s)
+                        symbols = _symbols
+                        logger.info(f"Symbols after filter: {symbols}")
 
-                    logger.info(f"Unavailable seat list: {unavailable_seat_list}")
+                        seats = area_seat_data["seats"]
 
-                    for seat_symbol, seat_list in available_seat_list.items():
-                        seat_list = [s for s in seat_list if s not in unavailable_seat_list]
-                        available_seat_list[seat_symbol] = seat_list
-                    
-                    logger.info(f"Available seat list after filtering: {available_seat_list}")
+                        for symbol in symbols:
+                            available_seat_list[symbol] = []
+                        for i in range(len(seats)):
+                            for j in range(len(seats[i])):
+                                if seats[i][j] in symbols:
+                                    available_seat_list[seats[i][j]].append((i, j))
+                        logger.info(f"Available seat list: {available_seat_list}")
 
-                    return seat_list
-                seat_list = get_seat_list(area_seat_data, 4)
-                logger.info(f"Early return")
-                return
+                        raw_unavailable_seat_list = area_seat_data["unavailable"]
+                        unavailable_seat_list = []
 
-                # 数据准备
-                tickets_info = json.loads(tickets_info_str)
-                _request = main_request
-                token_payload = {
-                    "count": tickets_info["count"],
-                    "screen_id": tickets_info["screen_id"],
-                    "order_type": 1,
-                    "project_id": tickets_info["project_id"],
-                    # "sku_id": tickets_info["sku_id"],
-                    "count": 2,
-                    "seats": r'''["3112_0_1","3112_2_0"]''',
-                    "cf_id": "",
-                    # "token": "",
-                    "newRisk": True,
-                }
-                # 订单准备
-                logger.info(f"1）订单准备")
-                request_result_normal = _request.post(
-                    url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                    data=token_payload,
-                )
-                logger.info(f"request_payload: {token_payload}")
-                request_result = request_result_normal.json()
-                logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
-                code = int(request_result["code"])
-                # 完成验证码
-                if code == -401:
-                    # if True:
-                    _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
-                    _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
-                    _data = _request.post(_url, _payload).json()
-                    logger.info(
-                        f"验证码请求: {_data}"
-                    )
-                    csrf = _request.cookieManager.get_cookies_value("bili_jct")
-                    token = _data["data"]["token"]
-                    if _data["data"]["type"] == "geetest":
-                        gt = _data["data"]["geetest"]["gt"]
-                        challenge = _data["data"]["geetest"]["challenge"]
-                        geetest_validate = ""
-                        geetest_seccode = ""
-                        if ways_detail[select_way].have_gt_ui():
-                            logger.info(f"Using {ways_detail[select_way]}, have gt ui")
-                            yield [
-                                gr.update(value=withTimeString("进行验证码验证"), visible=True),
-                                gr.update(visible=True),
-                                gr.update(),
-                                gr.update(visible=True),
-                                gr.update(value=gt),
-                                gr.update(value=challenge),
-                                gr.update(value=uuid.uuid1()),
-                                gr.update(),
-                            ]
+                        for u_seat in raw_unavailable_seat_list:
+                            x = u_seat.split("_")
+                            s = (eval(x[0]), eval(x[1]))
+                            unavailable_seat_list.append(s)
 
-                        def run_validation():
-                            nonlocal geetest_validate, geetest_seccode
-                            try:
-                                tmp = ways_detail[select_way].validate(appkey=api_key, gt=gt, challenge=challenge)
-                            except Exception as e:
-                                return
-                            validate_con.acquire()
-                            geetest_validate = tmp
-                            geetest_seccode = geetest_validate + "|jordan"
-                            validate_con.notify()
-                            validate_con.release()
+                        logger.info(f"Unavailable seat list: {unavailable_seat_list}")
 
-                        validate_con.acquire()
-                        while geetest_validate == "" or geetest_seccode == "":
-                            threading.Thread(target=run_validation).start()
-                            yield [
-                                gr.update(value=withTimeString(f"等待验证码完成， 使用{ways[select_way]}"),
-                                          visible=True),
-                                gr.update(visible=True),
-                                gr.update(),
-                                gr.update(),
-                                gr.update(),
-                                gr.update(),
-                                gr.update(),
-                                gr.update(),
-                            ]
-                            validate_con.wait()
-                        validate_con.release()
-                        logger.info(
-                            f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
-                        )
-                        _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
-                        _payload = {
-                            "challenge": challenge,
-                            "token": token,
-                            "seccode": geetest_seccode,
-                            "csrf": csrf,
-                            "validate": geetest_validate,
-                        }
-                        _data = _request.post(_url, urlencode(_payload)).json()
-                    elif _data["data"]["type"] == "phone":
-                        _payload = {
-                            "code": global_cookieManager.get_config_value("phone", ""),
-                            "csrf": csrf,
-                            "token": token,
-                        }
-                        _data = _request.post(_url, urlencode(_payload)).json()
-                    else:
-                        logger.warning("这个一个程序无法应对的验证码，脚本无法处理")
-                        break
-                    logger.info(f"validate: {_data}")
-                    geetest_validate = ""
-                    geetest_seccode = ""
-                    if _data["code"] == 0:
-                        logger.info("验证码成功")
-                    else:
-                        logger.info("验证码失败 {}", _data)
-                        yield [
-                            gr.update(value=withTimeString("验证码失败。重新验证"), visible=True),
-                            gr.update(visible=True),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
+                        for seat_symbol, seat_list in available_seat_list.items():
+                            seat_list = [s for s in seat_list if s not in unavailable_seat_list]
+                            available_seat_list[seat_symbol] = seat_list
 
-                        ]
-                        continue
-                    request_result = _request.post(
+                        logger.info(f"Available seat list after filtering: {available_seat_list}")
+
+                        for symbol in symbols:
+                            ava_seats = available_seat_list[symbol]
+                            logger.info(f"Available seat for {symbol}: {ava_seats}")
+                            random.shuffle(ava_seats)
+                            logger.info(f"Available seat for {symbol} after shuffle: {ava_seats}")
+
+                            left_num = num - len(seat_list)
+
+                            for i in range(min(left_num, len(ava_seats))):
+                                seat_list.append(ava_seats[i])
+                            logger.info(f"Seat_list after choose symbol {symbol}: {seat_list}")
+                            if len(seat_list) == num:
+                                break
+
+                        return seat_list
+                    seat_list = get_seat_list(area_seat_data, max_count)
+                    logger.info(f"seat_list: {seat_list}")
+
+                    # 数据准备
+                    # tickets_info = json.loads(tickets_info_str)
+                    # _request = main_request
+                    seats_str = '["' + '","'.join([f"{area}_{seat[0]}_{seat[1]}" for seat in seat_list]) + '"]'
+                    logger.info(f"seats_str: {seats_str}")
+                    # return
+                    token_payload = {
+                        "screen_id": tickets_info["screen_id"],
+                        "order_type": 1,
+                        "project_id": tickets_info["project_id"],
+                        # "sku_id": tickets_info["sku_id"],
+                        "count": len(seat_list),
+                        "seats": seats_str,
+                        "cf_id": "",
+                        # "token": "",
+                        "newRisk": True,
+                    }
+                    # 订单准备
+                    logger.info(f"3）订单准备")
+                    request_result_normal = _request.post(
                         url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                         data=token_payload,
-                    ).json()
-                    logger.info(f"prepare: {request_result}")
+                    )
+                    logger.info(f"request_payload: {token_payload}")
+                    request_result = request_result_normal.json()
+                    logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
+                    code = int(request_result["code"])
+                    # 完成验证码
+                    if code == -401:
+                        # if True:
+                        _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
+                        _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
+                        _data = _request.post(_url, _payload).json()
+                        logger.info(
+                            f"验证码请求: {_data}"
+                        )
+                        csrf = _request.cookieManager.get_cookies_value("bili_jct")
+                        token = _data["data"]["token"]
+                        if _data["data"]["type"] == "geetest":
+                            gt = _data["data"]["geetest"]["gt"]
+                            challenge = _data["data"]["geetest"]["challenge"]
+                            geetest_validate = ""
+                            geetest_seccode = ""
+                            if ways_detail[select_way].have_gt_ui():
+                                logger.info(f"Using {ways_detail[select_way]}, have gt ui")
+                                yield [
+                                    gr.update(value=withTimeString("进行验证码验证"), visible=True),
+                                    gr.update(visible=True),
+                                    gr.update(),
+                                    gr.update(visible=True),
+                                    gr.update(value=gt),
+                                    gr.update(value=challenge),
+                                    gr.update(value=uuid.uuid1()),
+                                    gr.update(),
+                                ]
+
+                            def run_validation():
+                                nonlocal geetest_validate, geetest_seccode
+                                try:
+                                    tmp = ways_detail[select_way].validate(appkey=api_key, gt=gt, challenge=challenge)
+                                except Exception as e:
+                                    return
+                                validate_con.acquire()
+                                geetest_validate = tmp
+                                geetest_seccode = geetest_validate + "|jordan"
+                                validate_con.notify()
+                                validate_con.release()
+
+                            validate_con.acquire()
+                            while geetest_validate == "" or geetest_seccode == "":
+                                threading.Thread(target=run_validation).start()
+                                yield [
+                                    gr.update(value=withTimeString(f"等待验证码完成， 使用{ways[select_way]}"),
+                                              visible=True),
+                                    gr.update(visible=True),
+                                    gr.update(),
+                                    gr.update(),
+                                    gr.update(),
+                                    gr.update(),
+                                    gr.update(),
+                                    gr.update(),
+                                ]
+                                validate_con.wait()
+                            validate_con.release()
+                            logger.info(
+                                f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
+                            )
+                            _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
+                            _payload = {
+                                "challenge": challenge,
+                                "token": token,
+                                "seccode": geetest_seccode,
+                                "csrf": csrf,
+                                "validate": geetest_validate,
+                            }
+                            _data = _request.post(_url, urlencode(_payload)).json()
+                        elif _data["data"]["type"] == "phone":
+                            _payload = {
+                                "code": global_cookieManager.get_config_value("phone", ""),
+                                "csrf": csrf,
+                                "token": token,
+                            }
+                            _data = _request.post(_url, urlencode(_payload)).json()
+                        else:
+                            logger.warning("这个一个程序无法应对的验证码，脚本无法处理")
+                            break
+                        logger.info(f"validate: {_data}")
+                        geetest_validate = ""
+                        geetest_seccode = ""
+                        if _data["code"] == 0:
+                            logger.info("验证码成功")
+                        else:
+                            logger.info("验证码失败 {}", _data)
+                            yield [
+                                gr.update(value=withTimeString("验证码失败。重新验证"), visible=True),
+                                gr.update(visible=True),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+                                gr.update(),
+
+                            ]
+                            continue
+                        request_result = _request.post(
+                            url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
+                            data=token_payload,
+                        ).json()
+                        logger.info(f"prepare: {request_result}")
+                    success_seats = request_result["data"]["success_seats"]
+                    failed_seats = request_result["data"]["failed_seats"]
+                    logger.info(f"success_seats: {success_seats}")
+                    logger.info(f"failed_seats: {failed_seats}")
+                    if len(success_seats) < min_count:
+                        if retry_count > 3:
+                            break
+                        logger.info("可买座位小于最小设置张数，重新选择座位")
+                        retry_count += 1
+                        time.sleep(interval / 1000.0)
+                        continue
+                    else:
+                        break
+
                 # logger.info(f"Early return")
                 # return
+
                 tickets_info["again"] = 1
                 tickets_info["token"] = request_result["data"]["token"]
-                logger.info(f"2）创建订单")
+                logger.info(f"4）创建订单")
                 tickets_info["timestamp"] = int(time.time()) * 1000
+                tickets_info["count"] = len(success_seats)
+                price = 0
+                for seat in success_seats:
+                    x = seat.split("_")
+                    pos = (eval(x[1]), eval(x[2]))
+                    for symbol, l in available_seat_list.items():
+                        if pos in l:
+                            price += area_seat_data["symbol"][symbol]["price"]
+                            break
+                tickets_info["pay_money"] = price
+                tickets_info["buyer_info"] = tickets_info["buyer_info"][:len(success_seats)]
+                logger.info(f"tickets_info: {tickets_info}")
+                # return
                 payload = format_dictionary_to_string(tickets_info)
 
                 @retry.retry(exceptions=RequestException, tries=60, delay=interval / 1000)
@@ -752,31 +817,39 @@ def go_tab():
                 ]
                 if errno == 0:
                     logger.info(f"3）抢票成功")
-                    qrcode_url = get_qrcode_url(
-                        _request,
-                        request_result["data"]["orderId"],
-                    )
-                    qr_gen = qrcode.QRCode()
-                    qr_gen.add_data(qrcode_url)
-                    qr_gen.make(fit=True)
-                    qr_gen_image = qr_gen.make_image()
-                    yield [
-                        gr.update(value=withTimeString("生成付款二维码"), visible=True),
-                        gr.update(visible=False),
-                        gr.update(value=qr_gen_image.get_image(), visible=True),
-                        gr.update(),
-                        gr.update(),
-                        gr.update(),
-                        gr.update(),
-                        gr.update(),
-                    ]
-                    pushplusToken = configDB.get("pushplusToken")
-                    if pushplusToken is not None and pushplusToken != "":
-                        PushPlusUtil.send_message(pushplusToken, "抢票成功", "前往订单中心付款吧")
+                    gr.update(value=withTimeString("抢票成功，请自行登录付款"), visible=True),
+                    gr.update(visible=True),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    # qrcode_url = get_qrcode_url(
+                    #     _request,
+                    #     request_result["data"]["orderId"],
+                    # )
+                    # qr_gen = qrcode.QRCode()
+                    # qr_gen.add_data(qrcode_url)
+                    # qr_gen.make(fit=True)
+                    # qr_gen_image = qr_gen.make_image()
+                    # yield [
+                    #     gr.update(value=withTimeString("生成付款二维码"), visible=True),
+                    #     gr.update(visible=False),
+                    #     gr.update(value=qr_gen_image.get_image(), visible=True),
+                    #     gr.update(),
+                    #     gr.update(),
+                    #     gr.update(),
+                    #     gr.update(),
+                    #     gr.update(),
+                    # ]
+                    # pushplusToken = configDB.get("pushplusToken")
+                    # if pushplusToken is not None and pushplusToken != "":
+                    #     PushPlusUtil.send_message(pushplusToken, "抢票成功", "前往订单中心付款吧")
 
-                    serverchanKey = configDB.get("serverchanKey")
-                    if serverchanKey is not None and serverchanKey != "":
-                        ServerChanUtil.send_message(serverchanKey, "抢票成功", "前往订单中心付款吧")
+                    # serverchanKey = configDB.get("serverchanKey")
+                    # if serverchanKey is not None and serverchanKey != "":
+                    #     ServerChanUtil.send_message(serverchanKey, "抢票成功", "前往订单中心付款吧")
 
                     if audio_path != "":
                         yield [
@@ -951,7 +1024,7 @@ def go_tab():
     go_btn.click(
         fn=start_go,
         inputs=[ticket_ui, authcode_prepare_text_ui, authcode_preorder_time_ui, time_tmp, interval_ui, mode_ui,
-                total_attempts_ui, api_key_input_ui, audio_path_ui],
+                total_attempts_ui, api_key_input_ui, audio_path_ui, max_count_ui, min_count_ui, price_1_ui, price_2_ui, price_3_ui],
         outputs=[go_ui, stop_btn, qr_image, gt_row, gt_ui, challenge_ui, trigger, audio_path_ui],
     )
     stop_btn.click(
