@@ -458,7 +458,7 @@ def go_tab():
                                 return
                         else:
                             # Prevent from 412
-                            if time_difference < -10:
+                            if time_difference < -15:
                                 interval = 1500
                             break
 
