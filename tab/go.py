@@ -462,23 +462,24 @@ def go_tab():
                 tickets_info = json.loads(tickets_info_str)
                 _request = main_request
                 ts = int(time.time()) * 1000
-                logger.info(f"1）查询场次信息")
-                request_result_normal = _request.get(
-                    url=f"https://show.bilibili.com/api/ticket/place/get?screen_id={tickets_info['screen_id']}&project_id={tickets_info['project_id']}&timestamp={ts}",
-                )
-                request_result = request_result_normal.json()
-                logger.info(f"回报头: {request_result_normal.headers} // 回报体: {request_result}")
-                errno = request_result["errno"]
-                if errno == 100035:
-                    logger.info(f"Not open yet, retry")
-                    time.sleep(interval / 1000.0)
-                    continue
-                elif errno != 0:
-                    logger.info(f"Unknown error {errno}, retrying...")
-                    time.sleep(interval / 1000.0)
-                    continue
-                    # TODO
-                global_status["screen_data"] = request_result["data"]
+                if not "screen_data" in global_status:
+                    logger.info(f"1）查询场次信息")
+                    request_result_normal = _request.get(
+                        url=f"https://show.bilibili.com/api/ticket/place/get?screen_id={tickets_info['screen_id']}&project_id={tickets_info['project_id']}&timestamp={ts}",
+                    )
+                    request_result = request_result_normal.json()
+                    logger.info(f"回报头: {request_result_normal.headers} // 回报体: {request_result}")
+                    errno = request_result["errno"]
+                    if errno == 100035:
+                        logger.info(f"Not open yet, retry")
+                        time.sleep(interval / 1000.0)
+                        continue
+                    elif errno != 0:
+                        logger.info(f"Unknown error {errno}, retrying...")
+                        time.sleep(interval / 1000.0)
+                        continue
+                        # TODO
+                    global_status["screen_data"] = request_result["data"]
                 screen_data = global_status["screen_data"]
 
                 if not "area_list" in global_status:
