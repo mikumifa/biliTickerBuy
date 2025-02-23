@@ -250,6 +250,8 @@ def go_tab():
         logger.info(f"price_enable_list: {price_enable_list}")
         while isRunning:
             try:
+                if mode == 1 and left_time <= 0:
+                    break
                 if time_start != "":
                     logger.info("0) 等待开始时间")
                     timeoffset = time_service.get_timeoffset()
