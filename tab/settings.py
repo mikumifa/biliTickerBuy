@@ -122,7 +122,6 @@ def on_submit_ticket_id(num):
             url="https://show.bilibili.com/api/ticket/addr/list"
         ).json()
         logger.debug(addr_json)
-
         buyer_value = buyer_json["data"]["list"]
         buyer_str_list = [
             f"{item['name']}-{item['personal_id']}" for item in buyer_value
@@ -183,11 +182,17 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
             return [gr.update(value="至少选一个实名人", visible=True),
                     gr.update(value={}),
                     gr.update()]
+        if addr_value is None:
+            return [gr.update(value="没有填写地址", visible=True),
+                    gr.update(value={}),
+                    gr.update()]
         address_cur = addr_value[address_index]
-        detail = f'{project_name}-{ticket_str_list[ticket_info]}'
+        username = main_request.get_request_name()
+        detail = f'{username}-{project_name}-{ticket_str_list[ticket_info]}'
         for p in people_cur:
             detail += f"-{p['name']}"
         config_dir = {
+            "username": username,
             "detail": detail,
             "count": len(people_indices),
             "screen_id": ticket_cur["ticket"]["screen_id"],
@@ -207,6 +212,7 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
                         + address_cur["area"]
                         + address_cur["addr"],
             },
+            "cookies": main_request.cookieManager.get_cookies(),
         }
         filename = os.path.join(TEMP_PATH, filename_filter(detail) + ".json")
         with open(filename, 'w', encoding='utf-8') as f:

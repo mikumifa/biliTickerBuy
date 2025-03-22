@@ -5,8 +5,10 @@ from util.KVDatabase import KVDatabase
 
 
 class CookieManager:
-    def __init__(self, config_file_path):
+    def __init__(self, config_file_path=None, cookies=None):
         self.db = KVDatabase(config_file_path)
+        if cookies is not None:
+            self.db.insert("cookie", cookies)
 
     @logger.catch
     def _login_and_save_cookies(

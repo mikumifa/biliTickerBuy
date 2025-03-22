@@ -1,35 +1,11 @@
 import os
-import sys
 
 import loguru
 
+from path import APP_PATH, BASE_DIR, TEMP_PATH
 from util.BiliRequest import BiliRequest
 from util.KVDatabase import KVDatabase
 from util.TimeService import TimeService
-
-
-# 创建通知器实例
-
-# 获取图标文件的路径
-def get_application_path():
-    if getattr(sys, "frozen", False):
-        application_path = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
-    else:
-        application_path = os.path.dirname(os.path.abspath(__file__))
-
-    return application_path
-
-
-APP_PATH = get_application_path()
-
-
-def get_application_tmp_path():
-    os.makedirs(os.path.join(APP_PATH, "tmp"), exist_ok=True)
-    return os.path.join(APP_PATH, "tmp")
-
-
-TEMP_PATH = get_application_tmp_path()
-BASE_DIR = os.path.dirname(os.path.realpath(sys.executable))
 
 loguru.logger.info(f"设置路径, APP_PATH={APP_PATH} TEMP_PATH={TEMP_PATH} BASE_DIR={BASE_DIR}")
 configDB = KVDatabase(os.path.join(BASE_DIR, "config.json"))

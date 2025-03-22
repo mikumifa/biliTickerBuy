@@ -1,12 +1,29 @@
+import json
+from urllib.parse import quote
+
 import requests
 
 from util.CookieManager import CookieManager
 
 
+def format_dictionary_to_string(data):
+    formatted_string_parts = []
+    for key, value in data.items():
+        if isinstance(value, list) or isinstance(value, dict):
+            formatted_string_parts.append(
+                f"{quote(key)}={quote(json.dumps(value, separators=(',', ':'), ensure_ascii=False))}"
+            )
+        else:
+            formatted_string_parts.append(f"{quote(key)}={quote(str(value))}")
+
+    formatted_string = "&".join(formatted_string_parts)
+    return formatted_string
+
+
 class BiliRequest:
-    def __init__(self, headers=None, cookies_config_path=""):
+    def __init__(self, headers=None, cookies=None, cookies_config_path=None):
         self.session = requests.Session()
-        self.cookieManager = CookieManager(cookies_config_path)
+        self.cookieManager = CookieManager(cookies_config_path, cookies)
         self.headers = headers or {
             'accept': '*/*',
             'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,zh-TW;q=0.5,ja;q=0.4',
@@ -43,4 +60,3 @@ class BiliRequest:
             return result["data"]["uname"]
         except Exception as e:
             return "未登录"
-

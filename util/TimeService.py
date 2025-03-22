@@ -1,5 +1,6 @@
-import ntplib
 import time
+
+import ntplib
 from loguru import logger
 
 
