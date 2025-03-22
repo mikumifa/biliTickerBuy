@@ -1,11 +1,14 @@
 from tinydb import TinyDB, Query
+from tinydb.storages import MemoryStorage
 
 
 class KVDatabase:
-    def __init__(self, db_path='kv_db.json'):
-        self.db = TinyDB(db_path)
+    def __init__(self, db_path):
+        if db_path is None:
+            self.db = TinyDB(storage=MemoryStorage)
+        else:
+            self.db = TinyDB(db_path)
         self.KeyValue = Query()
-
 
     def insert(self, key, value):
         # 如果键已经存在，更新其值；否则插入新键值对
@@ -29,6 +32,3 @@ class KVDatabase:
 
     def contains(self, key):
         return self.db.contains(self.KeyValue.key == key)
-
-
-
