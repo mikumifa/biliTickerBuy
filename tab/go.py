@@ -14,20 +14,18 @@ from gradio import SelectData
 from loguru import logger
 from requests import HTTPError, RequestException
 
-from config import global_cookieManager, configDB, time_service
-from geetest.CapSolverValidator import CapSolverValidator
 from geetest.NormalValidator import NormalValidator
-from geetest.RROCRValidator import RROCRValidator
 from task.buy import buy_new_terminal
 from util import PushPlusUtil
 from util import ServerChanUtil
 from util.BiliRequest import BiliRequest, format_dictionary_to_string
+from util.config import configDB, time_service, main_request
 from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
 
-ways = ["手动", "使用 rrocr", "使用 CapSolver"]
-ways_detail = [NormalValidator(), RROCRValidator(), CapSolverValidator()]
+ways = ["手动"]
+ways_detail = [NormalValidator()]
 if bili_ticket_gt_python is not None:
     tmp = importlib.import_module("geetest.AmorterValidator").AmorterValidator()
     ways_detail.insert(0, tmp)
@@ -103,22 +101,43 @@ def go_tab():
         way_select_ui = gr.Radio(ways, label="过验证码的方式", info="详细说明请前往 `训练你的验证码速度` 那一栏",
                                  type="index", value=ways[select_way])
         api_key_input_ui = gr.Textbox(label="填写你的api_key",
-                                      value=global_cookieManager.get_config_value("appkey", ""), visible=False)
-        phone_gate_ui = gr.Textbox(label="填写你的当前账号所绑定的手机号", info="可能会出现手机号验证",
-                                   value=global_cookieManager.get_config_value("phone", ""))
+                                      value=main_request.cookieManager.get_config_value("appkey", ""), visible=False)
 
-        with gr.Accordion(label='配置抢票成功声音提醒[可选]', open=False):
+        with gr.Accordion(label='配置抢票声音提醒[可选]', open=False):
             with gr.Row():
-                gr.Markdown("""
-                目前只支持wav格式，其他格式请自行转换 https://www.freeconvert.com/mp3-to-wav
-                或者下载ffmpeg （这个自行网络上搜索，下载比较麻烦
-                """)
                 audio_path_ui = gr.Audio(label="上传提示声音[只支持格式wav]", type="filepath", loop=True)
+        with gr.Accordion(label='配置抢票消息提醒[可选]', open=False):
+            gr.Markdown(
+                """
+                🗨️ 抢票成功提醒
+                > 你需要去对应的网站获取key或token，然后填入下面的输入框  
+                > [Server酱](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html)  
+                > 留空以不启用提醒功能  
+                """)
+            with gr.Row():
+                serverchan_ui = gr.Textbox(
+                    value=configDB.get("serverchanKey") if configDB.get("serverchanKey") is not None else "",
+                    label="Server酱的SendKey",
+                    interactive=True,
+                    info="https://sct.ftqq.com/",
+                )
 
-        def input_phone(_phone):
-            global_cookieManager.set_config_value("phone", _phone)
+                pushplus_ui = gr.Textbox(
+                    value=configDB.get("pushplusToken") if configDB.get("pushplusToken") is not None else "",
+                    label="PushPlus的Token",
+                    interactive=True,
+                    info="https://www.pushplus.plus/",
+                )
 
-        phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
+                def inner_input_serverchan(x):
+                    return configDB.insert("serverchanKey", x)
+
+                def inner_input_pushplus(x):
+                    return configDB.insert("pushplusToken", x)
+
+                serverchan_ui.change(fn=inner_input_serverchan, inputs=serverchan_ui)
+
+                pushplus_ui.change(fn=inner_input_pushplus, inputs=pushplus_ui)
 
         def choose_option(way):
             nonlocal select_way
@@ -150,7 +169,7 @@ def go_tab():
 
     def start_go(go_multi, files, tickets_info_str, time_start, interval, mode, total_attempts, api_key, audio_path):
         nonlocal geetest_validate, geetest_seccode, gt, challenge, isRunning
-
+        phone = main_request.cookieManager.get_config_value("phone", "")
         if go_multi == 1:
             yield [gr.update(value=withTimeString("开始多开抢票,等到弹出终端"), visible=True), gr.update(visible=True),
                    gr.update(),
@@ -164,7 +183,7 @@ def go_tab():
                                  total_attempts=total_attempts, audio_path=audio_path,
                                  pushplusToken=configDB.get("pushplusToken"),
                                  serverchanKey=configDB.get("serverchanKey"),
-                                 timeoffset=time_service.get_timeoffset(), phone="", )
+                                 timeoffset=time_service.get_timeoffset(), phone=phone, )
 
             for p in processes:
                 p.wait()
@@ -273,8 +292,8 @@ def go_tab():
                                     "validate": geetest_validate, }
                         _data = _request.post(_url, urlencode(_payload)).json()
                     elif _data["data"]["type"] == "phone":
-                        _payload = {"code": global_cookieManager.get_config_value("phone", ""), "csrf": csrf,
-                                    "token": token, }
+                        _payload = {"code": phone, "csrf": csrf,
+                        "token": token, }
                         _data = _request.post(_url, urlencode(_payload)).json()
                     else:
                         logger.warning("这个一个程序无法应对的验证码，脚本无法处理")

@@ -1,7 +1,7 @@
 import argparse
 import os.path
 from loguru import logger
-from path import BASE_DIR
+from const import BASE_DIR
 from task.buy import buy
 
 
@@ -35,7 +35,6 @@ def main():
     else:
         import gradio as gr
         from tab.go import go_tab
-        from tab.login import login_tab
         from tab.problems import problems_tab
         from tab.settings import setting_tab
         from tab.train import train_tab
@@ -66,8 +65,6 @@ def main():
                 go_tab()
             with gr.Tab("过码测试"):
                 train_tab()
-            with gr.Tab("登录管理"):
-                login_tab()
             with gr.Tab("项目说明"):
                 problems_tab()
 

@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 
@@ -8,7 +9,8 @@ import gradio as gr
 from gradio_calendar import Calendar
 from loguru import logger
 
-from config import main_request, TEMP_PATH
+from util.BiliRequest import BiliRequest
+from util.config import TEMP_PATH, global_cookie_path, main_request, set_main_request
 
 buyer_value = []
 addr_value = []
@@ -226,15 +228,67 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
 def setting_tab():
     gr.Markdown("""
 > **必看**
->
+> 
 > 保证自己在抢票前，已经配置了地址和购买人信息(就算不需要也要提前填写) 如果没填，生成表单时候不会出现任何选项
->
+> 
 > - 地址 ： 会员购中心->地址管理
 > - 购买人信息：会员购中心->购买人信息
 """)
     info_ui = gr.TextArea(
-        info="此窗口为输出信息", label="输出信息", interactive=False, visible=False
+        info="此窗口为输出信息", label="输出信息", interactive=False, visible=True
     )
+    with gr.Row():
+        username_ui = gr.Text(
+            main_request.get_request_name(),
+            label="账号名称",
+            interactive=False,
+            info="输出配置文件使用的账号名称",
+        )
+        gr_file_ui = gr.File(label="当前登录信息文件",
+                             value=global_cookie_path)
+    with gr.Row():
+        upload_ui = gr.UploadButton(label="导入")
+        add_btn = gr.Button("登录")
+
+        def upload_file(filepath):
+            yield ["已经注销，请选择登录信息文件", gr.update(), gr.update()]
+            try:
+                shutil.copy2(global_cookie_path, filepath)
+                set_main_request(BiliRequest(cookies_config_path=global_cookie_path))
+                name = main_request.get_request_name()
+                yield [gr.update(value="导入成功"), gr.update(value=name), gr.update(value=global_cookie_path)]
+            except Exception as e:
+                name = main_request.get_request_name()
+                logger.exception(e)
+                yield ["登录出现错误", gr.update(value=name), gr.update(value=global_cookie_path)]
+
+        upload_ui.upload(upload_file, [upload_ui], [info_ui, username_ui, gr_file_ui])
+
+        def add():
+            main_request.cookieManager.db.delete("cookie")
+            yield ["已经注销，将打开浏览器，请在浏览器里面重新登录", gr.update(value="未登录"),
+                   gr.update(value=global_cookie_path)]
+            try:
+                main_request.cookieManager.get_cookies_str_force()
+                name = main_request.get_request_name()
+                yield [f"登录成功", gr.update(value=name), gr.update(value=global_cookie_path)]
+            except Exception:
+                name = main_request.get_request_name()
+                yield ["登录出现错误", gr.update(value=name), gr.update(value=global_cookie_path)]
+
+        add_btn.click(
+            fn=add,
+            inputs=None,
+            outputs=[info_ui, username_ui, gr_file_ui]
+        )
+    with gr.Accordion(label='填写你的当前账号所绑定的手机号[可选]', open=False):
+        phone_gate_ui = gr.Textbox(label="填写你的当前账号所绑定的手机号", info="手机号验证出现概率极低，可不填",
+                                   value=main_request.cookieManager.get_config_value("phone", ""))
+
+        def input_phone(_phone):
+            main_request.cookieManager.set_config_value("phone", _phone)
+
+        phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
     with gr.Column():
         ticket_id_ui = gr.Textbox(
             label="想要抢票的网址",
