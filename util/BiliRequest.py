@@ -1,6 +1,7 @@
 import json
 from urllib.parse import quote
 
+import loguru
 import requests
 
 from util.CookieManager import CookieManager
@@ -55,8 +56,10 @@ class BiliRequest:
     def get_request_name(self):
         try:
             if not self.cookieManager.have_cookies():
+                loguru.logger.warning("获取用户名失败，请重新登录")
                 return "未登录"
             result = self.get("https://api.bilibili.com/x/web-interface/nav").json()
             return result["data"]["uname"]
         except Exception as e:
+            loguru.logger.exception(e)
             return "未登录"

@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 import gradio as gr
 
 from tab.go import ways_detail, ways
-from config import main_request
+from util.config import main_request
 
 
 def train_tab():
@@ -29,8 +29,6 @@ def train_tab():
 | 过码方式           | 使用说明                                                     |
 | ------------------ | ------------------------------------------------------------ |
 | 手动               | 自己过，速度取决于自己，过程看项目的readme.md的GIF           |
-| 使用打码平台 rrocr | **支持**手动和人工同时使用 <br /> rrocr 提供的 http://www.rrocr.com<br /> 能过验证码，但是抢票没有测试，慎用 <br /> 需要购买对应的key，速度比手动快，价格 一次大概一分钱<br /> |
-| 使用过码服务 CapSolver | **不支持**手动和人工同时使用<br />自动过码大约**需12秒起** <br />  CapSolver的过码方式<br />https://www.capsolver.com/zh <br />https://docs.capsolver.com/guide/captcha/Geetest.html|
 | 本地过验证码 | **推荐**<br />**不支持**手动和人工同时使用<br />本地过码，免费，不会收网速影响<br />成功率99%<br />速度快，正常**需3秒左右** <br /> https://github.com/Amorter/biliTicker_gt/releases|
 | .....              | 欢迎Discussion补充                                                     |
     

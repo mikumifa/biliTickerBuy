@@ -5,7 +5,7 @@ import loguru
 import playsound
 import requests
 
-from config import TEMP_PATH
+from util.config import TEMP_PATH
 
 
 def send_message(token, desp, title):
