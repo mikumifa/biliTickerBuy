@@ -11,5 +11,5 @@ class NormalValidator(Validator):
     def __init__(self):
         pass
 
-    def validate(self, appkey, gt, challenge, referer="http://www.baidu.com", ip='', host='') -> str:
+    def validate(self, gt, challenge) -> str:
         raise Exception("No validate")

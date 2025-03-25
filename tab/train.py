@@ -113,7 +113,7 @@ def train_tab():
         def run_validation():
             nonlocal test_geetest_validate, test_geetest_seccode
             try:
-                tmp = validator.validate(appkey=api_key, gt=test_gt, challenge=test_challenge)
+                tmp = validator.validate(gt=test_gt, challenge=test_challenge)
             except Exception as e:
                 return
             validate_con.acquire()
