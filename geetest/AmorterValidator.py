@@ -1,6 +1,6 @@
 import loguru
 
-from geetest.Validator import Validator
+from geetest.Validator import Validator, test_validator
 from util.dynimport import bili_ticket_gt_python
 
 
@@ -15,7 +15,7 @@ class AmorterValidator(Validator):
         self.click = bili_ticket_gt_python.ClickPy()
         pass
 
-    def validate(self, appkey, gt, challenge, referer="http://127.0.0.1:7860/") -> str:
+    def validate(self, gt, challenge) -> str:
         try:
             loguru.logger.debug(f"AmorterValidator gt: {gt} ; challenge: {challenge}")
             validate = self.click.simple_match_retry(gt, challenge)
@@ -29,9 +29,5 @@ class AmorterValidator(Validator):
 
 if __name__ == "__main__":
     # 使用示例
-    appkey = "xxxxxxxxxxxxxxxxxxx"
     validator = AmorterValidator()
-    gt, challenge = validator.click.register_test(
-        "https://passport.bilibili.com/x/passport-login/captcha?source=main_web")
-    validate_string = validator.validate(appkey, gt, challenge)
-    print(f"Validation result: {validate_string}")
+    test_validator(validator)

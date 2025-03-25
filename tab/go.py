@@ -269,7 +269,7 @@ def go_tab():
                         def run_validation():
                             nonlocal geetest_validate, geetest_seccode
                             try:
-                                tmp = ways_detail[select_way].validate(appkey=api_key, gt=gt, challenge=challenge)
+                                tmp = ways_detail[select_way].validate(gt=gt, challenge=challenge)
                             except Exception as e:
                                 return
                             validate_con.acquire()

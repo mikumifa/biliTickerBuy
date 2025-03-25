@@ -74,7 +74,7 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                 if _data["data"]["type"] == "geetest":
                     gt = _data["data"]["geetest"]["gt"]
                     challenge = _data["data"]["geetest"]["challenge"]
-                    geetest_validate = Amort.validate(appkey="", gt=gt, challenge=challenge)
+                    geetest_validate = Amort.validate(gt=gt, challenge=challenge)
                     geetest_seccode = geetest_validate + "|jordan"
                     logger.info(f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}")
                     _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
