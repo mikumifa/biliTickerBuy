@@ -1,3 +1,7 @@
+import concurrent.futures
+import json
+import os.path
+import re
 import time
 
 import bili_ticket_gt_python
@@ -7,16 +11,28 @@ import numpy as np
 import onnxruntime
 import requests
 
+from const import APP_PATH
 from geetest.Validator import Validator, test_validator
 
 
+def process_box(box, image_data_1, img, preprocess_image, Siamese, result_list):
+    if [box[0], box[1]] in result_list:
+        return None
+    cropped = img[box[1]: box[1] + box[3], box[0]: box[0] + box[2]]
+    image_data_2 = preprocess_image(cropped)
+    inputs = {'input': image_data_1, "input.53": image_data_2}
+    output = Siamese.run(None, inputs)
+    output_sigmoid = 1 / (1 + np.exp(-output[0]))
+    return output_sigmoid[0][0], [box[0], box[1]]
+
+
+# https://github.com/Amorter/biliTicker_gt/blob/f378891457bb78bcacf181eaf642b11f5543b4e0/src/click.rs#L166
+#
 class Model:
-    def __init__(self):
+    def __init__(self, ):
         self.img = None
-        self.yolo = onnxruntime.InferenceSession("model/yolov8s.onnx")
-        # tt = time.time()
-        self.Siamese = onnxruntime.InferenceSession("model/siamese.onnx")
-        # print(time.time() - tt)
+        self.yolo = onnxruntime.InferenceSession(os.path.join(APP_PATH, "geetest", "model", "yolo.onnx"))
+        self.Siamese = onnxruntime.InferenceSession(os.path.join(APP_PATH, "geetest", "model", "siamese.onnx"))
         self.classes = ["big", "small"]
         self.color_palette = np.random.uniform(0, 255, size=(len(self.classes), 3))
 
@@ -76,30 +92,53 @@ class Model:
     def siamese(self, small_imgs, big_img_boxes):
         preprocessed_small_imgs = {i: self.preprocess_image(small_imgs[i]) for i in sorted(small_imgs)}
         result_list = []
+        output_res = []
         for i in sorted(preprocessed_small_imgs):
             image_data_1 = preprocessed_small_imgs[i]
-            for box in big_img_boxes:
-                if [box[0], box[1]] in result_list:
-                    continue
-                cropped = self.img[box[1]: box[1] + box[3], box[0]: box[0] + box[2]]
-                image_data_2 = self.preprocess_image(cropped)
-                inputs = {'input': image_data_1, "input.53": image_data_2}
-                output = self.Siamese.run(None, inputs)
-                output_sigmoid = 1 / (1 + np.exp(-output[0]))
-                res = output_sigmoid[0][0]
-                if res >= 0.1:
-                    result_list.append([box[0], box[1]])
+            box_score = []
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(process_box, box, image_data_1, self.img, self.preprocess_image, self.Siamese,
+                                    result_list)
+                    for box in big_img_boxes if [box[0], box[1]] not in result_list]
+                for future in concurrent.futures.as_completed(futures):
+                    result = future.result()
+                    if result:
+                        box_score.append(result)
+            if box_score:
+                max_score_pair = max(box_score, key=lambda x: x[0])
+                if max_score_pair[0] >= 0.5:
+                    output_res.append(max_score_pair[0])
+                    result_list.append(max_score_pair[1])
+                else:
                     break
-        for i in result_list:
-            cv2.circle(self.img, (i[0] + 30, i[1] + 30), 5, (0, 0, 255), 5)
-            cv2.imwrite("result.jpg", self.img)
-        return result_list
+        return result_list, output_res
 
 
 def download_img(url: str) -> bytes:
     response = requests.get(url)
     response.raise_for_status()
     return response.content
+
+
+def refresh(gt, challenge):
+    url = "http://api.geevisit.com/refresh.php"
+    params = {
+        "gt": gt,
+        "challenge": challenge,
+        "callback": "geetest_1717918222610"
+    }
+
+    res = requests.get(url, params=params)
+    res.raise_for_status()
+    match = re.match(r"geetest_1717918222610\((.*)\)", res.text)
+    res_json = json.loads(match.group(1))
+    data = res_json["data"]
+    image_servers = data["image_servers"]
+    static_server = image_servers[0]
+    pic = data["pic"]
+    static_server_url = f"https://{static_server}{pic.lstrip('/')}"
+    return static_server_url
 
 
 class SiameseValidator(Validator):
@@ -114,17 +153,22 @@ class SiameseValidator(Validator):
         self.click = bili_ticket_gt_python.ClickPy()
         pass
 
-    def validate(self, gt, challenge) -> str:
+    def validate(self, gt, challenge) -> Exception | str:
+        loguru.logger.info(f"SiameseValidator gt: {gt} ; challenge: {challenge}")
+        (_, _) = self.click.get_c_s(gt, challenge)
+        _type = self.click.get_type(gt, challenge)
+        (c, s, args) = self.click.get_new_c_s_args(gt, challenge)
         for _ in range(10):
             try:
-                loguru.logger.debug(f"SiameseValidator gt: {gt} ; challenge: {challenge}")
-                (_, _) = self.click.get_c_s(gt, challenge)
-                _type = self.click.get_type(gt, challenge)
-                (c, s, args) = self.click.get_new_c_s_args(gt, challenge)
                 before_calculate_key = time.time()
                 pic_content = download_img(args)
+                SiameseValidator
                 small_img, big_img = self.model.detect(pic_content)
-                result_list = self.model.siamese(small_img, big_img)
+                if len(big_img) != len(small_img) or len(small_img) == 1:
+                    raise Exception("fast retry")
+                result_list, output_res = self.model.siamese(small_img, big_img)
+                if len(result_list) != len(small_img) or len(result_list) == 1:
+                    raise Exception("fast retry")
                 point_list = []
                 for i in result_list:
                     left = str(round((i[0] + 30) / 333 * 10000))
@@ -132,17 +176,22 @@ class SiameseValidator(Validator):
                     point_list.append(f"{left}_{top}")
                 w = self.click.generate_w(",".join(point_list), gt, challenge, str(c), s, "abcdefghijklmnop")
                 w_use_time = time.time() - before_calculate_key
-                print(f"generation time: {w_use_time} seconds")
+                loguru.logger.debug(f"generation time: {w_use_time} seconds")
                 if w_use_time < 2:
                     time.sleep(2 - w_use_time)
                 msg, validate = self.click.verify(gt, challenge, w)
+                if not validate:
+                    raise Exception("生成错误")
                 loguru.logger.info(f"本地验证码过码成功")
+                loguru.logger.debug(f"{output_res}")
+
                 return validate
             except Exception as e:
                 loguru.logger.warning(e)
+                args = refresh(gt, challenge)
 
 
 if __name__ == "__main__":
     # 使用示例
     validator = SiameseValidator()
-    test_validator(validator)
+    test_validator(validator, n=100)

@@ -1,15 +1,18 @@
 import argparse
 import os.path
+import sys
+
 from loguru import logger
+
 from const import BASE_DIR
 from task.buy import buy
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ticket Purchase Tool or Gradio UI")
-    subparsers = parser.add_subparsers(dest="command")
     log_file = os.path.join(BASE_DIR, "app.log")
     logger.add(log_file)
+    parser = argparse.ArgumentParser(description="Ticket Purchase Tool or Gradio UI")
+    subparsers = parser.add_subparsers(dest="command")
     # `--buy` 子命令
     buy_parser = subparsers.add_parser("buy", help="Start the ticket buying function")
     buy_parser.add_argument("tickets_info_str", type=str, help="Ticket information in string format.")

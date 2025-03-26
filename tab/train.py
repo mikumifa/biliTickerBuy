@@ -35,7 +35,7 @@ def train_tab():
     """)
 
     # 验证码选择
-    way_select_ui = gr.Radio(ways, label="验证码", info="过验证码的方式", type="index", value="手动")
+    way_select_ui = gr.Radio(ways, label="验证码", info="过验证码的方式", type="index", value=ways[0])
     api_key_input_ui = gr.Textbox(label="api_key", value=_request.cookieManager.get_config_value("appkey", ""),
                                   visible=False)
     select_way = 0
@@ -54,7 +54,7 @@ def train_tab():
     way_select_ui.change(choose_option, inputs=way_select_ui, outputs=api_key_input_ui)
 
     test_get_challenge_btn = gr.Button("开始测试")
-    test_log = gr.JSON(label="测试结果（验证码过期是正常现象）")
+    test_log = gr.JSON(label="测试结果（显示验证码过期则说明成功）")
     with gr.Row(visible=False) as test_gt_row:
         test_gt_html_finish_btn = gr.Button("完成验证码后点此此按钮")
         gr.HTML(
