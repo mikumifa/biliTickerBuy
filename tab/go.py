@@ -15,6 +15,7 @@ from loguru import logger
 from requests import HTTPError, RequestException
 
 from geetest.NormalValidator import NormalValidator
+from geetest.SiameseValidator import SiameseValidator
 from task.buy import buy_new_terminal
 from util import PushPlusUtil
 from util import ServerChanUtil
@@ -25,10 +26,11 @@ from util.error import ERRNO_DICT, withTimeString
 from util.order_qrcode import get_qrcode_url
 
 ways = ["手动"]
-ways_detail = [NormalValidator()]
+ways_detail = [NormalValidator(), ]
 if bili_ticket_gt_python is not None:
-    tmp = importlib.import_module("geetest.AmorterValidator").AmorterValidator()
-    ways_detail.insert(0, tmp)
+    ways_detail.insert(0, importlib.import_module("geetest.SiameseValidator").SiameseValidator())
+    ways.insert(0, "本地过验证码（Amorter,ravizhan提供)")
+    ways_detail.insert(0, importlib.import_module("geetest.AmorterValidator").AmorterValidator())
     ways.insert(0, "本地过验证码（Amorter提供）")
 
 
@@ -293,7 +295,7 @@ def go_tab():
                         _data = _request.post(_url, urlencode(_payload)).json()
                     elif _data["data"]["type"] == "phone":
                         _payload = {"code": phone, "csrf": csrf,
-                        "token": token, }
+                                    "token": token, }
                         _data = _request.post(_url, urlencode(_payload)).json()
                     else:
                         logger.warning("这个一个程序无法应对的验证码，脚本无法处理")

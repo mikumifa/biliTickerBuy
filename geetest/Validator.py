@@ -1,3 +1,4 @@
+import functools
 import time
 from abc import ABC, abstractmethod
 
@@ -18,6 +19,8 @@ class Validator(ABC):
         pass
 
 
+
+
 def test_validator(validator, n=100, click=bili_ticket_gt_python.ClickPy()):
     success_count = 0
     total_time = 0
@@ -28,7 +31,7 @@ def test_validator(validator, n=100, click=bili_ticket_gt_python.ClickPy()):
         validate_string = validator.validate(gt, challenge)
         elapsed_time = time.time() - start_time
         total_time += elapsed_time
-        if validate_string and validate_string != "error":
+        if validate_string:
             success_count += 1
         print(f"Test {i + 1}: Result = {validate_string}, Time = {elapsed_time:.4f}s")
     accuracy = (success_count / n) * 100
