@@ -162,7 +162,6 @@ class SiameseValidator(Validator):
             try:
                 before_calculate_key = time.time()
                 pic_content = download_img(args)
-                SiameseValidator
                 small_img, big_img = self.model.detect(pic_content)
                 if len(big_img) != len(small_img) or len(small_img) == 1:
                     raise Exception("fast retry")
