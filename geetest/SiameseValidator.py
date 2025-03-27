@@ -186,7 +186,7 @@ class SiameseValidator(Validator):
 
                 return validate
             except Exception as e:
-                loguru.logger.warning(e)
+                loguru.logger.exception(e)
                 args = refresh(gt, challenge)
 
 
