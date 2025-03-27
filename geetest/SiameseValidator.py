@@ -4,7 +4,7 @@ import os.path
 import re
 import time
 
-import bili_ticket_gt_python
+from util.dynimport import bili_ticket_gt_python
 import cv2
 import loguru
 import numpy as np

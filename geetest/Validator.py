@@ -2,7 +2,7 @@ import functools
 import time
 from abc import ABC, abstractmethod
 
-import bili_ticket_gt_python
+from util.dynimport import bili_ticket_gt_python
 
 
 class Validator(ABC):

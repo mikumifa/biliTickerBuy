@@ -17,10 +17,7 @@ jobs:
               filename: Linux
           - os:
               name: macos-14
-              filename: MacOS_amd64
-          - os:
-              name: macos-12
-              filename: MacOS_x64
+              filename: macos
           - os:
               name: windows-latest
               filename: Windows
