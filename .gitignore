@@ -15,3 +15,4 @@ __pycache__/
 *.py[cod]
 *$py.class
 geetest/dataset
+geetest/debug

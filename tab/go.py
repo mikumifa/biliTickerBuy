@@ -15,7 +15,6 @@ from loguru import logger
 from requests import HTTPError, RequestException
 
 from geetest.NormalValidator import NormalValidator
-from geetest.SiameseValidator import SiameseValidator
 from task.buy import buy_new_terminal
 from util import PushPlusUtil
 from util import ServerChanUtil
@@ -28,10 +27,10 @@ from util.order_qrcode import get_qrcode_url
 ways = ["手动"]
 ways_detail = [NormalValidator(), ]
 if bili_ticket_gt_python is not None:
-    ways_detail.insert(0, importlib.import_module("geetest.SiameseValidator").SiameseValidator())
-    ways.insert(0, "本地过验证码（Amorter,ravizhan提供)")
+    ways_detail.insert(0, importlib.import_module("geetest.TripleValidator.py").TripleValidator())
+    ways.insert(0, "本地过验证码v2(Amorter提供)")
     ways_detail.insert(0, importlib.import_module("geetest.AmorterValidator").AmorterValidator())
-    ways.insert(0, "本地过验证码（Amorter提供）")
+    ways.insert(0, "本地过验证码(Amorter提供)")
 
 
 def handle_error(message, e):

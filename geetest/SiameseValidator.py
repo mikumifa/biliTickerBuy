@@ -142,8 +142,10 @@ class SiameseValidator(Validator):
                 pic_content = download_img(args)
                 text_imgs, text_boxes, bg_imgs, bg_boxes = self.model.detect(pic_content)
                 if len(text_boxes) != len(bg_boxes) or len(text_boxes) == 1 or len(bg_boxes) == 1:
-                    raise Exception("fast retry")
+                    raise Exception("detect error fast retry")
                 result_list, output_res = self.model.match(text_imgs, bg_imgs, bg_boxes)
+                if min(output_res) < 0.5:
+                    raise Exception("match error fast retry")
                 point_list = []
                 for idx, i in result_list:
                     left = str(round((i[0] + 30) / 333 * 10000))
