@@ -15,7 +15,7 @@ class CookieManager:
             self, login_url="https://show.bilibili.com/platform/home.html"
     ):
 
-        logger.info("启动浏览器中，第一次启动会比较慢，请使用扫码登录或者qq登录（密码登录会出错")
+        logger.info("启动浏览器中，第一次启动会比较慢，请使用在浏览器登录")
         with sync_playwright() as p:
             try:
                 browser = p.chromium.launch(headless=False)
