@@ -8,24 +8,21 @@ on:
 jobs:
   build:
     name: Build Executables
-    runs-on: ${{ matrix.config.os.name }}
+    runs-on: ${{ matrix.arch == 'arm64' && format('{0}-{1}', matrix.os, matrix.arch) || matrix.os }}
     strategy:
       matrix:
-        config:
-          - os:
-              name: ubuntu-latest
-              filename: Linux
-          - os:
-              name: macos-14
-              filename: macos
-          - os:
-              name: windows-latest
-              filename: Windows
+        include:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+          - os: windows
+            arch: amd64
+          - os: windows
+            arch: arm64
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
-
-
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -44,11 +41,11 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium
           pyinstaller main.spec
       - name: Zip the Build-windows
-        if: matrix.config.os.filename == 'Windows'
+        if: matrix.os == 'windows'
         run: Compress-Archive -Path ./dist/biliTicKerBuy.exe -DestinationPath tmp.zip
 
       - name: Zip the Build-linux
-        if: matrix.config.os.filename != 'Windows'
+        if: matrix.os == 'linux'
         run: |
           cd ./dist
           zip -r  ../tmp.zip biliTickerBuy
@@ -57,6 +54,6 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           file: tmp.zip
-          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${{ github.ref_name }}.zip
+          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.os }}_${{ matrix.arch }}_${{ github.ref_name }}.zip
           tag: ${{ github.ref }}
           overwrite: true
