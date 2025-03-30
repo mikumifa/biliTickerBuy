@@ -161,7 +161,7 @@ def normalize_image(img_np, mean=None, std=None):
     return img_np
 
 
-class SiameseValidator(Validator):
+class TripleValidator(Validator):
     def need_api_key(self) -> bool:
         return False
 
@@ -209,5 +209,5 @@ class SiameseValidator(Validator):
 
 if __name__ == "__main__":
     # 使用示例
-    validator = SiameseValidator(debugDir=os.path.join(APP_PATH, "geetest", "debug", f"{time.time()}"))
+    validator = TripleValidator(debugDir=os.path.join(APP_PATH, "geetest", "debug", f"{time.time()}"))
     test_validator(validator, n=100)
