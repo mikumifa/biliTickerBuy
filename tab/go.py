@@ -27,8 +27,8 @@ from util.order_qrcode import get_qrcode_url
 ways = ["手动"]
 ways_detail = [NormalValidator(), ]
 if bili_ticket_gt_python is not None:
-    # ways_detail.insert(0, importlib.import_module("geetest.TripleValidator.py").TripleValidator())
-    # ways.insert(0, "本地过验证码v2(Amorter提供)")
+    ways_detail.insert(0, importlib.import_module("geetest.TripleValidator").TripleValidator())
+    ways.insert(0, "本地过验证码v2(Amorter提供)")
     ways_detail.insert(0, importlib.import_module("geetest.AmorterValidator").AmorterValidator())
     ways.insert(0, "本地过验证码(Amorter提供)")
 
