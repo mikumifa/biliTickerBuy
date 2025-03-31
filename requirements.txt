@@ -17,3 +17,4 @@ opencv-python~=4.11.0.86
 gradio_calendar~=0.0.6
 scipy~=1.15.2
 playsound3~=3.2.2
+pydantic~=2.8.2
