@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 import time
+import uuid
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
@@ -11,7 +12,7 @@ import qrcode
 import retry
 from loguru import logger
 from requests import HTTPError, RequestException
-
+import shutil
 from util import PushPlusUtil, ServerChanUtil
 from util.BiliRequest import BiliRequest, format_dictionary_to_string
 from util.dynimport import bili_ticket_gt_python
@@ -184,5 +185,7 @@ def buy_new_terminal(tickets_info_str, time_start, interval, mode, total_attempt
 
     if sys.platform == "win32":
         subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    elif sys.platform == "linux":
+        logger.warning("当前系统未实现终端启动功能")
     else:
         logger.warning("当前系统未实现终端启动功能")
