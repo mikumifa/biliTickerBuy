@@ -6,8 +6,7 @@ import time
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
-
-import playsound
+from playsound3 import playsound
 import qrcode
 import retry
 from loguru import logger
@@ -142,7 +141,7 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                 if serverchanKey is not None and serverchanKey != "":
                     ServerChanUtil.send_message(serverchanKey, "抢票成功", "前往订单中心付款吧")
                 if audio_path != "":
-                    playsound.playsound(audio_path)
+                    playsound(audio_path)
                 break
             if mode == 1:
                 left_time -= 1
