@@ -151,7 +151,7 @@ class SiameseValidator(Validator):
                     left = str(round((i[0] + 30) / 333 * 10000))
                     top = str(round((i[1] + 30) / 333 * 10000))
                     point_list.append(f"{left}_{top}")
-                w = self.click.generate_w(",".join(point_list), gt, challenge, str(c), s, "abcdefghijklmnop")
+                w = self.click.generate_w(",".join(point_list), gt, challenge, str(list(c)), s, "abcdefghijklmnop")
                 w_use_time = time.time() - before_calculate_key
                 loguru.logger.debug(f"generation time: {w_use_time} seconds")
                 if w_use_time < 2:
