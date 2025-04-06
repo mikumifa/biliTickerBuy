@@ -16,9 +16,9 @@ a = Analysis(
     datas=datas,
     module_collection_mode={
         'gradio': 'py',  # Collect gradio package as source .py files
-        'gradio_calendar': 'py', # Collect'
+        'gradio_calendar': 'py',  # Collect'
     },
-    hiddenimports=['geetest.AmorterValidator','bili_ticket_gt_python'],
+    hiddenimports=['geetest.TripleValidator', 'geetest.AmorterValidator', 'bili_ticket_gt_python'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
