@@ -50,11 +50,11 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium
           pyinstaller main.spec
       - name: Zip the Build-windows
-        if: matrix.config.os.filename == 'windows-latest'
+        if: matrix.config.os.filename == 'windows_amd64'
         run: Compress-Archive -Path ./dist/biliTicKerBuy.exe -DestinationPath tmp.zip
 
       - name: Zip the Build-linux
-        if: matrix.config.os.filename != 'windows-latest'
+        if: matrix.config.os.filename != 'windows_amd64'
         run: |
           cd ./dist
           zip -r  ../tmp.zip biliTickerBuy
