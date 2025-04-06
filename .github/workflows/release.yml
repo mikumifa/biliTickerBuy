@@ -8,17 +8,17 @@ on:
 jobs:
   build:
     name: Build Executables
-    runs-on: ${{ matrix.arch == 'arm64' && format('{0}-{1}', matrix.os, matrix.arch) || matrix.os }}
+    runs-on: ${{ matrix.os }}-${{ matrix.arch }}
     strategy:
       matrix:
         include:
-          - os: linux
+          - os: ubuntu-latest
             arch: amd64
-          - os: linux
+          - os: ubuntu-latest
             arch: arm64
-          - os: windows
+          - os: windows-latest
             arch: amd64
-          - os: windows
+          - os: windows-latest
             arch: arm64
     steps:
       - name: Checkout source
