@@ -1,4 +1,64 @@
-<div align="center">  <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">    <img width="160" src="assets/icon.ico" alt="logo">  </a>  <h1 id="koishi">biliTickerBuy</h1>![GitHub all releases](https://img.shields.io/github/downloads/mikumifa/biliTickerBuy/total)![GitHub release (with filter)](https://img.shields.io/github/v/release/mikumifa/biliTickerBuy)![GitHub issues](https://img.shields.io/github/issues/mikumifa/biliTickerBuy)![GitHub Repo stars](https://img.shields.io/github/stars/mikumifa/biliTickerBuy)</div>开源免费，简单易用，图形界面, 速度极快的B站会员购辅助工具## 快速安装下载最新的release文件 (根据系统的版本下载) [下载链接](https://github.com/mikumifa/biliTickerBuy/releases) 这里有一份小白指南 [点我前往小白指南](https://github.com/mikumifa/biliTickerBuy/wiki/%E5%B0%8F%E7%99%BD%E4%B8%8B%E8%BD%BD%E6%8C%87%E5%8D%97)## 使用说明书前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd| 抢票过程                                                     | 滑块过程                                                     || ------------------------------------------------------------ | ------------------------------------------------------------ || ![tutieshi_640x360_26s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/be7c072a-7449-4df9-aeb5-fca0c49b0a0e) | ![tutieshi_640x360_13s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/508e7c08-2cdd-42a9-9529-34f74e08036e) |## 项目问题程序使用问题： [点此链接前往discussions](https://github.com/mikumifa/biliTickerBuy/discussions)反馈程序BUG或者提新功能建议： [点此链接向项目提出反馈BUG](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)## 其他可用脚本| 链接                                                      | 主要特色               || --------------------------------------------------------- | ---------------------- || https://github.com/bilibili-ticket/bilibili-ticket-python | 蹲回流票               || https://github.com/biliticket/BHYG                        | 多种抢票策略、支持代理 |## 项目贡献者<!-- readme: collaborators,contributors -start -->
+<div align="center">
+  <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">
+    <img width="160" src="assets/icon.ico" alt="logo">
+  </a>
+  <h2 id="koishi">biliTickerBuy</h1>
+
+<p>
+  <!-- GitHub Downloads -->
+  <a href="https://github.com/mikumifa/biliTickerBuy/releases">
+    <img src="https://img.shields.io/github/downloads/mikumifa/biliTickerBuy/total" alt="GitHub all releases">
+  </a>
+  <!-- GitHub Release Version -->
+  <a href="https://github.com/mikumifa/biliTickerBuy/releases">
+    <img src="https://img.shields.io/github/v/release/mikumifa/biliTickerBuy" alt="GitHub release (with filter)">
+  </a>
+  <!-- GitHub Issues -->
+  <a href="https://github.com/mikumifa/biliTickerBuy/issues">
+    <img src="https://img.shields.io/github/issues/mikumifa/biliTickerBuy" alt="GitHub issues">
+  </a>
+  <!-- GitHub Stars -->
+  <a href="https://github.com/mikumifa/biliTickerBuy/stargazers">
+    <img src="https://img.shields.io/github/stars/mikumifa/biliTickerBuy" alt="GitHub Repo stars">
+  </a>
+</p>
+<a href="https://trendshift.io/repositories/11145" target="_blank"><img src="https://trendshift.io/api/badge/repositories/11145" alt="mikumifa%2FbiliTickerBuy | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</div>
+
+
+
+开源免费，简单易用，图形界面, 速度极快的B站会员购辅助工具
+
+
+## 快速安装
+
+下载最新的release文件 (根据系统的版本下载) [下载链接](https://github.com/mikumifa/biliTickerBuy/releases) 
+
+这里有一份小白指南 [点我前往小白指南](https://github.com/mikumifa/biliTickerBuy/wiki/%E5%B0%8F%E7%99%BD%E4%B8%8B%E8%BD%BD%E6%8C%87%E5%8D%97)
+
+## 使用说明书
+前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
+
+| 抢票过程                                                     | 滑块过程                                                     |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| ![tutieshi_640x360_26s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/be7c072a-7449-4df9-aeb5-fca0c49b0a0e) | ![tutieshi_640x360_13s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/508e7c08-2cdd-42a9-9529-34f74e08036e) |
+
+## 项目问题
+
+程序使用问题： [点此链接前往discussions](https://github.com/mikumifa/biliTickerBuy/discussions)
+
+反馈程序BUG或者提新功能建议： [点此链接向项目提出反馈BUG](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
+
+## 其他可用脚本
+
+| 链接                                                      | 主要特色               |
+| --------------------------------------------------------- | ---------------------- |
+| https://github.com/bilibili-ticket/bilibili-ticket-python | 蹲回流票               |
+| https://github.com/biliticket/BHYG                        | 多种抢票策略、支持代理 |
+
+## 项目贡献者
+
+<!-- readme: collaborators,contributors -start -->
 <table>
 	<tbody>
 		<tr>
@@ -107,4 +167,17 @@
 		</tr>
 	<tbody>
 </table>
-<!-- readme: collaborators,contributors -end -->## Star History[![Star History Chart](https://api.star-history.com/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://star-history.com/#mikumifa/biliTickerBuy&Date)## 免责声明详见[MIT License](./LICENSE)，切勿进行盈利，所造成的后果与本人无关。## 捐赠如果你想支持这个项目的话 [爱发电](https://afdian.com/a/mikumifa)
+<!-- readme: collaborators,contributors -end -->
+
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://star-history.com/#mikumifa/biliTickerBuy&Date)
+
+## 免责声明
+
+详见[MIT License](./LICENSE)，切勿进行盈利，所造成的后果与本人无关。
+
+## 捐赠
+
+如果你想支持这个项目的话 [爱发电](https://afdian.com/a/mikumifa)
