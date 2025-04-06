@@ -3,7 +3,6 @@ import json
 import subprocess
 import sys
 import time
-import uuid
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
@@ -12,7 +11,6 @@ import qrcode
 import retry
 from loguru import logger
 from requests import HTTPError, RequestException
-import shutil
 from util import PushPlusUtil, ServerChanUtil
 from util.BiliRequest import BiliRequest, format_dictionary_to_string
 from util.dynimport import bili_ticket_gt_python
