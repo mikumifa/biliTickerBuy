@@ -4,25 +4,34 @@ on:
   push:
     tags:
       - 'v*.*.*'
-
+#https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners
 jobs:
   build:
     name: Build Executables
-    runs-on: ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.config.os.name }}
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            arch: amd64
-          - os: ubuntu-latest
-            arch: arm64
-          - os: windows-latest
-            arch: amd64
-          - os: windows-latest
-            arch: arm64
+        config:
+          - os:
+              name: ubuntu-24.04
+              filename: linux_amd64
+          - os:
+              name: ubuntu-24.04-arm
+              filename: linux_arm64
+          - os:
+              name: macos-14
+              filename: macos_arm64
+          - os:
+              name: macos-13
+              filename: macos_intel
+          - os:
+              name: windows-latest
+              filename: windows_amd64
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
+
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -41,11 +50,11 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium
           pyinstaller main.spec
       - name: Zip the Build-windows
-        if: matrix.os == 'windows'
+        if: matrix.config.os.filename == 'Windows'
         run: Compress-Archive -Path ./dist/biliTicKerBuy.exe -DestinationPath tmp.zip
 
       - name: Zip the Build-linux
-        if: matrix.os == 'linux'
+        if: matrix.config.os.filename != 'Windows'
         run: |
           cd ./dist
           zip -r  ../tmp.zip biliTickerBuy
@@ -54,6 +63,6 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           file: tmp.zip
-          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.os }}_${{ matrix.arch }}_${{ github.ref_name }}.zip
+          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${{ github.ref_name }}.zip
           tag: ${{ github.ref }}
           overwrite: true
