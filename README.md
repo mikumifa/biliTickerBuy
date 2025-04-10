@@ -39,10 +39,6 @@
 ## 使用说明书
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
 
-| 抢票过程                                                     | 滑块过程                                                     |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| ![tutieshi_640x360_26s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/be7c072a-7449-4df9-aeb5-fca0c49b0a0e) | ![tutieshi_640x360_13s](https://github.com/mikumifa/biliTickerBuy/assets/99951454/508e7c08-2cdd-42a9-9529-34f74e08036e) |
-
 ## 项目问题
 
 程序使用问题： [点此链接前往discussions](https://github.com/mikumifa/biliTickerBuy/discussions)
