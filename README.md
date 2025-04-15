@@ -34,9 +34,7 @@
 
 ## 💻 快速安装
 
-下载最新的release文件 (根据系统的版本下载) [下载链接](https://github.com/mikumifa/biliTickerBuy/releases) 
-
-这里有一份小白指南 [点我前往小白指南](https://github.com/mikumifa/biliTickerBuy/wiki/%E5%B0%8F%E7%99%BD%E4%B8%8B%E8%BD%BD%E6%8C%87%E5%8D%97)
+[下载链接](https://github.com/mikumifa/biliTickerBuy/releases) 
 
 ## 👀 使用说明书
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
