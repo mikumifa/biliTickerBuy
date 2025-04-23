@@ -56,7 +56,7 @@
 
 ## ⭐️ Star History
 
-![Star History Chart](https://star-history.com/#mikumifa/biliTickerBuy&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://www.star-history.com/#mikumifa/biliTickerBuy&Date)
 
 ## 📩 免责声明
 
