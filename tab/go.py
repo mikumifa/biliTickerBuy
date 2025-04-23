@@ -305,7 +305,7 @@ def go_tab():
                     logger.info(f"validate: {_data}")
                     geetest_validate = ""
                     geetest_seccode = ""
-                    if _data["errno"] == 0:
+                    if int(_data.get("errno", _data.get('code'))) == 0:
                         logger.info("验证码成功")
                     else:
                         logger.info("验证码失败 {}", _data)
