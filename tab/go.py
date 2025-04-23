@@ -249,7 +249,7 @@ def go_tab():
                     data=token_payload, isJson=True)
                 request_result = request_result_normal.json()
                 logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
-                code = int(request_result["errno"])
+                code = int(request_result.get("errno", request_result.get('code')))
                 # 完成验证码
                 if code == -401:
                     # if True:
@@ -333,7 +333,7 @@ def go_tab():
                     ret = _request.post(
                         url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
                         data=payload, isJson=True).json()
-                    err = int(ret["errno"])
+                    err = int(ret.get("errno", ret.get('code')))
                     logger.info(f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 请求体: {ret}')
                     if err == 100034:
                         logger.info(f'更新票价为：{ret["data"]["pay_money"] / 100}')
