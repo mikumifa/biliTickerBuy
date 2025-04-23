@@ -91,7 +91,7 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                     logger.warning("这个一个程序无法应对的验证码，脚本无法处理")
                     break
                 logger.info(f"validate: {_data}")
-                if _data["errno"] == 0:
+                if int(_data.get("errno", _data.get('code'))) == 0:
                     logger.info("验证码成功")
                 else:
                     logger.info("验证码失败 {}", _data)
