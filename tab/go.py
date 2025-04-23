@@ -18,7 +18,7 @@ from geetest.NormalValidator import NormalValidator
 from task.buy import buy_new_terminal
 from util import PushPlusUtil
 from util import ServerChanUtil
-from util.BiliRequest import BiliRequest, format_dictionary_to_string
+from util.BiliRequest import BiliRequest
 from util.config import configDB, time_service, main_request
 from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT, withTimeString
@@ -196,6 +196,10 @@ def go_tab():
         # 数据准备
         tickets_info = json.loads(tickets_info_str)
         cookies = tickets_info['cookies']
+        tickets_info.pop('cookies', None)
+        tickets_info['buyer_info'] = json.dumps(tickets_info['buyer_info'])
+        tickets_info['deliver_info'] = json.dumps(tickets_info['deliver_info'])
+
         # 内存数据库
         _request = BiliRequest(cookies=cookies)
         token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
@@ -242,10 +246,10 @@ def go_tab():
                 logger.info(f"1）订单准备")
                 request_result_normal = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                    data=token_payload, )
+                    data=token_payload, isJson=True)
                 request_result = request_result_normal.json()
                 logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
-                code = int(request_result["code"])
+                code = int(request_result["errno"])
                 # 完成验证码
                 if code == -401:
                     # if True:
@@ -301,7 +305,7 @@ def go_tab():
                     logger.info(f"validate: {_data}")
                     geetest_validate = ""
                     geetest_seccode = ""
-                    if _data["code"] == 0:
+                    if _data["errno"] == 0:
                         logger.info("验证码成功")
                     else:
                         logger.info("验证码失败 {}", _data)
@@ -313,13 +317,13 @@ def go_tab():
                         continue
                     request_result = _request.post(
                         url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                        data=token_payload, ).json()
+                        data=token_payload, isJson=True).json()
                     logger.info(f"prepare: {request_result}")
                 tickets_info["again"] = 1
                 tickets_info["token"] = request_result["data"]["token"]
                 logger.info(f"2）创建订单")
                 tickets_info["timestamp"] = int(time.time()) * 100
-                payload = format_dictionary_to_string(tickets_info)
+                payload = tickets_info
 
                 @retry.retry(exceptions=RequestException, tries=60, delay=interval / 1000)
                 def inner_request():
@@ -328,13 +332,13 @@ def go_tab():
                         raise ValueError("抢票结束")
                     ret = _request.post(
                         url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
-                        data=payload, ).json()
+                        data=payload, isJson=True).json()
                     err = int(ret["errno"])
                     logger.info(f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 请求体: {ret}')
                     if err == 100034:
                         logger.info(f'更新票价为：{ret["data"]["pay_money"] / 100}')
                         tickets_info["pay_money"] = ret["data"]["pay_money"]
-                        payload = format_dictionary_to_string(tickets_info)
+                        payload = tickets_info
                     if err == 0 or err == 100048 or err == 100079:
                         return ret, err
                     if err == 100051:

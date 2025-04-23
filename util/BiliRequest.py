@@ -35,8 +35,13 @@ class BiliRequest:
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0',
         }
 
-    def get(self, url, data=None):
+    def get(self, url, data=None, isJson=False):
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
+        if isJson:
+            self.headers["Content-Type"] = "application/json"
+            data= json.dumps(data)
+        else:
+            self.headers["Content-Type"] = "application/x-www-form-urlencoded"
         response = self.session.get(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json().get("msg", "") == "请先登录":
@@ -44,8 +49,13 @@ class BiliRequest:
             self.get(url, data)
         return response
 
-    def post(self, url, data=None):
+    def post(self, url, data=None, isJson=False):
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
+        if isJson:
+            self.headers["content-type"] = "application/json"
+            data= json.dumps(data)
+        else:
+            self.headers["content-type"] = "application/x-www-form-urlencoded"
         response = self.session.post(url, data=data, headers=self.headers)
         response.raise_for_status()
         if response.json().get("msg", "") == "请先登录":
