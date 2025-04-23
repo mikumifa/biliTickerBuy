@@ -31,7 +31,11 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
     left_time = total_attempts
     tickets_info = json.loads(tickets_info_str)
     cookies = tickets_info["cookies"]
-    del tickets_info["cookies"]
+    tickets_info.pop('cookies', None)
+    tickets_info['buyer_info'] = json.dumps(tickets_info['buyer_info'])
+    tickets_info['deliver_info'] = json.dumps(tickets_info['deliver_info'])
+
+
     _request = BiliRequest(cookies=cookies)
     token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
                      "project_id": tickets_info["project_id"], "sku_id": tickets_info["sku_id"], "token": "",
@@ -56,10 +60,10 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
             logger.info(f"1）订单准备")
             request_result_normal = _request.post(
                 url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                data=token_payload, )
+                data=token_payload,isJson=True )
             request_result = request_result_normal.json()
             logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
-            code = int(request_result["code"])
+            code = int(request_result["errno"])
             # 完成验证码
             if code == -401:
                 # if True:
@@ -86,14 +90,14 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                     logger.warning("这个一个程序无法应对的验证码，脚本无法处理")
                     break
                 logger.info(f"validate: {_data}")
-                if _data["code"] == 0:
+                if _data["errno"] == 0:
                     logger.info("验证码成功")
                 else:
                     logger.info("验证码失败 {}", _data)
                     continue
                 request_result = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                    data=token_payload, ).json()
+                    data=token_payload,isJson=True  ).json()
                 logger.info(f"prepare: {request_result}")
             tickets_info["again"] = 1
             tickets_info["token"] = request_result["data"]["token"]
