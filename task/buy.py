@@ -6,11 +6,13 @@ import time
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
-from playsound3 import playsound
+
 import qrcode
 import retry
 from loguru import logger
+from playsound3 import playsound
 from requests import HTTPError, RequestException
+
 from util import PushPlusUtil, ServerChanUtil
 from util.BiliRequest import BiliRequest, format_dictionary_to_string
 from util.dynimport import bili_ticket_gt_python
@@ -34,7 +36,6 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
     tickets_info.pop('cookies', None)
     tickets_info['buyer_info'] = json.dumps(tickets_info['buyer_info'])
     tickets_info['deliver_info'] = json.dumps(tickets_info['deliver_info'])
-
 
     _request = BiliRequest(cookies=cookies)
     token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
@@ -60,10 +61,10 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
             logger.info(f"1）订单准备")
             request_result_normal = _request.post(
                 url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                data=token_payload,isJson=True )
+                data=token_payload, isJson=True)
             request_result = request_result_normal.json()
             logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
-            code = int(request_result["errno"])
+            code = int(request_result.get("errno", request_result.get('code')))
             # 完成验证码
             if code == -401:
                 # if True:
@@ -97,7 +98,7 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                     continue
                 request_result = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                    data=token_payload,isJson=True  ).json()
+                    data=token_payload, isJson=True).json()
                 logger.info(f"prepare: {request_result}")
             tickets_info["again"] = 1
             tickets_info["token"] = request_result["data"]["token"]
@@ -113,7 +114,7 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                 ret = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
                     data=payload, ).json()
-                err = int(ret["errno"])
+                err = int(ret.get("errno", ret.get('code')))
                 logger.info(f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 响应: {ret}')
                 if err == 100034:
                     logger.info(f'更新票价为：{ret["data"]["pay_money"] / 100}')
