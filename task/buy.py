@@ -27,7 +27,7 @@ if bili_ticket_gt_python is not None:
 def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset, audio_path, pushplusToken,
         serverchanKey, phone):
     if bili_ticket_gt_python is None:
-        logger.info("当前设备不支持本地过验证码，无法多开")
+        logger.info("当前设备不支持本地过验证码，无法使用")
         return
     isRunning = True
     left_time = total_attempts
@@ -186,7 +186,8 @@ def buy_new_terminal(tickets_info_str, time_start, interval, mode, total_attempt
         command.extend(["--phone", phone])
 
     if sys.platform == "win32":
-        subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        proc = subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
     else:
-        logger.warning("当前系统未实现终端启动功能，请自行使用命令：\n")
-        print('\t\t', "".join(command))
+        logger.warning("当前系统未实现终端启动功能\n")
+        proc = subprocess.Popen(command)
+    return proc

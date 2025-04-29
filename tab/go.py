@@ -1,4 +1,6 @@
 import importlib
+import os
+import signal
 
 import gradio as gr
 from gradio import SelectData
@@ -25,6 +27,7 @@ def handle_error(message, e):
 
 
 def go_tab():
+    running_processes = {}
     gr.Markdown("""
 > **分享一下经验**
 > - 抢票前，不要去提前抢还没有发售的票，会被b站封掉一段时间导致错过抢票的
@@ -134,22 +137,26 @@ def go_tab():
                                           visible=False, )
 
     def start_go(files, time_start, interval, mode, total_attempts, audio_path):
+        nonlocal running_processes
+        if not files:
+            return [gr.update(value=withTimeString("未提交抢票配置"), visible=True),
+                    gr.update(choices=list(running_processes.keys())), gr.update(visible=True)]
         phone = main_request.cookieManager.get_config_value("phone", "")
-        yield [gr.update(value=withTimeString("开始多开抢票,等到弹出终端"), visible=True)]
-        processes = []
+        yield [gr.update(value=withTimeString("开始多开抢票,等到弹出终端"), visible=True),
+               gr.update(choices=list(running_processes.keys())), gr.update(visible=True)]
+        running_processes = {}
         for filename in files:
             with open(filename, 'r', encoding="utf-8") as file:
                 content = file.read()
-            buy_new_terminal(tickets_info_str=content, time_start=time_start, interval=interval, mode=mode,
-                             total_attempts=total_attempts, audio_path=audio_path,
-                             pushplusToken=configDB.get("pushplusToken"),
-                             serverchanKey=configDB.get("serverchanKey"),
-                             timeoffset=time_service.get_timeoffset(), phone=phone, )
-
-        for p in processes:
-            p.wait()
-        return
-
+            proc = buy_new_terminal(tickets_info_str=content, time_start=time_start, interval=interval, mode=mode,
+                                    total_attempts=total_attempts, audio_path=audio_path,
+                                    pushplusToken=configDB.get("pushplusToken"),
+                                    serverchanKey=configDB.get("serverchanKey"),
+                                    timeoffset=time_service.get_timeoffset(), phone=phone, )
+            label = f"{os.path.basename(filename)} pid={proc.pid}"
+            running_processes[label] = proc
+            yield [gr.update(), gr.update(choices=list(running_processes.keys()), visible=True), gr.update(visible=True)]
+        return [gr.update(), gr.update(choices=list(running_processes.keys()), visible=True), gr.update(visible=True)]
     mode_ui.change(fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False), inputs=[mode_ui],
                    outputs=total_attempts_ui, )
     with gr.Row():
@@ -161,9 +168,42 @@ def go_tab():
 
                            )
 
+    control_btns = gr.Row(visible=False)
+    process_list = gr.CheckboxGroup(choices=list(running_processes.keys()), label="当前进程", interactive=True,
+                                    visible=False)
+    with control_btns:
+        pause = gr.Button("暂停")
+        resume = gr.Button("恢复")
+        kill = gr.Button("终止")
+
+    def control_processes(selected, action):
+        nonlocal running_processes
+        results = []
+        for label in selected:
+            proc = running_processes.get(label)
+            if not proc:
+                results.append(f"{label} not found.")
+                continue
+            try:
+                if action == "暂停":
+                    proc.send_signal(signal.SIGSTOP)
+                    results.append(f"{label} 强制终止.")
+                elif action == "恢复":
+                    proc.send_signal(signal.SIGCONT)
+                    results.append(f"{label} 强制恢复.")
+                elif action == "终止":
+                    proc.terminate()
+                    results.append(f"{label} 强制终止.")
+            except Exception as e:
+                results.append(f"{label} error: {e}")
+        return "\n".join(results)
+
     time_tmp = gr.Textbox(visible=False)
+    pause.click(lambda p: control_processes(p, "暂停"), inputs=process_list, outputs=go_ui)
+    resume.click(lambda p: control_processes(p, "恢复"), inputs=process_list, outputs=go_ui)
+    kill.click(lambda p: control_processes(p, "终止"), inputs=process_list, outputs=go_ui)
 
     go_btn.click(fn=start_go,
                  inputs=[upload_ui, time_tmp, interval_ui, mode_ui, total_attempts_ui,
                          audio_path_ui],
-                 outputs=[go_ui])
+                 outputs=[go_ui, process_list, control_btns])
