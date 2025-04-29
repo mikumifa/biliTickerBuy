@@ -14,13 +14,13 @@ from playsound3 import playsound
 from requests import HTTPError, RequestException
 
 from util import PushPlusUtil, ServerChanUtil
-from util.BiliRequest import BiliRequest, format_dictionary_to_string
+from util.BiliRequest import BiliRequest
 from util.dynimport import bili_ticket_gt_python
 from util.error import ERRNO_DICT
 from util.order_qrcode import get_qrcode_url
 
 if bili_ticket_gt_python is not None:
-    Amort = importlib.import_module("geetest.AmorterValidator").AmorterValidator()
+    Amort = importlib.import_module("geetest.TripleValidator").TripleValidator()
 
 
 @logger.catch
@@ -104,7 +104,7 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
             tickets_info["token"] = request_result["data"]["token"]
             logger.info(f"2）创建订单")
             tickets_info["timestamp"] = int(time.time()) * 100
-            payload = format_dictionary_to_string(tickets_info)
+            payload = tickets_info
 
             @retry.retry(exceptions=RequestException, tries=60, delay=interval / 1000)
             def inner_request():
@@ -113,13 +113,13 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                     raise ValueError("抢票结束")
                 ret = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
-                    data=payload, ).json()
+                    data=payload, isJson=True).json()
                 err = int(ret.get("errno", ret.get('code')))
                 logger.info(f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 响应: {ret}')
                 if err == 100034:
                     logger.info(f'更新票价为：{ret["data"]["pay_money"] / 100}')
                     tickets_info["pay_money"] = ret["data"]["pay_money"]
-                    payload = format_dictionary_to_string(tickets_info)
+                    payload = tickets_info
                 if err == 0 or err == 100048 or err == 100079:
                     return ret, err
                 if err == 100051:
@@ -133,18 +133,18 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
             logger.info(
                 f'状态码: {errno}({ERRNO_DICT.get(errno, "未知错误码")}), 响应: {request_result} 剩余次数: {left_time_str}')
             if errno == 0:
-                logger.info(f"3）抢票成功")
+                logger.info(f"3）抢票成功，弹出付款二维码")
                 qrcode_url = get_qrcode_url(_request, request_result["data"]["orderId"], )
                 qr_gen = qrcode.QRCode()
                 qr_gen.add_data(qrcode_url)
                 qr_gen.make(fit=True)
                 qr_gen_image = qr_gen.make_image()
                 qr_gen_image.show()
-                if pushplusToken is not None and pushplusToken != "":
+                if pushplusToken:
                     PushPlusUtil.send_message(pushplusToken, "抢票成功", "前往订单中心付款吧")
-                if serverchanKey is not None and serverchanKey != "":
+                if serverchanKey:
                     ServerChanUtil.send_message(serverchanKey, "抢票成功", "前往订单中心付款吧")
-                if audio_path != "":
+                if audio_path:
                     playsound(audio_path)
                 break
             if mode == 1:
@@ -174,7 +174,6 @@ def buy_new_terminal(tickets_info_str, time_start, interval, mode, total_attempt
         tickets_info_str, str(interval), str(mode), str(total_attempts),
         str(timeoffset),
     ])
-    logger.info(command)
     if time_start:
         command.extend(["--time_start", time_start])
     if audio_path:
@@ -188,7 +187,6 @@ def buy_new_terminal(tickets_info_str, time_start, interval, mode, total_attempt
 
     if sys.platform == "win32":
         subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
-    elif sys.platform == "linux":
-        logger.warning("当前系统未实现终端启动功能")
     else:
-        logger.warning("当前系统未实现终端启动功能")
+        logger.warning("当前系统未实现终端启动功能，请自行使用命令：\n")
+        print('\t\t', "".join(command))

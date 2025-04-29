@@ -1,6 +1,5 @@
 import argparse
 import os.path
-
 from loguru import logger
 
 from const import BASE_DIR
@@ -9,6 +8,7 @@ from task.buy import buy
 
 def main():
     log_file = os.path.join(BASE_DIR, "app.log")
+
     logger.add(log_file)
     parser = argparse.ArgumentParser(description="Ticket Purchase Tool or Gradio UI")
     subparsers = parser.add_subparsers(dest="command")
@@ -40,6 +40,7 @@ def main():
         from tab.problems import problems_tab
         from tab.settings import setting_tab
         from tab.train import train_tab
+        from gradio_log import Log
 
         header = """
         # B 站会员购抢票🌈
@@ -59,6 +60,8 @@ def main():
           margin-top: 20px; /* 避免二维码头部的说明文字挡住二维码 */
         }
         """
+        with gr.Blocks():
+            Log(log_file, dark=True, xterm_font_size=12)
         with gr.Blocks(head=short_js, css=custom_css) as demo:
             gr.Markdown(header)
             with gr.Tab("生成配置"):
