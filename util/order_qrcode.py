@@ -10,4 +10,4 @@ def get_qrcode_url(_request, order_id):
         else:
             raise Exception
     except Exception:
-        return None
+        return ""
