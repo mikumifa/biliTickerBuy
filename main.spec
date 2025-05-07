@@ -19,6 +19,7 @@ a = Analysis(
     module_collection_mode={
         'gradio': 'py',  # Collect gradio package as source .py files
         'gradio_calendar': 'py',  # Collect'
+        'gradio_log': 'py',  # Collect'
     },
     hiddenimports=['geetest.TripleValidator', 'geetest.AmorterValidator', 'bili_ticket_gt_python',
                    'scipy._lib.array_api_compat.numpy.fft'],
