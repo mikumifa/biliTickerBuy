@@ -5,6 +5,8 @@ datas = []
 datas += collect_data_files('gradio_client')
 datas += collect_data_files('gradio')
 datas += collect_data_files('gradio_calendar')
+datas += collect_data_files('gradio_log')
+
 datas += collect_data_files('playwright')
 datas.append(('geetest/model/triple.onnx', 'geetest/model'))
 datas.append(('geetest/model/yolo.onnx', 'geetest/model'))
