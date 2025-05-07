@@ -1,3 +1,4 @@
+from typing import Tuple
 import importlib
 import json
 import subprocess
@@ -6,6 +7,7 @@ import time
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
+import uuid
 
 import qrcode
 import retry
@@ -20,7 +22,8 @@ from util.error import ERRNO_DICT
 from util.order_qrcode import get_qrcode_url
 
 if bili_ticket_gt_python is not None:
-    Amort = importlib.import_module("geetest.TripleValidator").TripleValidator()
+    Amort = importlib.import_module(
+        "geetest.TripleValidator").TripleValidator()
 
 
 @logger.catch
@@ -46,10 +49,10 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
         logger.info("时间偏差已被设置为: " + str(timeoffset) + 's')
         try:
             time_difference = (
-                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp() - time.time() + timeoffset)
+                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp() - time.time() + timeoffset)
         except ValueError as e:
             time_difference = (
-                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp() - time.time() + timeoffset)
+                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp() - time.time() + timeoffset)
         start_time = time.perf_counter()
         end_time = start_time + time_difference
         current_time = start_time
@@ -63,13 +66,15 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                 url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                 data=token_payload, isJson=True)
             request_result = request_result_normal.json()
-            logger.info(f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
+            logger.info(
+                f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
             code = int(request_result.get("errno", request_result.get('code')))
             # 完成验证码
             if code == -401:
                 # if True:
                 _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
-                _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
+                _payload = urlencode(
+                    request_result["data"]["ga_data"]["riskParams"])
                 _data = _request.post(_url, _payload).json()
                 logger.info(f"验证码请求: {_data}")
                 csrf = _request.cookieManager.get_cookies_value("bili_jct")
@@ -77,9 +82,11 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                 if _data["data"]["type"] == "geetest":
                     gt = _data["data"]["geetest"]["gt"]
                     challenge = _data["data"]["geetest"]["challenge"]
-                    geetest_validate = Amort.validate(gt=gt, challenge=challenge)
+                    geetest_validate = Amort.validate(
+                        gt=gt, challenge=challenge)
                     geetest_seccode = geetest_validate + "|jordan"
-                    logger.info(f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}")
+                    logger.info(
+                        f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}")
                     _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
                     _payload = {"challenge": challenge, "token": token, "seccode": geetest_seccode, "csrf": csrf,
                                 "validate": geetest_validate, }
@@ -115,7 +122,8 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                     url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
                     data=payload, isJson=True).json()
                 err = int(ret.get("errno", ret.get('code')))
-                logger.info(f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 响应: {ret}')
+                logger.info(
+                    f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 响应: {ret}')
                 if err == 100034:
                     logger.info(f'更新票价为：{ret["data"]["pay_money"] / 100}')
                     tickets_info["pay_money"] = ret["data"]["pay_money"]
@@ -134,16 +142,19 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                 f'状态码: {errno}({ERRNO_DICT.get(errno, "未知错误码")}), 响应: {request_result} 剩余次数: {left_time_str}')
             if errno == 0:
                 logger.info(f"3）抢票成功，弹出付款二维码")
-                qrcode_url = get_qrcode_url(_request, request_result["data"]["orderId"], )
+                qrcode_url = get_qrcode_url(
+                    _request, request_result["data"]["orderId"], )
                 qr_gen = qrcode.QRCode()
                 qr_gen.add_data(qrcode_url)
                 qr_gen.make(fit=True)
                 qr_gen_image = qr_gen.make_image()
-                qr_gen_image.show()
+                qr_gen_image.show()  # type: ignore
                 if pushplusToken:
-                    PushPlusUtil.send_message(pushplusToken, "抢票成功", "前往订单中心付款吧")
+                    PushPlusUtil.send_message(
+                        pushplusToken, "抢票成功", "前往订单中心付款吧")
                 if serverchanKey:
-                    ServerChanUtil.send_message(serverchanKey, "抢票成功", "前往订单中心付款吧")
+                    ServerChanUtil.send_message(
+                        serverchanKey, "抢票成功", "前往订单中心付款吧")
                 if audio_path:
                     playsound(audio_path)
                 break
@@ -159,13 +170,13 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
             logger.error(f"请求错误: {e}")
         except Exception as e:
             logger.exception(e)
-        finally:
-            while True:
-                time.sleep(1)
+    while True:
+        time.sleep(1)
 
 
-def buy_new_terminal(tickets_info_str, time_start, interval, mode, total_attempts, audio_path, pushplusToken,
-                     serverchanKey, timeoffset, phone):
+def buy_new_terminal(filename,
+                     tickets_info_str, time_start, interval, mode, total_attempts, audio_path, pushplusToken,
+                     serverchanKey, timeoffset, phone) -> Tuple[subprocess.Popen, str]:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
         command.extend(["main.py"])
@@ -184,10 +195,10 @@ def buy_new_terminal(tickets_info_str, time_start, interval, mode, total_attempt
         command.extend(["--serverchanKey", serverchanKey])
     if phone:
         command.extend(["--phone", phone])
-
-    if sys.platform == "win32":
-        proc = subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
-    else:
-        logger.warning("当前系统未实现终端启动功能\n")
-        proc = subprocess.Popen(command)
-    return proc
+    task_id = str(uuid.uuid1())
+    command.extend(["--filename", filename])
+    command.extend(["--task_id", task_id])
+    proc = subprocess.Popen(
+        command
+    )
+    return proc, task_id

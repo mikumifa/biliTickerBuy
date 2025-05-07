@@ -1,46 +1,88 @@
 import argparse
 import os.path
+import threading
 from loguru import logger
 
-from const import BASE_DIR
 from task.buy import buy
 
 
 def main():
-    log_file = os.path.join(BASE_DIR, "app.log")
 
-    logger.add(log_file)
-    parser = argparse.ArgumentParser(description="Ticket Purchase Tool or Gradio UI")
+    parser = argparse.ArgumentParser(
+        description="Ticket Purchase Tool or Gradio UI")
     subparsers = parser.add_subparsers(dest="command")
     # `--buy` 子命令
-    buy_parser = subparsers.add_parser("buy", help="Start the ticket buying function")
-    buy_parser.add_argument("tickets_info_str", type=str, help="Ticket information in string format.")
+    buy_parser = subparsers.add_parser(
+        "buy", help="Start the ticket buying function")
+    buy_parser.add_argument("tickets_info_str", type=str,
+                            help="Ticket information in string format.")
     buy_parser.add_argument("interval", type=int, help="Interval time.")
     buy_parser.add_argument("mode", type=int, help="Mode of operation.")
-    buy_parser.add_argument("total_attempts", type=int, help="Total number of attempts.")
-    buy_parser.add_argument("timeoffset", type=float, help="Time offset in seconds.")
-    buy_parser.add_argument("--time_start", type=str, default="", help="Start time (optional")
-    buy_parser.add_argument("--audio_path", type=str, default="", help="Path to audio file (optional).")
-    buy_parser.add_argument("--pushplusToken", type=str, default="", help="PushPlus token (optional).")
-    buy_parser.add_argument("--serverchanKey", type=str, default="", help="ServerChan key (optional).")
-    buy_parser.add_argument("--phone", type=str, default="", help="Phone number (optional).")
-
+    buy_parser.add_argument("total_attempts", type=int,
+                            help="Total number of attempts.")
+    buy_parser.add_argument("timeoffset", type=float,
+                            help="Time offset in seconds.")
+    buy_parser.add_argument("--time_start", type=str,
+                            default="", help="Start time (optional")
+    buy_parser.add_argument("--audio_path", type=str,
+                            default="", help="Path to audio file (optional).")
+    buy_parser.add_argument("--pushplusToken", type=str,
+                            default="", help="PushPlus token (optional).")
+    buy_parser.add_argument("--serverchanKey", type=str,
+                            default="", help="ServerChan key (optional).")
+    buy_parser.add_argument("--phone", type=str, default="",
+                            help="Phone number (optional).")
+    buy_parser.add_argument("--task_id", type=str,
+                            default="default", help="task_id (optional).")
+    buy_parser.add_argument("--filename", type=str,
+                            default="default", help="filename (optional).")
     parser.add_argument("--port", type=int, default=7860, help="server port")
-    parser.add_argument("--share", type=bool, default=False, help="create a public link")
+    parser.add_argument("--share", type=bool, default=False,
+                        help="create a public link")
     args = parser.parse_args()
+
     if args.command == "buy":
-        buy(
-            args.tickets_info_str, args.time_start, args.interval, args.mode,
-            args.total_attempts, args.timeoffset, args.audio_path,
-            args.pushplusToken, args.serverchanKey, args.phone
-        )
+        logger.remove()
+        from const import BASE_DIR
+        os.makedirs(os.path.join(BASE_DIR, "log"), exist_ok=True)
+        log_file = os.path.join(BASE_DIR, "log", f"{args.task_id}.log")
+        logger.add(log_file, colorize=True,)
+        import gradio as gr
+        from gradio_log import Log
+        filename_only = os.path.basename(args.filename)
+        with gr.Blocks() as demo:
+            gr.Markdown(
+                f"""
+                # 当前抢票 {filename_only}
+                > 你可以在这里查看程序的运行日志
+                """
+            )
+
+            Log(log_file, dark=True, xterm_font_size=12)
+
+            def exit_program():
+                print(f"{filename_only} ，关闭程序...")
+                os._exit(0)
+
+            btn = gr.Button("退出程序")
+            btn.click(fn=exit_program)
+
+        def run_buy():
+            logger.info(f"抢票日志路径： {log_file}")
+            buy(
+                args.tickets_info_str, args.time_start, args.interval, args.mode,
+                args.total_attempts, args.timeoffset, args.audio_path,
+                args.pushplusToken, args.serverchanKey, args.phone
+            )
+        threading.Thread(target=run_buy, daemon=True).start()
+        print(f"运行程序网址   ↓↓↓↓↓↓↓↓↓↓↓↓↓↓   {filename_only} ")
+        demo.launch(share=False, inbrowser=True)
     else:
         import gradio as gr
         from tab.go import go_tab
         from tab.problems import problems_tab
         from tab.settings import setting_tab
         from tab.train import train_tab
-        from gradio_log import Log
 
         header = """
         # B 站会员购抢票🌈
@@ -48,21 +90,10 @@ def main():
         ⚠️此项目完全开源免费 （[项目地址](https://github.com/mikumifa/biliTickerBuy)），切勿进行盈利，所造成的后果与本人无关。
         """
 
-        short_js = """
-        <script src="https://cdn.staticfile.org/jquery/1.10.2/jquery.min.js" rel="external nofollow"></script>
-        <script src="https://static.geetest.com/static/js/gt.0.4.9.js"></script>
-        """
-
-        custom_css = """
-        .pay_qrcode img {
-          width: 300px !important;
-          height: 300px !important;
-          margin-top: 20px; /* 避免二维码头部的说明文字挡住二维码 */
-        }
-        """
-        with gr.Blocks():
-            Log(log_file, dark=True, xterm_font_size=12)
-        with gr.Blocks(head=short_js, css=custom_css) as demo:
+        from const import BASE_DIR
+        log_file = os.path.join(BASE_DIR, "app.log")
+        logger.add(log_file, colorize=True,)
+        with gr.Blocks() as demo:
             gr.Markdown(header)
             with gr.Tab("生成配置"):
                 setting_tab()
