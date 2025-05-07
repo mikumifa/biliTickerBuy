@@ -1,11 +1,15 @@
 import importlib
 import os
-import signal
-
+from time import sleep
+from gradio_log import Log
+import psutil
+from pathlib import Path
 import gradio as gr
 from gradio import SelectData
 from loguru import logger
+from py import log
 
+from const import BASE_DIR
 from task.buy import buy_new_terminal
 from util.config import configDB, time_service, main_request
 from util.dynimport import bili_ticket_gt_python
@@ -14,7 +18,8 @@ from util.error import withTimeString
 ways = []
 ways_detail = []
 if bili_ticket_gt_python is not None:
-    ways_detail.insert(0, importlib.import_module("geetest.TripleValidator").TripleValidator())
+    ways_detail.insert(0, importlib.import_module(
+        "geetest.TripleValidator").TripleValidator())
     ways.insert(0, "本地过验证码v2(Amorter提供)")
     # ways_detail.insert(0, importlib.import_module("geetest.AmorterValidator").AmorterValidator())
     # ways.insert(0, "本地过验证码(Amorter提供)")
@@ -27,7 +32,6 @@ def handle_error(message, e):
 
 
 def go_tab():
-    running_processes = {}
     gr.Markdown("""
 > **分享一下经验**
 > - 抢票前，不要去提前抢还没有发售的票，会被b站封掉一段时间导致错过抢票的
@@ -43,7 +47,8 @@ def go_tab():
             ### 上传或填入你要抢票票种的配置信息
             """)
         with gr.Row(equal_height=True):
-            upload_ui = gr.Files(label="上传多个配置文件，点击不同的配置文件可快速切换", file_count="multiple")
+            upload_ui = gr.Files(
+                label="上传多个配置文件，点击不同的配置文件可快速切换", file_count="multiple")
             ticket_ui = gr.TextArea(label="填入配置",
                                     info="再次填入配置信息",
                                     interactive=True)
@@ -75,7 +80,7 @@ def go_tab():
         with gr.Accordion(label='手动设置/更新时间偏差', open=False):
             time_diff_ui = gr.Number(label="当前脚本时间偏差 (单位: ms)",
                                      info="你可以在这里手动输入时间偏差, 或点击下面按钮自动更新当前时间偏差。正值将推迟相应时间开始抢票, 负值将提前相应时间开始抢票。",
-                                     value=format(time_service.get_timeoffset() * 1000, '.2f'))
+                                     value=format(time_service.get_timeoffset() * 1000, '.2f'))  # type: ignore
             refresh_time_ui = gr.Button(value="点击自动更新时间偏差")
             refresh_time_ui.click(fn=lambda: format(float(time_service.compute_timeoffset()) * 1000, '.2f'),
                                   inputs=None, outputs=time_diff_ui)
@@ -89,25 +94,28 @@ def go_tab():
 
         with gr.Accordion(label='配置抢票声音提醒[可选]', open=False):
             with gr.Row():
-                audio_path_ui = gr.Audio(label="上传提示声音[只支持格式wav]", type="filepath", loop=True)
+                audio_path_ui = gr.Audio(
+                    label="上传提示声音[只支持格式wav]", type="filepath", loop=True)
         with gr.Accordion(label='配置抢票消息提醒[可选]', open=False):
             gr.Markdown(
                 """
                 🗨️ 抢票成功提醒
-                > 你需要去对应的网站获取key或token，然后填入下面的输入框  
-                > [Server酱](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html)  
-                > 留空以不启用提醒功能  
+                > 你需要去对应的网站获取key或token，然后填入下面的输入框
+                > [Server酱](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html)
+                > 留空以不启用提醒功能
                 """)
             with gr.Row():
                 serverchan_ui = gr.Textbox(
-                    value=configDB.get("serverchanKey") if configDB.get("serverchanKey") is not None else "",
+                    value=configDB.get("serverchanKey") if configDB.get(
+                        "serverchanKey") is not None else "",
                     label="Server酱的SendKey",
                     interactive=True,
                     info="https://sct.ftqq.com/",
                 )
 
                 pushplus_ui = gr.Textbox(
-                    value=configDB.get("pushplusToken") if configDB.get("pushplusToken") is not None else "",
+                    value=configDB.get("pushplusToken") if configDB.get(
+                        "pushplusToken") is not None else "",
                     label="PushPlus的Token",
                     interactive=True,
                     info="https://www.pushplus.plus/",
@@ -119,7 +127,8 @@ def go_tab():
                 def inner_input_pushplus(x):
                     return configDB.insert("pushplusToken", x)
 
-                serverchan_ui.change(fn=inner_input_serverchan, inputs=serverchan_ui)
+                serverchan_ui.change(
+                    fn=inner_input_serverchan, inputs=serverchan_ui)
 
                 pushplus_ui.change(fn=inner_input_pushplus, inputs=pushplus_ui)
 
@@ -137,73 +146,40 @@ def go_tab():
                                           visible=False, )
 
     def start_go(files, time_start, interval, mode, total_attempts, audio_path):
-        nonlocal running_processes
         if not files:
-            return [gr.update(value=withTimeString("未提交抢票配置"), visible=True),
-                    gr.update(choices=list(running_processes.keys())), gr.update(visible=True)]
+            return [gr.update(value=withTimeString("未提交抢票配置"), visible=True)]
         phone = main_request.cookieManager.get_config_value("phone", "")
-        yield [gr.update(value=withTimeString("开始多开抢票,等到弹出终端"), visible=True),
-               gr.update(choices=list(running_processes.keys())), gr.update(visible=True)]
-        running_processes = {}
+        yield [
+            gr.update(value=withTimeString("开始多开抢票,详细查看终端"), visible=True)]
         for filename in files:
             with open(filename, 'r', encoding="utf-8") as file:
                 content = file.read()
-            proc = buy_new_terminal(tickets_info_str=content, time_start=time_start, interval=interval, mode=mode,
-                                    total_attempts=total_attempts, audio_path=audio_path,
-                                    pushplusToken=configDB.get("pushplusToken"),
-                                    serverchanKey=configDB.get("serverchanKey"),
-                                    timeoffset=time_service.get_timeoffset(), phone=phone, )
-            label = f"{os.path.basename(filename)} pid={proc.pid}"
-            running_processes[label] = proc
-            yield [gr.update(), gr.update(choices=list(running_processes.keys()), visible=True), gr.update(visible=True)]
-        return [gr.update(), gr.update(choices=list(running_processes.keys()), visible=True), gr.update(visible=True)]
-    mode_ui.change(fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False), inputs=[mode_ui],
-                   outputs=total_attempts_ui, )
+            filename_only = os.path.basename(filename)
+            logger.info(f"启动 {filename_only}")
+            proc, task_id = buy_new_terminal(filename=filename,
+                                             tickets_info_str=content, time_start=time_start, interval=interval, mode=mode,
+                                             total_attempts=total_attempts, audio_path=audio_path,
+                                             pushplusToken=configDB.get(
+                                                 "pushplusToken"),
+                                             serverchanKey=configDB.get(
+                                                 "serverchanKey"),
+                                             timeoffset=time_service.get_timeoffset(), phone=phone, )
+        return [gr.update()]
+    mode_ui.change(
+        fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False), inputs=[mode_ui],
+        outputs=total_attempts_ui, )
     with gr.Row():
         go_btn = gr.Button("开始抢票")
 
     with gr.Row():
-        go_ui = gr.Textbox(info="此窗口为临时输出，具体请见控制台", label="输出信息", interactive=False, visible=False,
-                           show_copy_button=True, max_lines=10,
-
-                           )
-
-    control_btns = gr.Row(visible=False)
-    process_list = gr.CheckboxGroup(choices=list(running_processes.keys()), label="当前进程", interactive=True,
-                                    visible=False)
-    with control_btns:
-        pause = gr.Button("暂停")
-        resume = gr.Button("恢复")
-        kill = gr.Button("终止")
-
-    def control_processes(selected, action):
-        nonlocal running_processes
-        results = []
-        for label in selected:
-            proc = running_processes.get(label)
-            if not proc:
-                results.append(f"{label} not found.")
-                continue
-            try:
-                if action == "暂停":
-                    proc.send_signal(signal.SIGSTOP)
-                    results.append(f"{label} 强制终止.")
-                elif action == "恢复":
-                    proc.send_signal(signal.SIGCONT)
-                    results.append(f"{label} 强制恢复.")
-                elif action == "终止":
-                    proc.terminate()
-                    results.append(f"{label} 强制终止.")
-            except Exception as e:
-                results.append(f"{label} error: {e}")
-        return "\n".join(results)
+        go_ui = gr.Textbox(
+            info="此窗口为临时输出，具体请见控制台", label="输出信息", interactive=False, visible=False,
+            show_copy_button=True, max_lines=10,
+        )
 
     time_tmp = gr.Textbox(visible=False)
-    pause.click(lambda p: control_processes(p, "暂停"), inputs=process_list, outputs=go_ui)
-    resume.click(lambda p: control_processes(p, "恢复"), inputs=process_list, outputs=go_ui)
-    kill.click(lambda p: control_processes(p, "终止"), inputs=process_list, outputs=go_ui)
 
     go_btn.click(fn=start_go,
                  inputs=[upload_ui, time_tmp, interval_ui, mode_ui, total_attempts_ui,
                          audio_path_ui],
-                 outputs=[go_ui, process_list, control_btns])
+                 outputs=[go_ui],)
