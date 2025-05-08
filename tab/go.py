@@ -165,6 +165,7 @@ def go_tab(demo: gr.Blocks):
             select_way = way
 
         way_select_ui.change(choose_option, inputs=way_select_ui)
+
         with gr.Row():
             interval_ui = gr.Number(
                 label="抢票间隔",
