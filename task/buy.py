@@ -28,7 +28,7 @@ if bili_ticket_gt_python is not None:
 
 @logger.catch
 def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset, audio_path, pushplusToken,
-        serverchanKey, phone):
+        serverchanKey):
     if bili_ticket_gt_python is None:
         logger.info("当前设备不支持本地过验证码，无法使用")
         return
@@ -36,11 +36,18 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
     left_time = total_attempts
     tickets_info = json.loads(tickets_info_str)
     cookies = tickets_info["cookies"]
+    https_proxy = tickets_info.get("https_proxy", None)
+    phone = tickets_info.get("phone", None)
     tickets_info.pop('cookies', None)
     tickets_info['buyer_info'] = json.dumps(tickets_info['buyer_info'])
     tickets_info['deliver_info'] = json.dumps(tickets_info['deliver_info'])
 
-    _request = BiliRequest(cookies=cookies)
+    if https_proxy:
+        logger.info(f"使用代理: {https_proxy}")
+        _request = BiliRequest(cookies=cookies, proxy={'https': https_proxy})
+    else:
+        _request = BiliRequest(cookies=cookies)
+
     token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
                      "project_id": tickets_info["project_id"], "sku_id": tickets_info["sku_id"], "token": "",
                      "newRisk": True, }
@@ -174,9 +181,10 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
         time.sleep(1)
 
 
-def buy_new_terminal(endpoint_url, filename,
-                     tickets_info_str, time_start, interval, mode, total_attempts, audio_path, pushplusToken,
-                     serverchanKey, timeoffset, phone) -> subprocess.Popen:
+def buy_new_terminal(
+    endpoint_url, filename,
+        tickets_info_str, time_start, interval, mode, total_attempts, audio_path, pushplusToken,
+        serverchanKey, timeoffset) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
         command.extend(["main.py"])
@@ -193,8 +201,6 @@ def buy_new_terminal(endpoint_url, filename,
         command.extend(["--pushplusToken", pushplusToken])
     if serverchanKey:
         command.extend(["--serverchanKey", serverchanKey])
-    if phone:
-        command.extend(["--phone", phone])
     command.extend(["--filename", filename])
     command.extend(["--endpoint_url", endpoint_url])
     proc = subprocess.Popen(

@@ -91,7 +91,8 @@ def on_submit_ticket_id(num):
                 gr.update(),
                 gr.update(),
                 gr.update(visible=True),
-                gr.update(value=ret.get('msg', '未知错误') + '。', visible=True), gr.update()
+                gr.update(value=ret.get('msg', '未知错误') +
+                          '。', visible=True), gr.update()
             ]
         data = ret["data"]
         ticket_str_list = []
@@ -135,7 +136,8 @@ def on_submit_ticket_id(num):
                 express_fee = 0  # 电子票免费
             else:
                 if screen["express_fee"] >= 0:
-                    express_fee = screen["express_fee"]  # -2 === t ? "快递到付" : -1 === t ? "快递包邮" : "快递配送"
+                    # -2 === t ? "快递到付" : -1 === t ? "快递包邮" : "快递配送"
+                    express_fee = screen["express_fee"]
 
             for ticket in screen["ticket_list"]:
                 ticket_desc = ticket["desc"]
@@ -148,7 +150,8 @@ def on_submit_ticket_id(num):
                 ticket_can_buy = sales_flag_number_map[ticket["sale_flag_number"]]
                 ticket_str = f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy} - 【起售时间：{sale_start}】"
                 ticket_str_list.append(ticket_str)
-                ticket_value.append({"project_id": screen["project_id"], "ticket": ticket})
+                ticket_value.append(
+                    {"project_id": screen["project_id"], "ticket": ticket})
 
         buyer_json = main_request.get(
             url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={project_id}"
@@ -236,11 +239,13 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
                 "tel": address_cur["phone"],
                 "addr_id": address_cur["id"],
                 "addr": address_cur["prov"]
-                        + address_cur["city"]
-                        + address_cur["area"]
-                        + address_cur["addr"],
+                + address_cur["city"]
+                + address_cur["area"]
+                + address_cur["addr"],
             },
             "cookies": main_request.cookieManager.get_cookies(),
+            "phone": main_request.cookieManager.get_config_value("phone", ""),
+            "https_proxy": main_request.cookieManager.get_config_value("https_proxy", ""),
         }
         if "link_id" in ticket_cur["ticket"]:
             config_dir["link_id"] = ticket_cur["ticket"]["link_id"]
@@ -270,10 +275,11 @@ def setting_tab():
             main_request.get_request_name(),
             label="账号名称",
             interactive=False,
-            info="输出配置文件使用的账号名称",
+            info="输入配置文件使用的账号名称",
         )
-        gr_file_ui = gr.File(label="当前登录信息文件",
-                             value=global_cookie_path)
+        gr_file_ui = gr.File(
+            label="当前登录信息文件",
+            value=global_cookie_path)
     with gr.Row():
         upload_ui = gr.UploadButton(label="导入")
         add_btn = gr.Button("登录")
@@ -282,7 +288,8 @@ def setting_tab():
             yield ["已经注销，请选择登录信息文件", gr.update(), gr.update()]
             try:
                 shutil.copy2(global_cookie_path, filepath)
-                set_main_request(BiliRequest(cookies_config_path=global_cookie_path))
+                set_main_request(BiliRequest(
+                    cookies_config_path=global_cookie_path))
                 name = main_request.get_request_name()
                 yield [gr.update(value="导入成功"), gr.update(value=name), gr.update(value=global_cookie_path)]
             except Exception as e:
@@ -290,12 +297,15 @@ def setting_tab():
                 logger.exception(e)
                 yield ["登录出现错误", gr.update(value=name), gr.update(value=global_cookie_path)]
 
-        upload_ui.upload(upload_file, [upload_ui], [info_ui, username_ui, gr_file_ui])
+        upload_ui.upload(
+            upload_file, [upload_ui], [
+                info_ui, username_ui, gr_file_ui])
 
         def add():
             main_request.cookieManager.db.delete("cookie")
-            yield ["已经注销，将打开浏览器，请在浏览器里面重新登录", gr.update(value="未登录"),
-                   gr.update(value=global_cookie_path)]
+            yield [
+                "已经注销，将打开浏览器，请在浏览器里面重新登录", gr.update(value="未登录"),
+                gr.update(value=global_cookie_path)]
             try:
                 main_request.cookieManager.get_cookies_str_force()
                 name = main_request.get_request_name()
@@ -310,13 +320,38 @@ def setting_tab():
             outputs=[info_ui, username_ui, gr_file_ui]
         )
     with gr.Accordion(label='填写你的当前账号所绑定的手机号[可选]', open=False):
-        phone_gate_ui = gr.Textbox(label="填写你的当前账号所绑定的手机号", info="手机号验证出现概率极低，可不填",
-                                   value=main_request.cookieManager.get_config_value("phone", ""))
+        phone_gate_ui = gr.Textbox(
+            label="填写你的当前账号所绑定的手机号", info="手机号验证出现概率极低，可不填",
+            value=main_request.cookieManager.get_config_value("phone", ""))
 
         def input_phone(_phone):
             main_request.cookieManager.set_config_value("phone", _phone)
 
-        phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
+        phone_gate_ui.change(
+            fn=input_phone, inputs=phone_gate_ui, outputs=None)
+
+    with gr.Accordion(label='填写你的HTTPS代理服务器[可选]', open=False):
+        gr.Markdown("""
+                    > **注意**：
+                    
+                    填写代理服务器地址后，程序在使用这个配置文件后会通过代理服务器去访问哔哩哔哩的抢票接口。
+                    
+                    如果需要更改代理服务器，请更改这个配置文件中 'https_proxy' 的配置项。
+
+                    抢票前请确保代理服务器已经开启，并且可以正常访问哔哩哔哩的抢票接口。
+                    
+                    """)
+        https_proxy_ui = gr.Textbox(
+            label="填写抢票时候的代理服务器地址", info="例如： http://127.0.0.1:8080",
+            value=main_request.cookieManager.get_config_value("https_proxy", ""))
+
+        def input_https_proxy(_https_proxy):
+            main_request.cookieManager.set_config_value(
+                "https_proxy", _https_proxy)
+
+        https_proxy_ui.change(
+            fn=input_https_proxy, inputs=https_proxy_ui, outputs=None)
+
     with gr.Column():
         ticket_id_ui = gr.Textbox(
             label="想要抢票的网址",
@@ -332,8 +367,9 @@ def setting_tab():
                     type="index",
                     info="必填，请仔细核对起售时间，千万别选错其他时间点的票",
                 )
-                date_ui = Calendar(type="string", label="选择日期",
-                                   info="此票需要你选择的时间,时间是否有效请自行判断", interactive=True)
+                date_ui = Calendar(
+                    type="string", label="选择日期",
+                    info="此票需要你选择的时间,时间是否有效请自行判断", interactive=True)
             with gr.Row():
                 people_buyer_ui = gr.Dropdown(
                     label="联系人",
@@ -402,21 +438,25 @@ def setting_tab():
                     for ticket in screen["ticket_list"]:
                         ticket_desc = ticket["desc"]
                         sale_start = ticket["sale_start"]
-                        ticket["price"] = ticket_price = ticket["price"] + express_fee
+                        ticket["price"] = ticket_price = ticket["price"] + \
+                            express_fee
                         ticket["screen"] = screen_name
                         ticket["screen_id"] = screen_id
                         ticket_can_buy = "可购买" if ticket["clickable"] else "不可购买"
-                        ticket_str = (f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy}"
-                                      f" - 【起售时间：{sale_start}】")
+                        ticket_str = (
+                            f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy}"
+                            f" - 【起售时间：{sale_start}】")
                         ticket_str_list.append(ticket_str)
-                        ticket_value.append({"project_id": project_id, "ticket": ticket})
+                        ticket_value.append(
+                            {"project_id": project_id, "ticket": ticket})
 
                 return [gr.update(value=_date, visible=True), gr.update(choices=ticket_str_list),
                         gr.update(value=f"当前票日期更新为: {_date}")]
             except Exception as e:
                 return [gr.update(), gr.update(), gr.update(value=e, visible=True)]
 
-        date_ui.change(fn=on_submit_date,
-                       inputs=date_ui,
-                       outputs=[date_ui, ticket_info_ui, info_ui]
-                       )
+        date_ui.change(
+            fn=on_submit_date,
+            inputs=date_ui,
+            outputs=[date_ui, ticket_info_ui, info_ui]
+        )
