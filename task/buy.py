@@ -174,9 +174,9 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
         time.sleep(1)
 
 
-def buy_new_terminal(filename,
+def buy_new_terminal(endpoint_url, filename,
                      tickets_info_str, time_start, interval, mode, total_attempts, audio_path, pushplusToken,
-                     serverchanKey, timeoffset, phone) -> Tuple[subprocess.Popen, str]:
+                     serverchanKey, timeoffset, phone) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
         command.extend(["main.py"])
@@ -195,10 +195,9 @@ def buy_new_terminal(filename,
         command.extend(["--serverchanKey", serverchanKey])
     if phone:
         command.extend(["--phone", phone])
-    task_id = str(uuid.uuid1())
     command.extend(["--filename", filename])
-    command.extend(["--task_id", task_id])
+    command.extend(["--endpoint_url", endpoint_url])
     proc = subprocess.Popen(
         command
     )
-    return proc, task_id
+    return proc

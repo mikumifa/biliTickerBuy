@@ -1,5 +1,8 @@
+from collections import defaultdict, namedtuple
 import importlib
 import os
+import time
+from typing import List
 import gradio as gr
 from gradio import SelectData
 from loguru import logger
@@ -27,7 +30,7 @@ def handle_error(message, e):
             gr.update(visible=True), *[gr.update() for _ in range(6)]]
 
 
-def go_tab():
+def go_tab(demo: gr.Blocks):
     gr.Markdown("""
 > **分享一下经验**
 > - 抢票前，不要去提前抢还没有发售的票，会被b站封掉一段时间导致错过抢票的
@@ -152,14 +155,16 @@ def go_tab():
                 content = file.read()
             filename_only = os.path.basename(filename)
             logger.info(f"启动 {filename_only}")
-            proc, task_id = buy_new_terminal(filename=filename,
-                                             tickets_info_str=content, time_start=time_start, interval=interval, mode=mode,
-                                             total_attempts=total_attempts, audio_path=audio_path,
-                                             pushplusToken=configDB.get(
-                                                 "pushplusToken"),
-                                             serverchanKey=configDB.get(
-                                                 "serverchanKey"),
-                                             timeoffset=time_service.get_timeoffset(), phone=phone, )
+            proc = buy_new_terminal(
+                endpoint_url=demo.local_url,
+                filename=filename,
+                tickets_info_str=content, time_start=time_start, interval=interval, mode=mode,
+                total_attempts=total_attempts, audio_path=audio_path,
+                pushplusToken=configDB.get(
+                    "pushplusToken"),
+                serverchanKey=configDB.get(
+                    "serverchanKey"),
+                timeoffset=time_service.get_timeoffset(), phone=phone, )
         return [gr.update()]
     mode_ui.change(
         fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False), inputs=[mode_ui],
@@ -173,9 +178,55 @@ def go_tab():
             show_copy_button=True, max_lines=10,
         )
 
-    time_tmp = gr.Textbox(visible=False)
+    _time_tmp = gr.Textbox(visible=False)
+    go_btn.click(fn=None, inputs=None, outputs=_time_tmp,
+                 js='(x) => document.getElementById("datetime").value', )
+    Endpoint = namedtuple('Endpoint', ['endpoint', 'detail', 'update_at'])
+    endpoint_details = {}
+    _report_tmp = gr.Button(visible=False)
+    _report_tmp.api_info
 
-    go_btn.click(fn=start_go,
-                 inputs=[upload_ui, time_tmp, interval_ui, mode_ui, total_attempts_ui,
-                         audio_path_ui],
-                 outputs=[go_ui],)
+    def available_endpoints() -> List[Endpoint]:
+        nonlocal endpoint_details
+        return [t for endpoint, t in endpoint_details.items() if time.time() - t.update_at < 3]
+
+    _end_point_tinput = gr.Textbox(visible=False)
+
+    def report(end_point, detail):
+        nonlocal endpoint_details
+        now = time.time()
+        endpoint_details[end_point] = Endpoint(
+            endpoint=end_point,
+            detail=detail,
+            update_at=now
+        )
+
+    _report_tmp.click(
+        fn=report,
+        inputs=[_end_point_tinput, _time_tmp],  # fake useage
+        api_name="report",
+    )
+
+    def tick():
+        return f"当前时间戳：{int(time.time())}"
+    timer = gr.Textbox(label="定时更新", interactive=False, visible=False)
+    demo.load(fn=tick, inputs=None, outputs=timer, every=1)
+
+    @gr.render(inputs=timer)
+    def show_split(text):
+        endpoints = available_endpoints()
+        if len(endpoints) == 0:
+            gr.Markdown("## 无运行终端")
+        else:
+            gr.Markdown("## 当前运行终端列表")
+            for endpoint in endpoints:
+                with gr.Row():
+                    text = gr.Button(
+                        value=f"点击跳转 🚀 {endpoint.endpoint} {endpoint.detail}", link=endpoint.endpoint)
+
+    go_btn.click(
+        fn=start_go,
+        inputs=[
+            upload_ui, _time_tmp, interval_ui, mode_ui, total_attempts_ui,
+            audio_path_ui],
+        outputs=[go_ui],)
