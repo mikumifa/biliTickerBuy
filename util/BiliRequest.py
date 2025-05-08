@@ -7,23 +7,10 @@ import requests
 from util.CookieManager import CookieManager
 
 
-def format_dictionary_to_string(data):
-    formatted_string_parts = []
-    for key, value in data.items():
-        if isinstance(value, list) or isinstance(value, dict):
-            formatted_string_parts.append(
-                f"{quote(key)}={quote(json.dumps(value, separators=(',', ':'), ensure_ascii=False))}"
-            )
-        else:
-            formatted_string_parts.append(f"{quote(key)}={quote(str(value))}")
-
-    formatted_string = "&".join(formatted_string_parts)
-    return formatted_string
-
-
 class BiliRequest:
-    def __init__(self, headers=None, cookies=None, cookies_config_path=None):
+    def __init__(self, headers=None, cookies=None, cookies_config_path=None, proxy=None):
         self.session = requests.Session()
+        self.session.proxies = proxy or {}
         self.cookieManager = CookieManager(cookies_config_path, cookies)
         self.headers = headers or {
             'accept': '*/*',
@@ -39,7 +26,7 @@ class BiliRequest:
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
         if isJson:
             self.headers["Content-Type"] = "application/json"
-            data= json.dumps(data)
+            data = json.dumps(data)
         else:
             self.headers["Content-Type"] = "application/x-www-form-urlencoded"
         response = self.session.get(url, data=data, headers=self.headers)
@@ -53,7 +40,7 @@ class BiliRequest:
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
         if isJson:
             self.headers["content-type"] = "application/json"
-            data= json.dumps(data)
+            data = json.dumps(data)
         else:
             self.headers["content-type"] = "application/x-www-form-urlencoded"
         response = self.session.post(url, data=data, headers=self.headers)
@@ -68,7 +55,8 @@ class BiliRequest:
             if not self.cookieManager.have_cookies():
                 loguru.logger.warning("获取用户名失败，请重新登录")
                 return "未登录"
-            result = self.get("https://api.bilibili.com/x/web-interface/nav").json()
+            result = self.get(
+                "https://api.bilibili.com/x/web-interface/nav").json()
             return result["data"]["uname"]
         except Exception as e:
             loguru.logger.exception(e)
