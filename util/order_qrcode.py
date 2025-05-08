@@ -6,5 +6,4 @@ def get_qrcode_url(_request, order_id) -> str:
     data = _request.get(url).json()
     if data["errno"] == 0:
         return data["data"]["code_url"]
-    else:
-        raise Exception(f"获取二维码失败")
+    raise ValueError("获取二维码失败")
