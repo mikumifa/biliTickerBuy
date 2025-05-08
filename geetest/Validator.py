@@ -1,8 +1,6 @@
 import time
 from abc import ABC, abstractmethod
 
-from util.dynimport import bili_ticket_gt_python
-
 
 class Validator(ABC):
     @abstractmethod
@@ -18,7 +16,11 @@ class Validator(ABC):
         pass
 
 
-def test_validator(validator, n=100, click=bili_ticket_gt_python.ClickPy()):
+def test_validator(
+    validator,
+    click,
+    n=100,
+):
     success_count = 0
     total_time = 0
     for i in range(n):
@@ -28,7 +30,7 @@ def test_validator(validator, n=100, click=bili_ticket_gt_python.ClickPy()):
         start_time = time.time()
         validate_string = validator.validate(gt, challenge)
         elapsed_time = time.time() - start_time
-        total_time += elapsed_time
+        total_time += elapsed_time  # type: ignore
         if validate_string:
             success_count += 1
         print(f"Test {i + 1}: Result = {validate_string}, Time = {elapsed_time:.4f}s")

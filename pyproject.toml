@@ -93,6 +93,16 @@ dependencies = [
     "websockets==12.0",
     "win32-setctime==1.2.0",
 ]
+[tool.mypy]
+check_untyped_defs = true
+
 [[tool.mypy.overrides]]
-module = ["gradio.*"]
+module = [
+    "gradio.*",
+    'gradio_calendar.*',
+    'scipy.*',
+    'requests.*',
+    'onnxruntime.*',
+    'ntplib.*',
+]
 follow_untyped_imports = true

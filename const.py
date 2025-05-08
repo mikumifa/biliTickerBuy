@@ -6,7 +6,9 @@ import sys
 # 获取图标文件的路径
 def get_application_path() -> str:
     if getattr(sys, "frozen", False):
-        application_path = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+        application_path = getattr(
+            sys, "_MEIPASS", os.path.abspath(os.path.dirname(__file__))
+        )
     else:
         application_path = os.path.dirname(os.path.abspath(__file__))
 

@@ -19,7 +19,7 @@ class AmorterValidator(Validator):
         try:
             loguru.logger.debug(f"AmorterValidator gt: {gt} ; challenge: {challenge}")
             validate = self.click.simple_match_retry(gt, challenge)
-            loguru.logger.info(f"本地验证码过码成功")
+            loguru.logger.info("本地验证码过码成功")
             return validate
 
         except Exception as e:

@@ -9,7 +9,7 @@ from loguru import logger
 
 from geetest.Validator import Validator
 from task.buy import buy_new_terminal
-from util.config import configDB, time_service, main_request
+from util.config import configDB, time_service
 from util.dynimport import bili_ticket_gt_python
 from util.error import withTimeString
 

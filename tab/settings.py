@@ -3,7 +3,7 @@ import os
 import re
 import shutil
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List
 from urllib.parse import urlparse, parse_qs
 
 import gradio as gr
@@ -13,11 +13,11 @@ from loguru import logger
 from util.BiliRequest import BiliRequest
 from util.config import TEMP_PATH, global_cookie_path, main_request, set_main_request
 
-buyer_value = []
-addr_value = []
-ticket_value = []
-project_name = []
-ticket_str_list = []
+buyer_value: List[Dict[str, Any]] = []
+addr_value: List[Dict[str, Any]] = []
+ticket_value: List[Dict[str, Any]] = []
+project_name: str = ""
+ticket_str_list: List[str] = []
 sales_dates = []
 project_id = 0
 
@@ -209,10 +209,14 @@ def extract_id_from_url(url):
 
 
 def on_submit_all(
-    ticket_id, ticket_info, people_indices, people_buyer_index, address_index
+    ticket_id,
+    ticket_info: int,
+    people_indices,
+    people_buyer_index,
+    address_index,
 ):
     try:
-        ticket_cur: list[dict[str, Any]] = ticket_value[ticket_info]
+        ticket_cur: dict[str, Any] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
         people_buyer_cur = buyer_value[people_buyer_index]
         ticket_id = extract_id_from_url(ticket_id)

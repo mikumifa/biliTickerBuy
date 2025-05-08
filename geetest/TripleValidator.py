@@ -2,7 +2,6 @@ import json
 import os.path
 import re
 import time
-import uuid
 
 import cv2
 import loguru
@@ -20,6 +19,7 @@ from util.dynimport import bili_ticket_gt_python
 
 
 # https://github.com/Amorter/biliTicker_gt/blob/f378891457bb78bcacf181eaf642b11f5543b4e0/src/click.rs#L166
+
 
 def letterbox_resize(image, target_size=(384, 384), fill_color=(0, 0, 0)):
     """
@@ -40,22 +40,28 @@ def letterbox_resize(image, target_size=(384, 384), fill_color=(0, 0, 0)):
 
 class Model:
     def __init__(self, debugDir=None):
-        self.yolo = onnxruntime.InferenceSession(os.path.join(APP_PATH, "geetest", "model", "yolo.onnx"))
-        self.siamese = onnxruntime.InferenceSession(os.path.join(APP_PATH, "geetest", "model", "triple.onnx"))
+        self.yolo = onnxruntime.InferenceSession(
+            os.path.join(APP_PATH, "geetest", "model", "yolo.onnx")
+        )
+        self.siamese = onnxruntime.InferenceSession(
+            os.path.join(APP_PATH, "geetest", "model", "triple.onnx")
+        )
         if debugDir:
             os.makedirs(debugDir, exist_ok=True)
         self.debugDir = debugDir
         self.origin_img = None
         self.size = (96, 96)
 
-    def detect(self, img) -> (list[bytes], list[list[int]]):
+    def detect(self, img):
         confidence_thres = 0.8
         iou_thres = 0.8
         model_inputs = self.yolo.get_inputs()
         input_shape = model_inputs[0].shape
         input_width = input_shape[2]
         input_height = input_shape[3]
-        self.origin_img = cv2.imdecode(np.frombuffer(img, np.uint8), cv2.IMREAD_ANYCOLOR)
+        self.origin_img = cv2.imdecode(
+            np.frombuffer(img, np.uint8), cv2.IMREAD_ANYCOLOR
+        )
         img = Image.fromarray(self.origin_img)
         img = letterbox_resize(img, (input_height, input_width))
         image_data = np.array(img) / 255.0
@@ -84,8 +90,8 @@ class Model:
         text_boxes = []
         bg_imgs = []
         bg_boxes = []
-        for i in ret_boxes:
-            cropped = self.origin_img[i[1]: i[1] + i[3], i[0]: i[0] + i[2]]
+        for i in ret_boxes:  # type: ignore
+            cropped = self.origin_img[i[1] : i[1] + i[3], i[0] : i[0] + i[2]]  # type: ignore
             if cropped.shape[0] < 35 and cropped.shape[1] < 35:
                 text_imgs.append(cropped.astype(np.float32))
                 text_boxes.append(i)
@@ -96,13 +102,21 @@ class Model:
 
     def match(self, text_imgs, bg_imgs, bg_imgs_box):
         text_imgs = np.stack(
-            [normalize_image(cv2.resize(img, self.size)).transpose(2, 0, 1) for img in text_imgs])  # (n, C, H, W)
+            [
+                normalize_image(cv2.resize(img, self.size)).transpose(2, 0, 1)
+                for img in text_imgs
+            ]
+        )  # (n, C, H, W)
         bg_imgs = np.stack(
-            [normalize_image(cv2.resize(img, self.size)).transpose(2, 0, 1) for img in bg_imgs])  # (n, C, H, W)
+            [
+                normalize_image(cv2.resize(img, self.size)).transpose(2, 0, 1)
+                for img in bg_imgs
+            ]
+        )  # (n, C, H, W)
 
-        inputs = {'input': text_imgs}
+        inputs = {"input": text_imgs}
         text_embeddings = self.siamese.run(None, inputs)[0]
-        inputs = {'input': bg_imgs}
+        inputs = {"input": bg_imgs}
         bg_embeddings = self.siamese.run(None, inputs)[0]
         similarity_matrix = 1 - cdist(text_embeddings, bg_embeddings, metric="cosine")
         similarity_matrix = softmax(similarity_matrix, axis=1)
@@ -110,17 +124,10 @@ class Model:
         std_sim = similarity_matrix.std(axis=1)
         similarity_matrix = (similarity_matrix - mean_sim) / std_sim
         row_ind, col_ind = linear_sum_assignment(-similarity_matrix)
-        result_list = sorted([(i, bg_imgs_box[j]) for i, j in zip(row_ind, col_ind)], key=lambda x: x[0])
+        result_list = sorted(
+            [(i, bg_imgs_box[j]) for i, j in zip(row_ind, col_ind)], key=lambda x: x[0]
+        )
         match_scores = [similarity_matrix[i, j] for i, j in zip(row_ind, col_ind)]
-        if self.debugDir:
-            uid = uuid.uuid1()
-            for idx, i in result_list:
-                cv2.putText(self.origin_img, str(idx), (i[0] + 30, i[1] + 30), cv2.FONT_HERSHEY_SIMPLEX,
-                            1, (255, 0, 0), 2, cv2.LINE_AA)
-                cv2.rectangle(self.origin_img, (i[0], i[1]), (i[0] + i[2], i[1] + i[3]), (0, 255, 0),
-                              2)  # Adjust size as needed
-            cv2.imwrite(os.path.join(self.debugDir, f"{uid}.jpg"), self.origin_img)
-            loguru.logger.debug(f"debug_image saved to {uid}.jpg")
         return result_list, match_scores
 
 
@@ -132,15 +139,13 @@ def download_img(url: str) -> bytes:
 
 def refresh(gt, challenge):
     url = "http://api.geevisit.com/refresh.php"
-    params = {
-        "gt": gt,
-        "challenge": challenge,
-        "callback": "geetest_1717918222610"
-    }
+    params = {"gt": gt, "challenge": challenge, "callback": "geetest_1717918222610"}
 
     res = requests.get(url, params=params)
     res.raise_for_status()
     match = re.match(r"geetest_1717918222610\((.*)\)", res.text)
+    if match is None:
+        raise ValueError("Response text does not match the expected format")
     res_json = json.loads(match.group(1))
     data = res_json["data"]
     image_servers = data["image_servers"]
@@ -170,9 +175,10 @@ class TripleValidator(Validator):
 
     def __init__(self, debugDir=None):
         self.model = Model(debugDir=debugDir)
+        assert bili_ticket_gt_python
         self.click = bili_ticket_gt_python.ClickPy()
 
-    def validate(self, gt, challenge) -> Exception | str:
+    def validate(self, gt, challenge):
         loguru.logger.info(f"TripleValidator gt: {gt} ; challenge: {challenge}")
         (_, _) = self.click.get_c_s(gt, challenge)
         _type = self.click.get_type(gt, challenge)
@@ -181,10 +187,17 @@ class TripleValidator(Validator):
             try:
                 before_calculate_key = time.time()
                 pic_content = download_img(args)
-                text_imgs, text_boxes, bg_imgs, bg_boxes = self.model.detect(pic_content)
-                if len(text_boxes) != len(bg_boxes) or len(text_boxes) == 1 or len(bg_boxes) == 1:
+                text_imgs, text_boxes, bg_imgs, bg_boxes = self.model.detect(
+                    pic_content
+                )
+                if (
+                    len(text_boxes) != len(bg_boxes)
+                    or len(text_boxes) == 1
+                    or len(bg_boxes) == 1
+                ):
                     raise Exception(
-                        f"detect error fast retry text_boxes: {len(text_boxes)} bg_boxes: {len(bg_boxes)}")
+                        f"detect error fast retry text_boxes: {len(text_boxes)} bg_boxes: {len(bg_boxes)}"
+                    )
                 result_list, output_res = self.model.match(text_imgs, bg_imgs, bg_boxes)
                 loguru.logger.debug(f"{output_res}")
                 point_list = []
@@ -192,7 +205,14 @@ class TripleValidator(Validator):
                     left = str(round((i[0] + 30) / 333 * 10000))
                     top = str(round((i[1] + 30) / 333 * 10000))
                     point_list.append(f"{left}_{top}")
-                w = self.click.generate_w(",".join(point_list), gt, challenge, str(list(c)), s, "abcdefghijklmnop")
+                w = self.click.generate_w(
+                    ",".join(point_list),
+                    gt,
+                    challenge,
+                    str(list(c)),
+                    s,
+                    "abcdefghijklmnop",
+                )
                 w_use_time = time.time() - before_calculate_key
                 loguru.logger.debug(f"generation time: {w_use_time} seconds")
                 if w_use_time < 2:
@@ -200,7 +220,7 @@ class TripleValidator(Validator):
                 msg, validate = self.click.verify(gt, challenge, w)
                 if not validate:
                     raise Exception("生成错误")
-                loguru.logger.info(f"本地验证码过码成功")
+                loguru.logger.info("本地验证码过码成功")
                 return validate
             except Exception as e:
                 loguru.logger.info(e)
@@ -209,5 +229,8 @@ class TripleValidator(Validator):
 
 if __name__ == "__main__":
     # 使用示例
-    validator = TripleValidator(debugDir=os.path.join(APP_PATH, "geetest", "debug", f"{time.time()}"))
-    test_validator(validator, n=100)
+    validator = TripleValidator(
+        debugDir=os.path.join(APP_PATH, "geetest", "debug", f"{time.time()}")
+    )
+    assert bili_ticket_gt_python
+    test_validator(validator, bili_ticket_gt_python.ClickBy(), n=100)

@@ -19,7 +19,7 @@ class KVDatabase:
 
     def get(self, key):
         result = self.db.get(self.KeyValue.key == key)
-        return result["value"] if result else None
+        return result["value"] if result else None  # type: ignore
 
     def update(self, key, value):
         if self.db.contains(self.KeyValue.key == key):
