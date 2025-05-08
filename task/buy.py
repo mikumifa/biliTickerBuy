@@ -1,4 +1,3 @@
-from typing import Tuple
 import importlib
 import json
 import subprocess
@@ -7,7 +6,6 @@ import time
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
-import uuid
 
 import qrcode
 import retry
@@ -22,13 +20,21 @@ from util.error import ERRNO_DICT
 from util.order_qrcode import get_qrcode_url
 
 if bili_ticket_gt_python is not None:
-    Amort = importlib.import_module(
-        "geetest.TripleValidator").TripleValidator()
+    Amort = importlib.import_module("geetest.TripleValidator").TripleValidator()
 
 
 @logger.catch
-def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset, audio_path, pushplusToken,
-        serverchanKey):
+def buy(
+    tickets_info_str,
+    time_start,
+    interval,
+    mode,
+    total_attempts,
+    timeoffset,
+    audio_path,
+    pushplusToken,
+    serverchanKey,
+):
     if bili_ticket_gt_python is None:
         logger.info("当前设备不支持本地过验证码，无法使用")
         return
@@ -38,28 +44,40 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
     cookies = tickets_info["cookies"]
     https_proxy = tickets_info.get("https_proxy", None)
     phone = tickets_info.get("phone", None)
-    tickets_info.pop('cookies', None)
-    tickets_info['buyer_info'] = json.dumps(tickets_info['buyer_info'])
-    tickets_info['deliver_info'] = json.dumps(tickets_info['deliver_info'])
+    tickets_info.pop("cookies", None)
+    tickets_info["buyer_info"] = json.dumps(tickets_info["buyer_info"])
+    tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
 
     if https_proxy:
         logger.info(f"使用代理: {https_proxy}")
-        _request = BiliRequest(cookies=cookies, proxy={'https': https_proxy})
+        _request = BiliRequest(cookies=cookies, proxy={"https": https_proxy})
     else:
         _request = BiliRequest(cookies=cookies)
 
-    token_payload = {"count": tickets_info["count"], "screen_id": tickets_info["screen_id"], "order_type": 1,
-                     "project_id": tickets_info["project_id"], "sku_id": tickets_info["sku_id"], "token": "",
-                     "newRisk": True, }
+    token_payload = {
+        "count": tickets_info["count"],
+        "screen_id": tickets_info["screen_id"],
+        "order_type": 1,
+        "project_id": tickets_info["project_id"],
+        "sku_id": tickets_info["sku_id"],
+        "token": "",
+        "newRisk": True,
+    }
     if time_start != "":
         logger.info("0) 等待开始时间")
-        logger.info("时间偏差已被设置为: " + str(timeoffset) + 's')
+        logger.info("时间偏差已被设置为: " + str(timeoffset) + "s")
         try:
             time_difference = (
-                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp() - time.time() + timeoffset)
-        except ValueError as e:
+                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
+                - time.time()
+                + timeoffset
+            )
+        except ValueError:
             time_difference = (
-                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp() - time.time() + timeoffset)
+                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
+                - time.time()
+                + timeoffset
+            )
         start_time = time.perf_counter()
         end_time = start_time + time_difference
         current_time = start_time
@@ -68,20 +86,22 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
     while isRunning:
         try:
             # 订单准备
-            logger.info(f"1）订单准备")
+            logger.info("1）订单准备")
             request_result_normal = _request.post(
                 url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                data=token_payload, isJson=True)
+                data=token_payload,
+                isJson=True,
+            )
             request_result = request_result_normal.json()
             logger.info(
-                f"请求头: {request_result_normal.headers} // 请求体: {request_result}")
-            code = int(request_result.get("errno", request_result.get('code')))
+                f"请求头: {request_result_normal.headers} // 请求体: {request_result}"
+            )
+            code = int(request_result.get("errno", request_result.get("code")))
             # 完成验证码
             if code == -401:
                 # if True:
                 _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
-                _payload = urlencode(
-                    request_result["data"]["ga_data"]["riskParams"])
+                _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
                 _data = _request.post(_url, _payload).json()
                 logger.info(f"验证码请求: {_data}")
                 csrf = _request.cookieManager.get_cookies_value("bili_jct")
@@ -89,34 +109,45 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                 if _data["data"]["type"] == "geetest":
                     gt = _data["data"]["geetest"]["gt"]
                     challenge = _data["data"]["geetest"]["challenge"]
-                    geetest_validate = Amort.validate(
-                        gt=gt, challenge=challenge)
+                    geetest_validate = Amort.validate(gt=gt, challenge=challenge)
                     geetest_seccode = geetest_validate + "|jordan"
                     logger.info(
-                        f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}")
+                        f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
+                    )
                     _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
-                    _payload = {"challenge": challenge, "token": token, "seccode": geetest_seccode, "csrf": csrf,
-                                "validate": geetest_validate, }
+                    _payload = {
+                        "challenge": challenge,
+                        "token": token,
+                        "seccode": geetest_seccode,
+                        "csrf": csrf,
+                        "validate": geetest_validate,
+                    }
                     _data = _request.post(_url, urlencode(_payload)).json()
                 elif _data["data"]["type"] == "phone":
-                    _payload = {"code": phone, "csrf": csrf, "token": token, }
+                    _payload = {
+                        "code": phone,
+                        "csrf": csrf,
+                        "token": token,
+                    }
                     _data = _request.post(_url, urlencode(_payload)).json()
                 else:
                     logger.warning("这个一个程序无法应对的验证码，脚本无法处理")
                     break
                 logger.info(f"validate: {_data}")
-                if int(_data.get("errno", _data.get('code'))) == 0:
+                if int(_data.get("errno", _data.get("code"))) == 0:
                     logger.info("验证码成功")
                 else:
                     logger.info("验证码失败 {}", _data)
                     continue
                 request_result = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                    data=token_payload, isJson=True).json()
+                    data=token_payload,
+                    isJson=True,
+                ).json()
                 logger.info(f"prepare: {request_result}")
             tickets_info["again"] = 1
             tickets_info["token"] = request_result["data"]["token"]
-            logger.info(f"2）创建订单")
+            logger.info("2）创建订单")
             tickets_info["timestamp"] = int(time.time()) * 100
             payload = tickets_info
 
@@ -127,12 +158,15 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                     raise ValueError("抢票结束")
                 ret = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
-                    data=payload, isJson=True).json()
-                err = int(ret.get("errno", ret.get('code')))
+                    data=payload,
+                    isJson=True,
+                ).json()
+                err = int(ret.get("errno", ret.get("code")))
                 logger.info(
-                    f'状态码: {err}({ERRNO_DICT.get(err, "未知错误码")}), 响应: {ret}')
+                    f"状态码: {err}({ERRNO_DICT.get(err, '未知错误码')}), 响应: {ret}"
+                )
                 if err == 100034:
-                    logger.info(f'更新票价为：{ret["data"]["pay_money"] / 100}')
+                    logger.info(f"更新票价为：{ret['data']['pay_money'] / 100}")
                     tickets_info["pay_money"] = ret["data"]["pay_money"]
                     payload = tickets_info
                 if err == 0 or err == 100048 or err == 100079:
@@ -146,11 +180,14 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
             request_result, errno = inner_request()
             left_time_str = "无限" if mode == 0 else left_time
             logger.info(
-                f'状态码: {errno}({ERRNO_DICT.get(errno, "未知错误码")}), 响应: {request_result} 剩余次数: {left_time_str}')
+                f"状态码: {errno}({ERRNO_DICT.get(errno, '未知错误码')}), 响应: {request_result} 剩余次数: {left_time_str}"
+            )
             if errno == 0:
-                logger.info(f"3）抢票成功，弹出付款二维码")
+                logger.info("3）抢票成功，弹出付款二维码")
                 qrcode_url = get_qrcode_url(
-                    _request, request_result["data"]["orderId"], )
+                    _request,
+                    request_result["data"]["orderId"],
+                )
                 qr_gen = qrcode.QRCode()
                 qr_gen.add_data(qrcode_url)
                 qr_gen.make(fit=True)
@@ -158,10 +195,12 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
                 qr_gen_image.show()  # type: ignore
                 if pushplusToken:
                     PushPlusUtil.send_message(
-                        pushplusToken, "抢票成功", "前往订单中心付款吧")
+                        pushplusToken, "抢票成功", "前往订单中心付款吧"
+                    )
                 if serverchanKey:
                     ServerChanUtil.send_message(
-                        serverchanKey, "抢票成功", "前往订单中心付款吧")
+                        serverchanKey, "抢票成功", "前往订单中心付款吧"
+                    )
                 if audio_path:
                     playsound(audio_path)
                 break
@@ -182,17 +221,31 @@ def buy(tickets_info_str, time_start, interval, mode, total_attempts, timeoffset
 
 
 def buy_new_terminal(
-    endpoint_url, filename,
-        tickets_info_str, time_start, interval, mode, total_attempts, audio_path, pushplusToken,
-        serverchanKey, timeoffset) -> subprocess.Popen:
+    endpoint_url,
+    filename,
+    tickets_info_str,
+    time_start,
+    interval,
+    mode,
+    total_attempts,
+    audio_path,
+    pushplusToken,
+    serverchanKey,
+    timeoffset,
+) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
         command.extend(["main.py"])
-    command.extend([
-        "buy",
-        tickets_info_str, str(interval), str(mode), str(total_attempts),
-        str(timeoffset),
-    ])
+    command.extend(
+        [
+            "buy",
+            tickets_info_str,
+            str(interval),
+            str(mode),
+            str(total_attempts),
+            str(timeoffset),
+        ]
+    )
     if time_start:
         command.extend(["--time_start", time_start])
     if audio_path:
@@ -203,7 +256,5 @@ def buy_new_terminal(
         command.extend(["--serverchanKey", serverchanKey])
     command.extend(["--filename", filename])
     command.extend(["--endpoint_url", endpoint_url])
-    proc = subprocess.Popen(
-        command
-    )
+    proc = subprocess.Popen(command)
     return proc

@@ -18,4 +18,3 @@ body:
       description: 详细描述，越详细越好
     validations:
       required: true
-      

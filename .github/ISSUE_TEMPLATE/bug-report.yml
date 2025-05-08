@@ -16,7 +16,7 @@ body:
     attributes:
       label: 版本
       description: 下载release里面程序的版本。
-      placeholder: 例如 v1.0.0 
+      placeholder: 例如 v1.0.0
     validations:
       required: true
   - type: textarea

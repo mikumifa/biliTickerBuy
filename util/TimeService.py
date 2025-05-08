@@ -21,7 +21,7 @@ class TimeService:
             try:
                 response = self.client.request(self.ntp_server, version=4)
                 break
-            except Exception as e:
+            except Exception:
                 logger.warning("第" + str(i + 1) + "次获取NTP时间失败, 尝试重新获取")
                 if i == 2:
                     return "error"

@@ -34,7 +34,7 @@
 
 ## 💻 快速安装
 
-[下载链接](https://github.com/mikumifa/biliTickerBuy/releases) 
+[下载链接](https://github.com/mikumifa/biliTickerBuy/releases)
 
 ## 👀 使用说明书
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd

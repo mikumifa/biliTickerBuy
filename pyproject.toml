@@ -99,6 +99,8 @@ check_untyped_defs = true
 [[tool.mypy.overrides]]
 module = [
     "gradio.*",
+    "gradio_client.*",
+    "gradio_log.*",
     'gradio_calendar.*',
     'scipy.*',
     'requests.*',

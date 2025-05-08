@@ -10,5 +10,5 @@ def send_message(token, content, title):
 
         data = {"token": token, "content": content, "title": title}
         requests.post(url, headers=headers, data=json.dumps(data))
-    except Exception as e:
+    except Exception:
         loguru.logger.info("PushPlus消息发送失败")

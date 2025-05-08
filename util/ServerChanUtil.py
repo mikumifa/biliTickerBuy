@@ -11,5 +11,5 @@ def send_message(token, desp, title):
 
         data = {"desp": desp, "title": title}
         requests.post(url, headers=headers, data=json.dumps(data))
-    except Exception as e:
+    except Exception:
         loguru.logger.info("ServerChan消息发送失败")

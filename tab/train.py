@@ -102,7 +102,7 @@ def train_tab():
             nonlocal test_geetest_validate, test_geetest_seccode
             try:
                 tmp = validator.validate(gt=test_gt, challenge=test_challenge)
-            except Exception as e:
+            except Exception:
                 return
             validate_con.acquire()
             test_geetest_validate = tmp
