@@ -1,9 +1,15 @@
 import argparse
+import asyncio
 import os.path
 import threading
+import uuid
+from fastapi import FastAPI
+import gradio_client
 from loguru import logger
+from py import log
 
 from task.buy import buy
+from task.endpoint import start_heartbeat_thread
 
 
 def main():
@@ -22,6 +28,7 @@ def main():
                             help="Total number of attempts.")
     buy_parser.add_argument("timeoffset", type=float,
                             help="Time offset in seconds.")
+    buy_parser.add_argument("--endpoint_url", type=str, help="endpoint_url.")
     buy_parser.add_argument("--time_start", type=str,
                             default="", help="Start time (optional")
     buy_parser.add_argument("--audio_path", type=str,
@@ -32,8 +39,7 @@ def main():
                             default="", help="ServerChan key (optional).")
     buy_parser.add_argument("--phone", type=str, default="",
                             help="Phone number (optional).")
-    buy_parser.add_argument("--task_id", type=str,
-                            default="default", help="task_id (optional).")
+
     buy_parser.add_argument("--filename", type=str,
                             default="default", help="filename (optional).")
     parser.add_argument("--port", type=int, default=7860, help="server port")
@@ -45,12 +51,14 @@ def main():
         logger.remove()
         from const import BASE_DIR
         os.makedirs(os.path.join(BASE_DIR, "log"), exist_ok=True)
-        log_file = os.path.join(BASE_DIR, "log", f"{args.task_id}.log")
+        log_file = os.path.join(BASE_DIR, "log", f"{uuid.uuid1()}.log")
         logger.add(log_file, colorize=True,)
         import gradio as gr
+        from pathlib import Path
+        Path(log_file).touch(exist_ok=True)
         from gradio_log import Log
         filename_only = os.path.basename(args.filename)
-        with gr.Blocks() as demo:
+        with gr.Blocks(title=f"{filename_only}") as demo:
             gr.Markdown(
                 f"""
                 # 当前抢票 {filename_only}
@@ -67,16 +75,19 @@ def main():
             btn = gr.Button("退出程序")
             btn.click(fn=exit_program)
 
-        def run_buy():
-            logger.info(f"抢票日志路径： {log_file}")
-            buy(
-                args.tickets_info_str, args.time_start, args.interval, args.mode,
-                args.total_attempts, args.timeoffset, args.audio_path,
-                args.pushplusToken, args.serverchanKey, args.phone
-            )
-        threading.Thread(target=run_buy, daemon=True).start()
+        print(f"抢票日志路径： {log_file}")
         print(f"运行程序网址   ↓↓↓↓↓↓↓↓↓↓↓↓↓↓   {filename_only} ")
-        demo.launch(share=False, inbrowser=True)
+        demo.launch(share=False, inbrowser=True, prevent_thread_lock=True)
+        client = gradio_client.Client(args.endpoint_url)
+        assert demo.local_url
+        start_heartbeat_thread(
+            client, self_url=demo.local_url, to_url=args.endpoint_url, detail=filename_only)
+        buy(
+            args.tickets_info_str, args.time_start, args.interval, args.mode,
+            args.total_attempts, args.timeoffset, args.audio_path,
+            args.pushplusToken, args.serverchanKey, args.phone
+        )
+
     else:
         import gradio as gr
         from tab.go import go_tab
@@ -93,12 +104,13 @@ def main():
         from const import BASE_DIR
         log_file = os.path.join(BASE_DIR, "app.log")
         logger.add(log_file, colorize=True,)
-        with gr.Blocks() as demo:
+
+        with gr.Blocks(title="biliTickerBuy") as demo:
             gr.Markdown(header)
             with gr.Tab("生成配置"):
                 setting_tab()
             with gr.Tab("操作抢票"):
-                go_tab()
+                go_tab(demo)
             with gr.Tab("过码测试"):
                 train_tab()
             with gr.Tab("项目说明"):
@@ -106,7 +118,8 @@ def main():
 
         # 运行应用
         print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
-        demo.launch(share=args.share, inbrowser=True)
+        demo.launch(
+            share=args.share, inbrowser=True)
 
 
 if __name__ == "__main__":
