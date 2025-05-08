@@ -52,7 +52,7 @@ def main():
         Path(log_file).touch(exist_ok=True)
         from gradio_log import Log
         filename_only = os.path.basename(args.filename)
-        with gr.Blocks(title=f"{filename_only}", css=".xterm-screen {min-height: 70vh; max-height: 70vh}") as demo:
+        with gr.Blocks(title=f"{filename_only}", css=".xterm-screen {min-height: 70vh; max-height: 70vh} footer {visibility: hidden}") as demo:
             gr.Markdown(
                 f"""
                 # 当前抢票 {filename_only}

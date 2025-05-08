@@ -1,6 +1,7 @@
 config
 .gitignore
 venv
+.venv
 .idea
 dist
 log/*
