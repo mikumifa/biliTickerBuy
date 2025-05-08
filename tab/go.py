@@ -51,6 +51,7 @@ def go_tab(demo: gr.Blocks):
             ticket_ui = gr.TextArea(label="查看",
                                     info="配置信息",
                                     interactive=False)
+
         gr.HTML("""<label for="datetime">程序已经提前帮你校准时间，设置成开票时间即可。请勿设置成开票前的时间。在开票前抢票会短暂封号</label><br>
                 <input type="datetime-local" id="datetime" name="datetime" step="1">""", label="选择抢票的时间",
                 show_label=True, )
@@ -136,6 +137,7 @@ def go_tab(demo: gr.Blocks):
             select_way = way
 
         way_select_ui.change(choose_option, inputs=way_select_ui)
+
         with gr.Row():
             interval_ui = gr.Number(label="抢票间隔", value=300, minimum=1,
                                     info="设置抢票任务之间的时间间隔（单位：毫秒），建议不要设置太小", )
@@ -169,6 +171,7 @@ def go_tab(demo: gr.Blocks):
     mode_ui.change(
         fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False), inputs=[mode_ui],
         outputs=total_attempts_ui, )
+
     with gr.Row():
         go_btn = gr.Button("开始抢票")
 
@@ -230,3 +233,4 @@ def go_tab(demo: gr.Blocks):
             upload_ui, _time_tmp, interval_ui, mode_ui, total_attempts_ui,
             audio_path_ui],
         outputs=[go_ui],)
+
