@@ -1,12 +1,8 @@
 import argparse
-import asyncio
 import os.path
-import threading
 import uuid
-from fastapi import FastAPI
 import gradio_client
 from loguru import logger
-from py import log
 
 from task.buy import buy
 from task.endpoint import start_heartbeat_thread
@@ -37,11 +33,9 @@ def main():
                             default="", help="PushPlus token (optional).")
     buy_parser.add_argument("--serverchanKey", type=str,
                             default="", help="ServerChan key (optional).")
-    buy_parser.add_argument("--phone", type=str, default="",
-                            help="Phone number (optional).")
-
     buy_parser.add_argument("--filename", type=str,
                             default="default", help="filename (optional).")
+
     parser.add_argument("--port", type=int, default=7860, help="server port")
     parser.add_argument("--share", type=bool, default=False,
                         help="create a public link")
@@ -58,7 +52,7 @@ def main():
         Path(log_file).touch(exist_ok=True)
         from gradio_log import Log
         filename_only = os.path.basename(args.filename)
-        with gr.Blocks(title=f"{filename_only}") as demo:
+        with gr.Blocks(title=f"{filename_only}", css=".xterm-screen {min-height: 70vh; max-height: 70vh}") as demo:
             gr.Markdown(
                 f"""
                 # 当前抢票 {filename_only}
@@ -66,7 +60,7 @@ def main():
                 """
             )
 
-            Log(log_file, dark=True, xterm_font_size=12)
+            Log(log_file, dark=True, xterm_scrollback=5000,)
 
             def exit_program():
                 print(f"{filename_only} ，关闭程序...")
@@ -85,7 +79,7 @@ def main():
         buy(
             args.tickets_info_str, args.time_start, args.interval, args.mode,
             args.total_attempts, args.timeoffset, args.audio_path,
-            args.pushplusToken, args.serverchanKey, args.phone
+            args.pushplusToken, args.serverchanKey
         )
 
     else:

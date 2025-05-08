@@ -13,29 +13,13 @@ def train_tab():
 > **补充**
 >
 > 在这里，你可以
-> 1. 提前知道抢票时候验证码的过程
-> 2. 训练验证码，提高验证码速度
-> 3. 测试本地过验证码是否可行
+> 1. 测试本地过验证码是否可行
 >
 """)
     _request = main_request
-
-    gr.Markdown("💪 在这里训练一下手过验证码的速度，提前演练一下")
-
-    gr.Markdown("""
-    
-
-    
-| 过码方式           | 使用说明                                                     |
-| ------------------ | ------------------------------------------------------------ |
-| 手动               | 自己过，速度取决于自己，过程看项目的readme.md的GIF           |
-| 本地过验证码 | **推荐**<br />**不支持**手动和人工同时使用<br />本地过码，免费，不会收网速影响<br />成功率99%<br />速度快，正常**需3秒左右** <br /> https://github.com/Amorter/biliTicker_gt/releases|
-| .....              | 欢迎Discussion补充                                                     |
-    
-    """)
-
     # 验证码选择
-    way_select_ui = gr.Radio(ways, label="验证码", info="过验证码的方式", type="index", value=ways[0])
+    way_select_ui = gr.Radio(
+        ways, label="验证码", info="过验证码的方式", type="index", value=ways[0])
     api_key_input_ui = gr.Textbox(label="api_key", value=_request.cookieManager.get_config_value("appkey", ""),
                                   visible=False)
     select_way = 0
@@ -51,7 +35,8 @@ def train_tab():
         else:
             return gr.update(visible=False)
 
-    way_select_ui.change(choose_option, inputs=way_select_ui, outputs=api_key_input_ui)
+    way_select_ui.change(choose_option, inputs=way_select_ui,
+                         outputs=api_key_input_ui)
 
     test_get_challenge_btn = gr.Button("开始测试")
     test_log = gr.JSON(label="测试结果（显示验证码过期则说明成功）")
@@ -150,7 +135,8 @@ def train_tab():
     test_get_challenge_btn.click(
         fn=test_get_challenge,
         inputs=[api_key_input_ui],
-        outputs=[test_gt_ui, test_challenge_ui, test_gt_row, test_get_challenge_btn, test_log, trigger_ui],
+        outputs=[test_gt_ui, test_challenge_ui, test_gt_row,
+                 test_get_challenge_btn, test_log, trigger_ui],
     )
     trigger_ui.change(
         fn=None,

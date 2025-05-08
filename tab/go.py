@@ -48,9 +48,9 @@ def go_tab(demo: gr.Blocks):
         with gr.Row(equal_height=True):
             upload_ui = gr.Files(
                 label="上传多个配置文件，点击不同的配置文件可快速切换", file_count="multiple")
-            ticket_ui = gr.TextArea(label="填入配置",
-                                    info="再次填入配置信息",
-                                    interactive=True)
+            ticket_ui = gr.TextArea(label="查看",
+                                    info="配置信息",
+                                    interactive=False)
         gr.HTML("""<label for="datetime">程序已经提前帮你校准时间，设置成开票时间即可。请勿设置成开票前的时间。在开票前抢票会短暂封号</label><br>
                 <input type="datetime-local" id="datetime" name="datetime" step="1">""", label="选择抢票的时间",
                 show_label=True, )
@@ -147,7 +147,6 @@ def go_tab(demo: gr.Blocks):
     def start_go(files, time_start, interval, mode, total_attempts, audio_path):
         if not files:
             return [gr.update(value=withTimeString("未提交抢票配置"), visible=True)]
-        phone = main_request.cookieManager.get_config_value("phone", "")
         yield [
             gr.update(value=withTimeString("开始多开抢票,详细查看终端"), visible=True)]
         for filename in files:
@@ -155,6 +154,7 @@ def go_tab(demo: gr.Blocks):
                 content = file.read()
             filename_only = os.path.basename(filename)
             logger.info(f"启动 {filename_only}")
+            phone = main_request.cookieManager.get_config_value("phone", "")
             proc = buy_new_terminal(
                 endpoint_url=demo.local_url,
                 filename=filename,
@@ -164,7 +164,7 @@ def go_tab(demo: gr.Blocks):
                     "pushplusToken"),
                 serverchanKey=configDB.get(
                     "serverchanKey"),
-                timeoffset=time_service.get_timeoffset(), phone=phone, )
+                timeoffset=time_service.get_timeoffset())
         return [gr.update()]
     mode_ui.change(
         fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False), inputs=[mode_ui],
