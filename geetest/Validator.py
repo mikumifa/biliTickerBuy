@@ -23,7 +23,8 @@ def test_validator(validator, n=100, click=bili_ticket_gt_python.ClickPy()):
     total_time = 0
     for i in range(n):
         gt, challenge = click.register_test(
-            "https://passport.bilibili.com/x/passport-login/captcha?source=main_web")
+            "https://passport.bilibili.com/x/passport-login/captcha?source=main_web"
+        )
         start_time = time.time()
         validate_string = validator.validate(gt, challenge)
         elapsed_time = time.time() - start_time

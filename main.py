@@ -9,50 +9,64 @@ from task.endpoint import start_heartbeat_thread
 
 
 def main():
-
-    parser = argparse.ArgumentParser(
-        description="Ticket Purchase Tool or Gradio UI")
+    parser = argparse.ArgumentParser(description="Ticket Purchase Tool or Gradio UI")
     subparsers = parser.add_subparsers(dest="command")
     # `--buy` 子命令
-    buy_parser = subparsers.add_parser(
-        "buy", help="Start the ticket buying function")
-    buy_parser.add_argument("tickets_info_str", type=str,
-                            help="Ticket information in string format.")
+    buy_parser = subparsers.add_parser("buy", help="Start the ticket buying function")
+    buy_parser.add_argument(
+        "tickets_info_str", type=str, help="Ticket information in string format."
+    )
     buy_parser.add_argument("interval", type=int, help="Interval time.")
     buy_parser.add_argument("mode", type=int, help="Mode of operation.")
-    buy_parser.add_argument("total_attempts", type=int,
-                            help="Total number of attempts.")
-    buy_parser.add_argument("timeoffset", type=float,
-                            help="Time offset in seconds.")
+    buy_parser.add_argument(
+        "total_attempts", type=int, help="Total number of attempts."
+    )
+    buy_parser.add_argument("timeoffset", type=float, help="Time offset in seconds.")
     buy_parser.add_argument("--endpoint_url", type=str, help="endpoint_url.")
-    buy_parser.add_argument("--time_start", type=str,
-                            default="", help="Start time (optional")
-    buy_parser.add_argument("--audio_path", type=str,
-                            default="", help="Path to audio file (optional).")
-    buy_parser.add_argument("--pushplusToken", type=str,
-                            default="", help="PushPlus token (optional).")
-    buy_parser.add_argument("--serverchanKey", type=str,
-                            default="", help="ServerChan key (optional).")
-    buy_parser.add_argument("--filename", type=str,
-                            default="default", help="filename (optional).")
+    buy_parser.add_argument(
+        "--time_start", type=str, default="", help="Start time (optional"
+    )
+    buy_parser.add_argument(
+        "--audio_path", type=str, default="", help="Path to audio file (optional)."
+    )
+    buy_parser.add_argument(
+        "--pushplusToken", type=str, default="", help="PushPlus token (optional)."
+    )
+    buy_parser.add_argument(
+        "--serverchanKey", type=str, default="", help="ServerChan key (optional)."
+    )
+    buy_parser.add_argument(
+        "--filename", type=str, default="default", help="filename (optional)."
+    )
 
     parser.add_argument("--port", type=int, default=7860, help="server port")
-    parser.add_argument("--share", type=bool, default=False,
-                        help="create a public link")
+    parser.add_argument(
+        "--share", type=bool, default=False, help="create a public link"
+    )
     args = parser.parse_args()
 
     if args.command == "buy":
         logger.remove()
         from const import BASE_DIR
+
         os.makedirs(os.path.join(BASE_DIR, "log"), exist_ok=True)
         log_file = os.path.join(BASE_DIR, "log", f"{uuid.uuid1()}.log")
-        logger.add(log_file, colorize=True,)
+        logger.add(
+            log_file,
+            colorize=True,
+        )
         import gradio as gr
         from pathlib import Path
+
         Path(log_file).touch(exist_ok=True)
         from gradio_log import Log
+
         filename_only = os.path.basename(args.filename)
-        with gr.Blocks(title=f"{filename_only}", css=".xterm-screen {min-height: 70vh; max-height: 70vh}") as demo:
+        with gr.Blocks(
+            title=f"{filename_only}",
+            fill_height=True,
+            css=".xterm-screen {min-height: 70vh; max-height: 70vh}",
+        ) as demo:
             gr.Markdown(
                 f"""
                 # 当前抢票 {filename_only}
@@ -60,7 +74,12 @@ def main():
                 """
             )
 
-            Log(log_file, dark=True, xterm_scrollback=5000,)
+            Log(
+                log_file,
+                dark=True,
+                scale=1,
+                xterm_scrollback=5000,
+            )
 
             def exit_program():
                 print(f"{filename_only} ，关闭程序...")
@@ -75,11 +94,21 @@ def main():
         client = gradio_client.Client(args.endpoint_url)
         assert demo.local_url
         start_heartbeat_thread(
-            client, self_url=demo.local_url, to_url=args.endpoint_url, detail=filename_only)
+            client,
+            self_url=demo.local_url,
+            to_url=args.endpoint_url,
+            detail=filename_only,
+        )
         buy(
-            args.tickets_info_str, args.time_start, args.interval, args.mode,
-            args.total_attempts, args.timeoffset, args.audio_path,
-            args.pushplusToken, args.serverchanKey
+            args.tickets_info_str,
+            args.time_start,
+            args.interval,
+            args.mode,
+            args.total_attempts,
+            args.timeoffset,
+            args.audio_path,
+            args.pushplusToken,
+            args.serverchanKey,
         )
 
     else:
@@ -96,8 +125,12 @@ def main():
         """
 
         from const import BASE_DIR
+
         log_file = os.path.join(BASE_DIR, "app.log")
-        logger.add(log_file, colorize=True,)
+        logger.add(
+            log_file,
+            colorize=True,
+        )
 
         with gr.Blocks(title="biliTickerBuy") as demo:
             gr.Markdown(header)
@@ -112,8 +145,7 @@ def main():
 
         # 运行应用
         print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
-        demo.launch(
-            share=args.share, inbrowser=True)
+        demo.launch(share=args.share, inbrowser=True)
 
 
 if __name__ == "__main__":

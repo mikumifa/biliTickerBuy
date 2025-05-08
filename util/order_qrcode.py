@@ -1,6 +1,3 @@
-import time
-
-
 def get_qrcode_url(_request, order_id) -> str:
     url = f"https://show.bilibili.com/api/ticket/order/getPayParam?order_id={order_id}"
     data = _request.get(url).json()
