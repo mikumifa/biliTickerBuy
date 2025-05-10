@@ -52,7 +52,7 @@ def main():
         Path(log_file).touch(exist_ok=True)
         from gradio_log import Log
         filename_only = os.path.basename(args.filename)
-        with gr.Blocks(title=f"{filename_only}", css=".xterm-screen {min-height: 70vh; max-height: 70vh}") as demo:
+        with gr.Blocks(title=f"{filename_only}", css="body {overflow-y: scroll;} .xterm-screen {min-height: 70vh; max-height: 70vh} footer {visibility: hidden}") as demo:
             gr.Markdown(
                 f"""
                 # 当前抢票 {filename_only}
@@ -99,7 +99,7 @@ def main():
         log_file = os.path.join(BASE_DIR, "app.log")
         logger.add(log_file, colorize=True,)
 
-        with gr.Blocks(title="biliTickerBuy") as demo:
+        with gr.Blocks(title="biliTickerBuy", css="body {overflow-y: scroll;} .xterm-screen {min-height: 70vh; max-height: 70vh} footer {visibility: hidden}") as demo:
             gr.Markdown(header)
             with gr.Tab("生成配置"):
                 setting_tab()
