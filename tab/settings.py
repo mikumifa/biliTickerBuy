@@ -265,7 +265,8 @@ def setting_tab():
 > 保证自己在抢票前，已经配置了地址和购买人信息(就算不需要也要提前填写) 如果没填，生成表单时候不会出现任何选项
 > 
 > - 地址 ： 会员购中心->地址管理
-> - 购买人信息：会员购中心->购买人信息
+> - 购买人信息：会员购中心->购买人信息             
+> - 如果在云服务器或者docker等无头环境上运行，请提前在本地部署该项目，使用浏览器登录账号，获取cookie文件上传到服务器上
 """)
     info_ui = gr.TextArea(
         info="此窗口为输出信息", label="输出信息", interactive=False, visible=True
@@ -283,19 +284,24 @@ def setting_tab():
     with gr.Row():
         upload_ui = gr.UploadButton(label="导入")
         add_btn = gr.Button("登录")
-
-        def upload_file(filepath):
-            yield ["已经注销，请选择登录信息文件", gr.update(), gr.update()]
+        def upload_file(file):
             try:
-                shutil.copy2(global_cookie_path, filepath)
-                set_main_request(BiliRequest(
-                    cookies_config_path=global_cookie_path))
+                shutil.copy2(file.name, global_cookie_path)
+                set_main_request(BiliRequest(cookies_config_path=global_cookie_path))
                 name = main_request.get_request_name()
-                yield [gr.update(value="导入成功"), gr.update(value=name), gr.update(value=global_cookie_path)]
+                yield [
+                    "导入成功", 
+                    gr.update(value=name), 
+                    gr.update(value=global_cookie_path)
+                ]
             except Exception as e:
-                name = main_request.get_request_name()
                 logger.exception(e)
-                yield ["登录出现错误", gr.update(value=name), gr.update(value=global_cookie_path)]
+                name = main_request.get_request_name()
+                yield [
+                    "登录出现错误", 
+                    gr.update(value=name), 
+                    gr.update(value=global_cookie_path)
+                ]
 
         upload_ui.upload(
             upload_file, [upload_ui], [

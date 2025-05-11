@@ -40,7 +40,7 @@ def main():
     parser.add_argument("--share", type=bool, default=False,
                         help="create a public link")
     args = parser.parse_args()
-
+    port = int(os.environ.get("PORT", 7860))
     if args.command == "buy":
         logger.remove()
         from const import BASE_DIR
@@ -71,7 +71,13 @@ def main():
 
         print(f"抢票日志路径： {log_file}")
         print(f"运行程序网址   ↓↓↓↓↓↓↓↓↓↓↓↓↓↓   {filename_only} ")
-        demo.launch(share=False, inbrowser=True, prevent_thread_lock=True)
+        demo.launch(
+            server_name="0.0.0.0",
+            server_port=port,
+            share=False,
+            inbrowser=True,
+            prevent_thread_lock=True
+        )
         client = gradio_client.Client(args.endpoint_url)
         assert demo.local_url
         start_heartbeat_thread(
@@ -111,10 +117,13 @@ def main():
                 problems_tab()
 
         # 运行应用
-        print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
-        demo.launch(
-            share=args.share, inbrowser=True)
 
+
+        demo.launch(
+            share=args.share,
+            server_name="0.0.0.0",  # 必须监听所有 IP
+            server_port=port        # 使用 Cloud Run 提供的端口
+        )
 
 if __name__ == "__main__":
     main()
