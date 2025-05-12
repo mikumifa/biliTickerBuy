@@ -6,7 +6,7 @@ from loguru import logger
 
 from task.buy import buy
 from task.endpoint import start_heartbeat_thread
-
+import os
 
 def main():
 
@@ -40,6 +40,15 @@ def main():
     parser.add_argument("--share", type=bool, default=False,
                         help="create a public link")
     args = parser.parse_args()
+
+
+    LOG_PATH = (os.environ.get("LOG_PATH", "logs/app.log"))
+
+    os.remove(LOG_PATH) if os.path.exists(LOG_PATH) else None
+    
+    logger.remove()
+    logger.add(LOG_PATH, rotation="1 MB", retention="7 days", encoding="utf-8")
+    logger.add(lambda msg: print(msg, end=""), level="INFO")
     port = int(os.environ.get("PORT", 7860))
     if args.command == "buy":
         logger.remove()
@@ -94,6 +103,7 @@ def main():
         from tab.problems import problems_tab
         from tab.settings import setting_tab
         from tab.train import train_tab
+        from tab.log import log_tab
 
         header = """
         # B 站会员购抢票🌈
@@ -115,6 +125,8 @@ def main():
                 train_tab()
             with gr.Tab("项目说明"):
                 problems_tab()
+            with gr.Tab("日志查看"):
+                log_tab()
 
         # 运行应用
 
