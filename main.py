@@ -6,7 +6,7 @@ from loguru import logger
 
 from task.buy import buy
 from task.endpoint import start_heartbeat_thread
-
+import os
 
 def main():
 
@@ -41,6 +41,15 @@ def main():
                         help="create a public link")
     args = parser.parse_args()
 
+
+    LOG_PATH = (os.environ.get("LOG_PATH", "logs/app.log"))
+
+    os.remove(LOG_PATH) if os.path.exists(LOG_PATH) else None
+    
+    logger.remove()
+    logger.add(LOG_PATH, rotation="1 MB", retention="7 days", encoding="utf-8")
+    logger.add(lambda msg: print(msg, end=""), level="INFO")
+    port = int(os.environ.get("PORT", 7860))
     if args.command == "buy":
         logger.remove()
         from const import BASE_DIR
@@ -71,7 +80,13 @@ def main():
 
         print(f"抢票日志路径： {log_file}")
         print(f"运行程序网址   ↓↓↓↓↓↓↓↓↓↓↓↓↓↓   {filename_only} ")
-        demo.launch(share=False, inbrowser=True, prevent_thread_lock=True)
+        demo.launch(
+            server_name="0.0.0.0",
+            server_port=port,
+            share=False,
+            inbrowser=True,
+            prevent_thread_lock=True
+        )
         client = gradio_client.Client(args.endpoint_url)
         assert demo.local_url
         start_heartbeat_thread(
@@ -88,6 +103,7 @@ def main():
         from tab.problems import problems_tab
         from tab.settings import setting_tab
         from tab.train import train_tab
+        from tab.log import log_tab
 
         header = """
         # B 站会员购抢票🌈
@@ -109,12 +125,17 @@ def main():
                 train_tab()
             with gr.Tab("项目说明"):
                 problems_tab()
+            with gr.Tab("日志查看"):
+                log_tab()
 
         # 运行应用
-        print("点击下面的网址运行程序     ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
-        demo.launch(
-            share=args.share, inbrowser=True)
 
+
+        demo.launch(
+            share=args.share,
+            server_name="0.0.0.0",  # 必须监听所有 IP
+            server_port=port        # 使用 Cloud Run 提供的端口
+        )
 
 if __name__ == "__main__":
     main()
