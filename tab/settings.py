@@ -289,18 +289,23 @@ def setting_tab():
 > - 地址 ： 会员购中心->地址管理
 > - 购买人信息：会员购中心->购买人信息
 """)
-    with gr.Blocks():
+    with gr.Column(variant="compact"):
         with gr.Row():
             username_ui = gr.Text(
                 main_request.get_request_name(),
                 label="账号名称",
                 interactive=False,
                 info="输入配置文件使用的账号名称",
+                scale=5,
             )
-            gr_file_ui = gr.File(label="当前登录信息文件", value=GLOBAL_COOKIE_PATH)
+            gr_file_ui = gr.File(
+                label="当前登录信息文件", value=GLOBAL_COOKIE_PATH, scale=1
+            )
         with gr.Row():
             upload_ui = gr.UploadButton(label="导入")
-            add_btn = gr.Button("登录")
+            add_btn = gr.Button(
+                "登录",
+            )
 
             upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
 
@@ -340,7 +345,7 @@ def setting_tab():
 
         https_proxy_ui.change(fn=input_https_proxy, inputs=https_proxy_ui, outputs=None)
 
-    with gr.Blocks():
+    with gr.Column(variant="compact"):
         info_ui = gr.TextArea(
             info="票务信息", label="配置票的信息", interactive=False, visible=False
         )
