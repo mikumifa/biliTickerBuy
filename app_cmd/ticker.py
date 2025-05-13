@@ -1,7 +1,5 @@
 from argparse import Namespace
 
-from util import LOG_DIR
-
 
 def ticker_cmd(args: Namespace):
     import gradio as gr
@@ -12,6 +10,7 @@ def ticker_cmd(args: Namespace):
     from tab.log import log_tab
 
     from util.LogConfig import loguru_config
+    from util import LOG_DIR
 
     loguru_config(LOG_DIR, "app.log", enable_console=True, file_colorize=False)
     header = """
