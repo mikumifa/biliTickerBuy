@@ -1,4 +1,3 @@
-from typing import Tuple
 import importlib
 import json
 import subprocess
@@ -7,7 +6,6 @@ import time
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
-import uuid
 
 import qrcode
 import retry
@@ -15,14 +13,20 @@ from loguru import logger
 from playsound3 import playsound
 from requests import HTTPError, RequestException
 
-from util import PushPlusUtil, ServerChanUtil
+from util import ERRNO_DICT, PushPlusUtil, ServerChanUtil
 from util.BiliRequest import BiliRequest
-from util.dynimport import bili_ticket_gt_python
-from util.error import ERRNO_DICT
-from util.order_qrcode import get_qrcode_url
+from util import bili_ticket_gt_python
 
 if bili_ticket_gt_python is not None:
     Amort = importlib.import_module("geetest.TripleValidator").TripleValidator()
+
+
+def get_qrcode_url(_request, order_id) -> str:
+    url = f"https://show.bilibili.com/api/ticket/order/getPayParam?order_id={order_id}"
+    data = _request.get(url).json()
+    if data["errno"] == 0:
+        return data["data"]["code_url"]
+    raise ValueError("获取二维码失败")
 
 
 @logger.catch
@@ -74,7 +78,7 @@ def buy(
                 - time.time()
                 + timeoffset
             )
-        except ValueError as e:
+        except ValueError:
             time_difference = (
                 datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
                 - time.time()
@@ -88,7 +92,7 @@ def buy(
     while isRunning:
         try:
             # 订单准备
-            logger.info(f"1）订单准备")
+            logger.info("1）订单准备")
             request_result_normal = _request.post(
                 url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                 data=token_payload,
@@ -149,7 +153,7 @@ def buy(
                 logger.info(f"prepare: {request_result}")
             tickets_info["again"] = 1
             tickets_info["token"] = request_result["data"]["token"]
-            logger.info(f"2）创建订单")
+            logger.info("2）创建订单")
             tickets_info["timestamp"] = int(time.time()) * 100
             payload = tickets_info
 
@@ -185,7 +189,7 @@ def buy(
                 f"状态码: {errno}({ERRNO_DICT.get(errno, '未知错误码')}), 响应: {request_result} 剩余次数: {left_time_str}"
             )
             if errno == 0:
-                logger.info(f"3）抢票成功，弹出付款二维码")
+                logger.info("3）抢票成功，弹出付款二维码")
                 qrcode_url = get_qrcode_url(
                     _request,
                     request_result["data"]["orderId"],

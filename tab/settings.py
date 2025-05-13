@@ -3,7 +3,7 @@ import os
 import re
 import shutil
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List
 from urllib.parse import urlparse, parse_qs
 
 import gradio as gr
@@ -11,13 +11,13 @@ from gradio_calendar import Calendar
 from loguru import logger
 
 from util.BiliRequest import BiliRequest
-from util.config import TEMP_PATH, global_cookie_path, main_request, set_main_request
+from util import TEMP_PATH, GLOBAL_COOKIE_PATH, main_request, set_main_request
 
-buyer_value = []
-addr_value = []
-ticket_value = []
-project_name = []
-ticket_str_list = []
+buyer_value: List[Dict[str, Any]] = []
+addr_value: List[Dict[str, Any]] = []
+ticket_value: List[Dict[str, Any]] = []
+project_name: str = ""
+ticket_str_list: List[str] = []
 sales_dates = []
 project_id = 0
 
@@ -209,10 +209,14 @@ def extract_id_from_url(url):
 
 
 def on_submit_all(
-    ticket_id, ticket_info, people_indices, people_buyer_index, address_index
+    ticket_id,
+    ticket_info: int,
+    people_indices,
+    people_buyer_index,
+    address_index,
 ):
     try:
-        ticket_cur: list[dict[str, Any]] = ticket_value[ticket_info]
+        ticket_cur: dict[str, Any] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
         people_buyer_cur = buyer_value[people_buyer_index]
         ticket_id = extract_id_from_url(ticket_id)
@@ -276,7 +280,7 @@ def on_submit_all(
             gr.update(value=config_dir, visible=True),
             gr.update(value=filename, visible=True),
         ]
-    except Exception as e:
+    except Exception:
         return [
             gr.update(value="生成错误，仔细看看你可能有哪里漏填的", visible=True),
             gr.update(value={}),
@@ -287,12 +291,11 @@ def on_submit_all(
 def setting_tab():
     gr.Markdown("""
 > **必看**
-> 
+>
 > 保证自己在抢票前，已经配置了地址和购买人信息(就算不需要也要提前填写) 如果没填，生成表单时候不会出现任何选项
-> 
+>
 > - 地址 ： 会员购中心->地址管理
-> - 购买人信息：会员购中心->购买人信息             
-> - 如果在云服务器或者docker等无头环境上运行，请提前在本地部署该项目，使用浏览器登录账号，获取cookie文件上传到服务器上
+> - 购买人信息：会员购中心->购买人信息
 """)
     info_ui = gr.TextArea(
         info="此窗口为输出信息", label="输出信息", interactive=False, visible=True
@@ -304,28 +307,29 @@ def setting_tab():
             interactive=False,
             info="输入配置文件使用的账号名称",
         )
-        gr_file_ui = gr.File(label="当前登录信息文件", value=global_cookie_path)
+        gr_file_ui = gr.File(label="当前登录信息文件", value=GLOBAL_COOKIE_PATH)
     with gr.Row():
         upload_ui = gr.UploadButton(label="导入")
         add_btn = gr.Button("登录")
 
-        def upload_file(file):
+        def upload_file(filepath):
+            yield ["已经注销，请选择登录信息文件", gr.update(), gr.update()]
             try:
-                shutil.copy2(file.name, global_cookie_path)
-                set_main_request(BiliRequest(cookies_config_path=global_cookie_path))
+                shutil.copy2(GLOBAL_COOKIE_PATH, filepath)
+                set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
                 name = main_request.get_request_name()
                 yield [
-                    "导入成功",
+                    gr.update(value="导入成功"),
                     gr.update(value=name),
-                    gr.update(value=global_cookie_path),
+                    gr.update(value=GLOBAL_COOKIE_PATH),
                 ]
             except Exception as e:
-                logger.exception(e)
                 name = main_request.get_request_name()
+                logger.exception(e)
                 yield [
                     "登录出现错误",
                     gr.update(value=name),
-                    gr.update(value=global_cookie_path),
+                    gr.update(value=GLOBAL_COOKIE_PATH),
                 ]
 
         upload_ui.upload(upload_file, [upload_ui], [info_ui, username_ui, gr_file_ui])
@@ -335,22 +339,22 @@ def setting_tab():
             yield [
                 "已经注销，将打开浏览器，请在浏览器里面重新登录",
                 gr.update(value="未登录"),
-                gr.update(value=global_cookie_path),
+                gr.update(value=GLOBAL_COOKIE_PATH),
             ]
             try:
                 main_request.cookieManager.get_cookies_str_force()
                 name = main_request.get_request_name()
                 yield [
-                    f"登录成功",
+                    "登录成功",
                     gr.update(value=name),
-                    gr.update(value=global_cookie_path),
+                    gr.update(value=GLOBAL_COOKIE_PATH),
                 ]
             except Exception:
                 name = main_request.get_request_name()
                 yield [
                     "登录出现错误",
                     gr.update(value=name),
-                    gr.update(value=global_cookie_path),
+                    gr.update(value=GLOBAL_COOKIE_PATH),
                 ]
 
         add_btn.click(fn=add, inputs=None, outputs=[info_ui, username_ui, gr_file_ui])
@@ -369,13 +373,13 @@ def setting_tab():
     with gr.Accordion(label="填写你的HTTPS代理服务器[可选]", open=False):
         gr.Markdown("""
                     > **注意**：
-                    
+
                     填写代理服务器地址后，程序在使用这个配置文件后会通过代理服务器去访问哔哩哔哩的抢票接口。
-                    
+
                     如果需要更改代理服务器，请更改这个配置文件中 'https_proxy' 的配置项。
 
                     抢票前请确保代理服务器已经开启，并且可以正常访问哔哩哔哩的抢票接口。
-                    
+
                     """)
         https_proxy_ui = gr.Textbox(
             label="填写抢票时候的代理服务器地址",

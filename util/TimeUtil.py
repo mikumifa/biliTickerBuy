@@ -4,7 +4,7 @@ import ntplib
 from loguru import logger
 
 
-class TimeService:
+class TimeUtil:
     # NTP服务器默认为ntp.aliyun.com, 可根据实际情况修改
     def __init__(self, _ntp_server="ntp.aliyun.com") -> None:
         self.ntp_server = _ntp_server
@@ -16,15 +16,19 @@ class TimeService:
         返回的timeoffset单位为秒
         """
         # NTP时间请求有可能会超时失败, 设定三次重试机会
+        response = None
         for i in range(0, 3):
             try:
                 response = self.client.request(self.ntp_server, version=4)
                 break
-            except Exception as e:
+            except Exception:
                 logger.warning("第" + str(i + 1) + "次获取NTP时间失败, 尝试重新获取")
                 if i == 2:
                     return "error"
                 time.sleep(0.5)
+        if response is None:
+            logger.error("无法获取NTP时间")
+            return "error"
         logger.info("时间同步成功, 将使用" + self.ntp_server + "时间")
         # response.offset 为[NTP时钟源 - 设备时钟]的偏差, 使用时需要取反
         return format(-(response.offset), ".5f")

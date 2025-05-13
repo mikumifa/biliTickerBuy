@@ -1,4 +1,5 @@
-from collections import defaultdict, namedtuple
+from collections import namedtuple
+import datetime
 import importlib
 import os
 import time
@@ -6,16 +7,19 @@ from typing import List
 import gradio as gr
 from gradio import SelectData
 from loguru import logger
-from py import log
 
-from const import BASE_DIR
+from geetest.Validator import Validator
 from task.buy import buy_new_terminal
-from util.config import configDB, time_service, main_request
-from util.dynimport import bili_ticket_gt_python
-from util.error import withTimeString
+from util import ConfigDB, time_service
+from util import bili_ticket_gt_python
 
-ways = []
-ways_detail = []
+
+def withTimeString(string):
+    return f"{datetime.datetime.now()}: {string}"
+
+
+ways: list[str] = []
+ways_detail: list[Validator] = []
 if bili_ticket_gt_python is not None:
     ways_detail.insert(
         0, importlib.import_module("geetest.TripleValidator").TripleValidator()
@@ -91,7 +95,7 @@ def go_tab(demo: gr.Blocks):
             time_diff_ui = gr.Number(
                 label="当前脚本时间偏差 (单位: ms)",
                 info="你可以在这里手动输入时间偏差, 或点击下面按钮自动更新当前时间偏差。正值将推迟相应时间开始抢票, 负值将提前相应时间开始抢票。",
-                value=format(time_service.get_timeoffset() * 1000, ".2f"),
+                value=float(format(time_service.get_timeoffset() * 1000, ".2f")),
             )  # type: ignore
             refresh_time_ui = gr.Button(value="点击自动更新时间偏差")
             refresh_time_ui.click(
@@ -135,8 +139,8 @@ def go_tab(demo: gr.Blocks):
             )
             with gr.Row():
                 serverchan_ui = gr.Textbox(
-                    value=configDB.get("serverchanKey")
-                    if configDB.get("serverchanKey") is not None
+                    value=ConfigDB.get("serverchanKey")
+                    if ConfigDB.get("serverchanKey") is not None
                     else "",
                     label="Server酱的SendKey",
                     interactive=True,
@@ -144,8 +148,8 @@ def go_tab(demo: gr.Blocks):
                 )
 
                 pushplus_ui = gr.Textbox(
-                    value=configDB.get("pushplusToken")
-                    if configDB.get("pushplusToken") is not None
+                    value=ConfigDB.get("pushplusToken")
+                    if ConfigDB.get("pushplusToken") is not None
                     else "",
                     label="PushPlus的Token",
                     interactive=True,
@@ -153,10 +157,10 @@ def go_tab(demo: gr.Blocks):
                 )
 
                 def inner_input_serverchan(x):
-                    return configDB.insert("serverchanKey", x)
+                    return ConfigDB.insert("serverchanKey", x)
 
                 def inner_input_pushplus(x):
-                    return configDB.insert("pushplusToken", x)
+                    return ConfigDB.insert("pushplusToken", x)
 
                 serverchan_ui.change(fn=inner_input_serverchan, inputs=serverchan_ui)
 
@@ -202,8 +206,7 @@ def go_tab(demo: gr.Blocks):
                 content = file.read()
             filename_only = os.path.basename(filename)
             logger.info(f"启动 {filename_only}")
-            phone = main_request.cookieManager.get_config_value("phone", "")
-            proc = buy_new_terminal(
+            buy_new_terminal(
                 endpoint_url=demo.local_url,
                 filename=filename,
                 tickets_info_str=content,
@@ -212,8 +215,8 @@ def go_tab(demo: gr.Blocks):
                 mode=mode,
                 total_attempts=total_attempts,
                 audio_path=audio_path,
-                pushplusToken=configDB.get("pushplusToken"),
-                serverchanKey=configDB.get("serverchanKey"),
+                pushplusToken=ConfigDB.get("pushplusToken"),
+                serverchanKey=ConfigDB.get("serverchanKey"),
                 timeoffset=time_service.get_timeoffset(),
             )
         return [gr.update()]
@@ -245,7 +248,7 @@ def go_tab(demo: gr.Blocks):
         js='(x) => document.getElementById("datetime").value',
     )
     Endpoint = namedtuple("Endpoint", ["endpoint", "detail", "update_at"])
-    endpoint_details = {}
+    endpoint_details: dict[str, Endpoint] = {}
     _report_tmp = gr.Button(visible=False)
     _report_tmp.api_info
 
@@ -287,7 +290,7 @@ def go_tab(demo: gr.Blocks):
             gr.Markdown("## 当前运行终端列表")
             for endpoint in endpoints:
                 with gr.Row():
-                    text = gr.Button(
+                    gr.Button(
                         value=f"点击跳转 🚀 {endpoint.endpoint} {endpoint.detail}",
                         link=endpoint.endpoint,
                     )
