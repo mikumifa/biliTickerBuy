@@ -29,8 +29,7 @@ def get_qrcode_url(_request, order_id) -> str:
     raise ValueError("获取二维码失败")
 
 
-@logger.catch
-def buy(
+def buy_stream(
     tickets_info_str,
     time_start,
     interval,
@@ -42,8 +41,9 @@ def buy(
     serverchanKey,
 ):
     if bili_ticket_gt_python is None:
-        logger.info("当前设备不支持本地过验证码，无法使用")
+        yield "当前设备不支持本地过验证码，无法使用"
         return
+
     isRunning = True
     left_time = total_attempts
     tickets_info = json.loads(tickets_info_str)
@@ -55,7 +55,7 @@ def buy(
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
 
     if https_proxy:
-        logger.info(f"使用代理: {https_proxy}")
+        yield f"使用代理: {https_proxy}"
         _request = BiliRequest(cookies=cookies, proxy={"https": https_proxy})
     else:
         _request = BiliRequest(cookies=cookies)
@@ -69,9 +69,10 @@ def buy(
         "token": "",
         "newRisk": True,
     }
+
     if time_start != "":
-        logger.info("0) 等待开始时间")
-        logger.info("时间偏差已被设置为: " + str(timeoffset) + "s")
+        yield "0) 等待开始时间"
+        yield f"时间偏差已被设置为: {timeoffset}s"
         try:
             time_difference = (
                 datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
@@ -86,40 +87,36 @@ def buy(
             )
         start_time = time.perf_counter()
         end_time = start_time + time_difference
-        current_time = start_time
-        while current_time < end_time:
-            current_time = time.perf_counter()
+        while time.perf_counter() < end_time:
+            pass
+
     while isRunning:
         try:
-            # 订单准备
-            logger.info("1）订单准备")
+            yield "1）订单准备"
             request_result_normal = _request.post(
                 url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                 data=token_payload,
                 isJson=True,
             )
             request_result = request_result_normal.json()
-            logger.info(
-                f"请求头: {request_result_normal.headers} // 请求体: {request_result}"
-            )
+            yield f"请求头: {request_result_normal.headers} // 请求体: {request_result}"
             code = int(request_result.get("errno", request_result.get("code")))
-            # 完成验证码
+
             if code == -401:
-                # if True:
                 _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
                 _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
                 _data = _request.post(_url, _payload).json()
-                logger.info(f"验证码请求: {_data}")
+                yield f"验证码请求: {_data}"
                 csrf = _request.cookieManager.get_cookies_value("bili_jct")
                 token = _data["data"]["token"]
+
                 if _data["data"]["type"] == "geetest":
                     gt = _data["data"]["geetest"]["gt"]
                     challenge = _data["data"]["geetest"]["challenge"]
                     geetest_validate = Amort.validate(gt=gt, challenge=challenge)
                     geetest_seccode = geetest_validate + "|jordan"
-                    logger.info(
-                        f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
-                    )
+                    yield f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
+
                     _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"
                     _payload = {
                         "challenge": challenge,
@@ -137,59 +134,75 @@ def buy(
                     }
                     _data = _request.post(_url, urlencode(_payload)).json()
                 else:
-                    logger.warning("这个一个程序无法应对的验证码，脚本无法处理")
+                    yield "这是一个程序无法应对的验证码，脚本无法处理"
                     break
-                logger.info(f"validate: {_data}")
+
+                yield f"validate: {_data}"
                 if int(_data.get("errno", _data.get("code"))) == 0:
-                    logger.info("验证码成功")
+                    yield "验证码成功"
                 else:
-                    logger.info("验证码失败 {}", _data)
+                    yield f"验证码失败 {_data}"
                     continue
+
                 request_result = _request.post(
                     url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                     data=token_payload,
                     isJson=True,
                 ).json()
-                logger.info(f"prepare: {request_result}")
+                yield f"prepare: {request_result}"
+
             tickets_info["again"] = 1
             tickets_info["token"] = request_result["data"]["token"]
-            logger.info("2）创建订单")
+            yield "2）创建订单"
             tickets_info["timestamp"] = int(time.time()) * 100
             payload = tickets_info
-
-            @retry.retry(exceptions=RequestException, tries=60, delay=interval / 1000)
-            def inner_request():
-                nonlocal payload
+            result = None
+            for attempt in range(1, 61):
                 if not isRunning:
-                    raise ValueError("抢票结束")
-                ret = _request.post(
-                    url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
-                    data=payload,
-                    isJson=True,
-                ).json()
-                err = int(ret.get("errno", ret.get("code")))
-                logger.info(
-                    f"状态码: {err}({ERRNO_DICT.get(err, '未知错误码')}), 响应: {ret}"
-                )
-                if err == 100034:
-                    logger.info(f"更新票价为：{ret['data']['pay_money'] / 100}")
-                    tickets_info["pay_money"] = ret["data"]["pay_money"]
-                    payload = tickets_info
-                if err == 0 or err == 100048 or err == 100079:
-                    return ret, err
-                if err == 100051:
-                    raise ValueError("token 过期")
-                if err != 0:
-                    raise HTTPError("重试次数过多，重新准备订单")
-                return ret, err
+                    yield "抢票结束"
+                    break
+                try:
+                    ret = _request.post(
+                        url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
+                        data=payload,
+                        isJson=True,
+                    ).json()
+                    err = int(ret.get("errno", ret.get("code")))
+                    yield f"[尝试 {attempt}/60]  [{err}]({ERRNO_DICT.get(err, '未知错误码')}) | {ret}"
 
-            request_result, errno = inner_request()
-            left_time_str = "无限" if mode == 0 else left_time
-            logger.info(
-                f"状态码: {errno}({ERRNO_DICT.get(errno, '未知错误码')}), 响应: {request_result} 剩余次数: {left_time_str}"
-            )
+                    if err == 100034:
+                        yield f"更新票价为：{ret['data']['pay_money'] / 100}"
+                        tickets_info["pay_money"] = ret["data"]["pay_money"]
+                        payload = tickets_info
+
+                    if err in [0, 100048, 100079]:
+                        yield "请求成功，停止重试"
+                        result = (ret, err)
+                        break
+
+                    if err == 100051:
+                        break
+
+                    time.sleep(interval / 1000)
+
+                except RequestException as e:
+                    yield f"[尝试 {attempt}/60] 请求异常: {e}"
+                    time.sleep(interval / 1000)
+
+                except Exception as e:
+                    yield f"[尝试 {attempt}/60] 未知异常: {e}"
+                    time.sleep(interval / 1000)
+            else:
+                yield "重试次数过多，重新准备订单"
+                continue
+            if result is None:
+                # if err == 100051:
+                yield "token过期，需要重新准备订单"
+                continue
+
+            request_result, errno = result
             if errno == 0:
-                logger.info("3）抢票成功，弹出付款二维码")
+                yield "3）抢票成功，弹出付款二维码"
                 qrcode_url = get_qrcode_url(
                     _request,
                     request_result["data"]["orderId"],
@@ -215,15 +228,40 @@ def buy(
                 if left_time <= 0:
                     break
         except JSONDecodeError as e:
-            logger.error(f"配置文件格式错误: {e}")
-        except ValueError as e:
-            logger.info(f"{e}")
+            yield f"配置文件格式错误: {e}"
         except HTTPError as e:
-            logger.error(f"请求错误: {e}")
+            logger.exception(e)
+            yield f"请求错误: {e}"
         except Exception as e:
             logger.exception(e)
+            yield f"程序异常: {repr(e)}"
     while True:
         time.sleep(1)
+
+
+def buy(
+    tickets_info_str,
+    time_start,
+    interval,
+    mode,
+    total_attempts,
+    timeoffset,
+    audio_path,
+    pushplusToken,
+    serverchanKey,
+):
+    for msg in buy_stream(
+        tickets_info_str,
+        time_start,
+        interval,
+        mode,
+        total_attempts,
+        timeoffset,
+        audio_path,
+        pushplusToken,
+        serverchanKey,
+    ):
+        logger.info(msg)
 
 
 def buy_new_terminal(
