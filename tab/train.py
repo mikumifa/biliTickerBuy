@@ -19,9 +19,13 @@ def train_tab():
     _request = main_request
     # 验证码选择
     way_select_ui = gr.Radio(
-        ways, label="验证码", info="过验证码的方式", type="index", value=ways[0])
-    api_key_input_ui = gr.Textbox(label="api_key", value=_request.cookieManager.get_config_value("appkey", ""),
-                                  visible=False)
+        ways, label="验证码", info="过验证码的方式", type="index", value=ways[0]
+    )
+    api_key_input_ui = gr.Textbox(
+        label="api_key",
+        value=_request.cookieManager.get_config_value("appkey", ""),
+        visible=False,
+    )
     select_way = 0
 
     def choose_option(way):
@@ -35,8 +39,7 @@ def train_tab():
         else:
             return gr.update(visible=False)
 
-    way_select_ui.change(choose_option, inputs=way_select_ui,
-                         outputs=api_key_input_ui)
+    way_select_ui.change(choose_option, inputs=way_select_ui, outputs=api_key_input_ui)
 
     test_get_challenge_btn = gr.Button("开始测试")
     test_log = gr.JSON(label="测试结果（显示验证码过期则说明成功）")
@@ -92,7 +95,7 @@ def train_tab():
                 gr.update(visible=True),  # test_gt_row
                 gr.update(value="重新生成"),  # test_get_challenge_btn
                 gr.update(value={}),
-                gr.update(value=uuid.uuid1())
+                gr.update(value=uuid.uuid1()),
             ]
 
         def run_validation():
@@ -129,14 +132,20 @@ def train_tab():
             gr.update(visible=False),  # test_gt_row
             gr.update(value="重新生成"),  # test_get_challenge_btn
             gr.update(value=test_data.json()),
-            gr.update()
+            gr.update(),
         ]
 
     test_get_challenge_btn.click(
         fn=test_get_challenge,
         inputs=[api_key_input_ui],
-        outputs=[test_gt_ui, test_challenge_ui, test_gt_row,
-                 test_get_challenge_btn, test_log, trigger_ui],
+        outputs=[
+            test_gt_ui,
+            test_challenge_ui,
+            test_gt_row,
+            test_get_challenge_btn,
+            test_log,
+            trigger_ui,
+        ],
     )
     trigger_ui.change(
         fn=None,

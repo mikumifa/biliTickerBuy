@@ -5,16 +5,18 @@ from gradio_client import Client
 from loguru import logger
 
 
-def start_heartbeat_thread(client: Client, self_url: str, to_url: str, detail: str = ""):
+def start_heartbeat_thread(
+    client: Client, self_url: str, to_url: str, detail: str = ""
+):
     def report_heart(client: Client, self_url: str, to_url: str, detail: str = ""):
         cnt = 0
         try:
             res = client.predict(
-                self_url, detail,
+                self_url,
+                detail,
                 api_name="/report",
             )
-            logger.debug(
-                f"report_heart {self_url} -({res})-> {to_url}")
+            logger.debug(f"report_heart {self_url} -({res})-> {to_url}")
             cnt = 0
         except Exception as e:
             cnt += 1

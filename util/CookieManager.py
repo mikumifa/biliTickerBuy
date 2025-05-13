@@ -12,9 +12,8 @@ class CookieManager:
 
     @logger.catch
     def _login_and_save_cookies(
-            self, login_url="https://show.bilibili.com/platform/home.html"
+        self, login_url="https://show.bilibili.com/platform/home.html"
     ):
-
         logger.info("启动浏览器中，第一次启动会比较慢，请使用在浏览器登录")
         with sync_playwright() as p:
             try:

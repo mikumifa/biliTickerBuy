@@ -17,8 +17,9 @@ from util.error import withTimeString
 ways = []
 ways_detail = []
 if bili_ticket_gt_python is not None:
-    ways_detail.insert(0, importlib.import_module(
-        "geetest.TripleValidator").TripleValidator())
+    ways_detail.insert(
+        0, importlib.import_module("geetest.TripleValidator").TripleValidator()
+    )
     ways.insert(0, "本地过验证码v2(Amorter提供)")
     # ways_detail.insert(0, importlib.import_module("geetest.AmorterValidator").AmorterValidator())
     # ways.insert(0, "本地过验证码(Amorter提供)")
@@ -26,8 +27,14 @@ if bili_ticket_gt_python is not None:
 
 def handle_error(message, e):
     logger.error(message + str(e))
-    return [gr.update(value=withTimeString(f"有错误，具体查看控制台日志\n\n当前错误 {e}"), visible=True),
-            gr.update(visible=True), *[gr.update() for _ in range(6)]]
+    return [
+        gr.update(
+            value=withTimeString(f"有错误，具体查看控制台日志\n\n当前错误 {e}"),
+            visible=True,
+        ),
+        gr.update(visible=True),
+        *[gr.update() for _ in range(6)],
+    ]
 
 
 def go_tab(demo: gr.Blocks):
@@ -47,18 +54,21 @@ def go_tab(demo: gr.Blocks):
             """)
         with gr.Row(equal_height=True):
             upload_ui = gr.Files(
-                label="上传多个配置文件，点击不同的配置文件可快速切换", file_count="multiple")
-            ticket_ui = gr.TextArea(label="查看",
-                                    info="配置信息",
-                                    interactive=False)
+                label="上传多个配置文件，点击不同的配置文件可快速切换",
+                file_count="multiple",
+            )
+            ticket_ui = gr.TextArea(label="查看", info="配置信息", interactive=False)
 
-        gr.HTML("""<label for="datetime">程序已经提前帮你校准时间，设置成开票时间即可。请勿设置成开票前的时间。在开票前抢票会短暂封号</label><br>
-                <input type="datetime-local" id="datetime" name="datetime" step="1">""", label="选择抢票的时间",
-                show_label=True, )
+        gr.HTML(
+            """<label for="datetime">程序已经提前帮你校准时间，设置成开票时间即可。请勿设置成开票前的时间。在开票前抢票会短暂封号</label><br>
+                <input type="datetime-local" id="datetime" name="datetime" step="1">""",
+            label="选择抢票的时间",
+            show_label=True,
+        )
 
         def upload(filepath):
             try:
-                with open(filepath[0], 'r', encoding="utf-8") as file:
+                with open(filepath[0], "r", encoding="utf-8") as file:
                     content = file.read()
                 return content
             except Exception as e:
@@ -67,7 +77,7 @@ def go_tab(demo: gr.Blocks):
         def file_select_handler(select_data: SelectData, files):
             file_label = files[select_data.index]
             try:
-                with open(file_label, 'r', encoding="utf-8") as file:
+                with open(file_label, "r", encoding="utf-8") as file:
                     content = file.read()
                 return content
             except Exception as e:
@@ -77,45 +87,66 @@ def go_tab(demo: gr.Blocks):
         upload_ui.select(file_select_handler, upload_ui, ticket_ui)
 
         # 手动设置/更新时间偏差
-        with gr.Accordion(label='手动设置/更新时间偏差', open=False):
-            time_diff_ui = gr.Number(label="当前脚本时间偏差 (单位: ms)",
-                                     info="你可以在这里手动输入时间偏差, 或点击下面按钮自动更新当前时间偏差。正值将推迟相应时间开始抢票, 负值将提前相应时间开始抢票。",
-                                     value=format(time_service.get_timeoffset() * 1000, '.2f'))  # type: ignore
+        with gr.Accordion(label="手动设置/更新时间偏差", open=False):
+            time_diff_ui = gr.Number(
+                label="当前脚本时间偏差 (单位: ms)",
+                info="你可以在这里手动输入时间偏差, 或点击下面按钮自动更新当前时间偏差。正值将推迟相应时间开始抢票, 负值将提前相应时间开始抢票。",
+                value=format(time_service.get_timeoffset() * 1000, ".2f"),
+            )  # type: ignore
             refresh_time_ui = gr.Button(value="点击自动更新时间偏差")
-            refresh_time_ui.click(fn=lambda: format(float(time_service.compute_timeoffset()) * 1000, '.2f'),
-                                  inputs=None, outputs=time_diff_ui)
-            time_diff_ui.change(fn=lambda x: time_service.set_timeoffset(format(float(x) / 1000, '.5f')),
-                                inputs=time_diff_ui, outputs=None)
+            refresh_time_ui.click(
+                fn=lambda: format(
+                    float(time_service.compute_timeoffset()) * 1000, ".2f"
+                ),
+                inputs=None,
+                outputs=time_diff_ui,
+            )
+            time_diff_ui.change(
+                fn=lambda x: time_service.set_timeoffset(
+                    format(float(x) / 1000, ".5f")
+                ),
+                inputs=time_diff_ui,
+                outputs=None,
+            )
 
         # 验证码选择
         select_way = 0
-        way_select_ui = gr.Radio(ways, label="过验证码的方式", info="详细说明请前往 `训练你的验证码速度` 那一栏",
-                                 type="index", value=ways[select_way])
+        way_select_ui = gr.Radio(
+            ways,
+            label="过验证码的方式",
+            info="详细说明请前往 `训练你的验证码速度` 那一栏",
+            type="index",
+            value=ways[select_way],
+        )
 
-        with gr.Accordion(label='配置抢票声音提醒[可选]', open=False):
+        with gr.Accordion(label="配置抢票声音提醒[可选]", open=False):
             with gr.Row():
                 audio_path_ui = gr.Audio(
-                    label="上传提示声音[只支持格式wav]", type="filepath", loop=True)
-        with gr.Accordion(label='配置抢票消息提醒[可选]', open=False):
+                    label="上传提示声音[只支持格式wav]", type="filepath", loop=True
+                )
+        with gr.Accordion(label="配置抢票消息提醒[可选]", open=False):
             gr.Markdown(
                 """
                 🗨️ 抢票成功提醒
                 > 你需要去对应的网站获取key或token，然后填入下面的输入框
                 > [Server酱](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html)
                 > 留空以不启用提醒功能
-                """)
+                """
+            )
             with gr.Row():
                 serverchan_ui = gr.Textbox(
-                    value=configDB.get("serverchanKey") if configDB.get(
-                        "serverchanKey") is not None else "",
+                    value=configDB.get("serverchanKey")
+                    if configDB.get("serverchanKey") is not None
+                    else "",
                     label="Server酱的SendKey",
                     interactive=True,
                     info="https://sct.ftqq.com/",
                 )
 
                 pushplus_ui = gr.Textbox(
-                    value=configDB.get("pushplusToken") if configDB.get(
-                        "pushplusToken") is not None else "",
+                    value=configDB.get("pushplusToken")
+                    if configDB.get("pushplusToken") is not None
+                    else "",
                     label="PushPlus的Token",
                     interactive=True,
                     info="https://www.pushplus.plus/",
@@ -127,8 +158,7 @@ def go_tab(demo: gr.Blocks):
                 def inner_input_pushplus(x):
                     return configDB.insert("pushplusToken", x)
 
-                serverchan_ui.change(
-                    fn=inner_input_serverchan, inputs=serverchan_ui)
+                serverchan_ui.change(fn=inner_input_serverchan, inputs=serverchan_ui)
 
                 pushplus_ui.change(fn=inner_input_pushplus, inputs=pushplus_ui)
 
@@ -139,20 +169,36 @@ def go_tab(demo: gr.Blocks):
         way_select_ui.change(choose_option, inputs=way_select_ui)
 
         with gr.Row():
-            interval_ui = gr.Number(label="抢票间隔", value=300, minimum=1,
-                                    info="设置抢票任务之间的时间间隔（单位：毫秒），建议不要设置太小", )
-            mode_ui = gr.Radio(label="抢票次数", choices=["无限", "有限"], value="无限", info="选择抢票的次数",
-                               type="index", interactive=True, )
-            total_attempts_ui = gr.Number(label="总过次数", value=100, minimum=1, info="设置抢票的总次数",
-                                          visible=False, )
+            interval_ui = gr.Number(
+                label="抢票间隔",
+                value=300,
+                minimum=1,
+                info="设置抢票任务之间的时间间隔（单位：毫秒），建议不要设置太小",
+            )
+            mode_ui = gr.Radio(
+                label="抢票次数",
+                choices=["无限", "有限"],
+                value="无限",
+                info="选择抢票的次数",
+                type="index",
+                interactive=True,
+            )
+            total_attempts_ui = gr.Number(
+                label="总过次数",
+                value=100,
+                minimum=1,
+                info="设置抢票的总次数",
+                visible=False,
+            )
 
     def start_go(files, time_start, interval, mode, total_attempts, audio_path):
         if not files:
             return [gr.update(value=withTimeString("未提交抢票配置"), visible=True)]
         yield [
-            gr.update(value=withTimeString("开始多开抢票,详细查看终端"), visible=True)]
+            gr.update(value=withTimeString("开始多开抢票,详细查看终端"), visible=True)
+        ]
         for filename in files:
-            with open(filename, 'r', encoding="utf-8") as file:
+            with open(filename, "r", encoding="utf-8") as file:
                 content = file.read()
             filename_only = os.path.basename(filename)
             logger.info(f"启动 {filename_only}")
@@ -160,38 +206,56 @@ def go_tab(demo: gr.Blocks):
             proc = buy_new_terminal(
                 endpoint_url=demo.local_url,
                 filename=filename,
-                tickets_info_str=content, time_start=time_start, interval=interval, mode=mode,
-                total_attempts=total_attempts, audio_path=audio_path,
-                pushplusToken=configDB.get(
-                    "pushplusToken"),
-                serverchanKey=configDB.get(
-                    "serverchanKey"),
-                timeoffset=time_service.get_timeoffset())
+                tickets_info_str=content,
+                time_start=time_start,
+                interval=interval,
+                mode=mode,
+                total_attempts=total_attempts,
+                audio_path=audio_path,
+                pushplusToken=configDB.get("pushplusToken"),
+                serverchanKey=configDB.get("serverchanKey"),
+                timeoffset=time_service.get_timeoffset(),
+            )
         return [gr.update()]
+
     mode_ui.change(
-        fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False), inputs=[mode_ui],
-        outputs=total_attempts_ui, )
+        fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False),
+        inputs=[mode_ui],
+        outputs=total_attempts_ui,
+    )
 
     with gr.Row():
         go_btn = gr.Button("开始抢票")
 
     with gr.Row():
         go_ui = gr.Textbox(
-            info="此窗口为临时输出，具体请见控制台", label="输出信息", interactive=False, visible=False,
-            show_copy_button=True, max_lines=10,
+            info="此窗口为临时输出，具体请见控制台",
+            label="输出信息",
+            interactive=False,
+            visible=False,
+            show_copy_button=True,
+            max_lines=10,
         )
 
     _time_tmp = gr.Textbox(visible=False)
-    go_btn.click(fn=None, inputs=None, outputs=_time_tmp,
-                 js='(x) => document.getElementById("datetime").value', )
-    Endpoint = namedtuple('Endpoint', ['endpoint', 'detail', 'update_at'])
+    go_btn.click(
+        fn=None,
+        inputs=None,
+        outputs=_time_tmp,
+        js='(x) => document.getElementById("datetime").value',
+    )
+    Endpoint = namedtuple("Endpoint", ["endpoint", "detail", "update_at"])
     endpoint_details = {}
     _report_tmp = gr.Button(visible=False)
     _report_tmp.api_info
 
     def available_endpoints() -> List[Endpoint]:
         nonlocal endpoint_details
-        return [t for endpoint, t in endpoint_details.items() if time.time() - t.update_at < 3]
+        return [
+            t
+            for endpoint, t in endpoint_details.items()
+            if time.time() - t.update_at < 3
+        ]
 
     _end_point_tinput = gr.Textbox(visible=False)
 
@@ -199,9 +263,7 @@ def go_tab(demo: gr.Blocks):
         nonlocal endpoint_details
         now = time.time()
         endpoint_details[end_point] = Endpoint(
-            endpoint=end_point,
-            detail=detail,
-            update_at=now
+            endpoint=end_point, detail=detail, update_at=now
         )
 
     _report_tmp.click(
@@ -212,6 +274,7 @@ def go_tab(demo: gr.Blocks):
 
     def tick():
         return f"当前时间戳：{int(time.time())}"
+
     timer = gr.Textbox(label="定时更新", interactive=False, visible=False)
     demo.load(fn=tick, inputs=None, outputs=timer, every=1)
 
@@ -225,12 +288,19 @@ def go_tab(demo: gr.Blocks):
             for endpoint in endpoints:
                 with gr.Row():
                     text = gr.Button(
-                        value=f"点击跳转 🚀 {endpoint.endpoint} {endpoint.detail}", link=endpoint.endpoint)
+                        value=f"点击跳转 🚀 {endpoint.endpoint} {endpoint.detail}",
+                        link=endpoint.endpoint,
+                    )
 
     go_btn.click(
         fn=start_go,
         inputs=[
-            upload_ui, _time_tmp, interval_ui, mode_ui, total_attempts_ui,
-            audio_path_ui],
-        outputs=[go_ui],)
-
+            upload_ui,
+            _time_tmp,
+            interval_ui,
+            mode_ui,
+            total_attempts_ui,
+            audio_path_ui,
+        ],
+        outputs=[go_ui],
+    )

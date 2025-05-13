@@ -1,12 +1,15 @@
 from base64 import urlsafe_b64encode
 
 
-def generate_token(project_id: int, screen_id: int, order_type: int, count: int, sku_id: int) ->  str:
+def generate_token(
+    project_id: int, screen_id: int, order_type: int, count: int, sku_id: int
+) -> str:
     """
     生成Token
     # reference: https://github.com/biliticket/transition-ticket/blob/d32fcf4399bd04b96e382ae791514867ad97612c/util/Bilibili/__init__.py#L230
     Base64: URLSafeBase64
     """
+
     def encrypt(char: int, encrypt_type: str) -> str:
         """
         加密
