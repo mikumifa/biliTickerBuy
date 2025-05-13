@@ -34,12 +34,12 @@ sales_flag_number_map = {
     102: "已结束",
     103: "未完成",
     105: "下架",
-    106: "已取消"
+    106: "已取消",
 }
 
 
 def filename_filter(filename):
-    filename = re.sub('[/:*?"<>|]', '', filename)
+    filename = re.sub('[/:*?"<>|]', "", filename)
     return filename
 
 
@@ -66,7 +66,8 @@ def on_submit_ticket_id(num):
                 gr.update(),
                 gr.update(),
                 gr.update(visible=False),
-                gr.update(value='输入无效，请输入一个有效的网址。', visible=True), gr.update()
+                gr.update(value="输入无效，请输入一个有效的网址。", visible=True),
+                gr.update(),
             ]
         res = main_request.get(
             url=f"https://show.bilibili.com/api/ticket/project/getV2?version=134&id={num}&project_id={num}"
@@ -75,24 +76,25 @@ def on_submit_ticket_id(num):
         logger.debug(ret)
 
         # 检查 errno
-        if ret.get('errno') == 100001:
+        if ret.get("errno") == 100001:
             return [
                 gr.update(),
                 gr.update(),
                 gr.update(),
                 gr.update(),
                 gr.update(visible=True),
-                gr.update(value='输入无效，请输入一个有效的票ID。', visible=True), gr.update()
+                gr.update(value="输入无效，请输入一个有效的票ID。", visible=True),
+                gr.update(),
             ]
-        elif ret.get('errno') != 0:
+        elif ret.get("errno") != 0:
             return [
                 gr.update(),
                 gr.update(),
                 gr.update(),
                 gr.update(),
                 gr.update(visible=True),
-                gr.update(value=ret.get('msg', '未知错误') +
-                          '。', visible=True), gr.update()
+                gr.update(value=ret.get("msg", "未知错误") + "。", visible=True),
+                gr.update(),
             ]
         data = ret["data"]
         ticket_str_list = []
@@ -116,12 +118,14 @@ def on_submit_ticket_id(num):
             item["project_id"] = data["id"]
         # 场贩
         good_list = main_request.get(
-            url=f'https://show.bilibili.com/api/ticket/linkgoods/list?project_id={project_id}&page_type=0')
+            url=f"https://show.bilibili.com/api/ticket/linkgoods/list?project_id={project_id}&page_type=0"
+        )
         good_list = good_list.json()
         ids = [item["id"] for item in good_list["data"]["list"]]
         for id in ids:
             good_detail = main_request.get(
-                url=f'https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={id}')
+                url=f"https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={id}"
+            )
             good_detail = good_detail.json()
             for item in good_detail["data"]["specs_list"]:
                 item["project_id"] = good_detail["data"]["item_id"]
@@ -151,7 +155,8 @@ def on_submit_ticket_id(num):
                 ticket_str = f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy} - 【起售时间：{sale_start}】"
                 ticket_str_list.append(ticket_str)
                 ticket_value.append(
-                    {"project_id": screen["project_id"], "ticket": ticket})
+                    {"project_id": screen["project_id"], "ticket": ticket}
+                )
 
         buyer_json = main_request.get(
             url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={project_id}"
@@ -178,9 +183,12 @@ def on_submit_ticket_id(num):
             gr.update(visible=True),
             gr.update(
                 value=f"{extracted_id_message}\n获取票信息成功:\n展会名称：{project_name}\n"
-                      f"开展时间：{project_start_time} - {project_end_time}\n场馆地址：{venue_name} {venue_address}",
+                f"开展时间：{project_start_time} - {project_end_time}\n场馆地址：{venue_name} {venue_address}",
                 visible=True,
-            ), gr.update(visible=True, value=sales_dates[0]) if sales_dates_show else gr.update(visible=False)
+            ),
+            gr.update(visible=True, value=sales_dates[0])
+            if sales_dates_show
+            else gr.update(visible=False),
         ]
     except Exception as e:
         return [
@@ -189,37 +197,46 @@ def on_submit_ticket_id(num):
             gr.update(),
             gr.update(),
             gr.update(),
-            gr.update(value=e, visible=True), gr.update()
+            gr.update(value=e, visible=True),
+            gr.update(),
         ]
 
 
 def extract_id_from_url(url):
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
-    return query_params.get('id', [None])[0]
+    return query_params.get("id", [None])[0]
 
 
-def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, address_index):
+def on_submit_all(
+    ticket_id, ticket_info, people_indices, people_buyer_index, address_index
+):
     try:
         ticket_cur: list[dict[str, Any]] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
         people_buyer_cur = buyer_value[people_buyer_index]
         ticket_id = extract_id_from_url(ticket_id)
         if ticket_id is None:
-            return [gr.update(value="你所填不是网址，或者网址是错的", visible=True),
-                    gr.update(value={}),
-                    gr.update()]
+            return [
+                gr.update(value="你所填不是网址，或者网址是错的", visible=True),
+                gr.update(value={}),
+                gr.update(),
+            ]
         if len(people_indices) == 0:
-            return [gr.update(value="至少选一个实名人", visible=True),
-                    gr.update(value={}),
-                    gr.update()]
+            return [
+                gr.update(value="至少选一个实名人", visible=True),
+                gr.update(value={}),
+                gr.update(),
+            ]
         if addr_value is None:
-            return [gr.update(value="没有填写地址", visible=True),
-                    gr.update(value={}),
-                    gr.update()]
+            return [
+                gr.update(value="没有填写地址", visible=True),
+                gr.update(value={}),
+                gr.update(),
+            ]
         address_cur = addr_value[address_index]
         username = main_request.get_request_name()
-        detail = f'{username}-{project_name}-{ticket_str_list[ticket_info]}'
+        detail = f"{username}-{project_name}-{ticket_str_list[ticket_info]}"
         for p in people_cur:
             detail += f"-{p['name']}"
         config_dir = {
@@ -245,17 +262,26 @@ def on_submit_all(ticket_id, ticket_info, people_indices, people_buyer_index, ad
             },
             "cookies": main_request.cookieManager.get_cookies(),
             "phone": main_request.cookieManager.get_config_value("phone", ""),
-            "https_proxy": main_request.cookieManager.get_config_value("https_proxy", ""),
+            "https_proxy": main_request.cookieManager.get_config_value(
+                "https_proxy", ""
+            ),
         }
         if "link_id" in ticket_cur["ticket"]:
             config_dir["link_id"] = ticket_cur["ticket"]["link_id"]
         filename = os.path.join(TEMP_PATH, filename_filter(detail) + ".json")
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(filename, "w", encoding="utf-8") as f:
             json.dump(config_dir, f, ensure_ascii=False, indent=4)
-        return [gr.update(), gr.update(value=config_dir, visible=True), gr.update(value=filename, visible=True)]
+        return [
+            gr.update(),
+            gr.update(value=config_dir, visible=True),
+            gr.update(value=filename, visible=True),
+        ]
     except Exception as e:
-        return [gr.update(value="生成错误，仔细看看你可能有哪里漏填的", visible=True), gr.update(value={}),
-                gr.update()]
+        return [
+            gr.update(value="生成错误，仔细看看你可能有哪里漏填的", visible=True),
+            gr.update(value={}),
+            gr.update(),
+        ]
 
 
 def setting_tab():
@@ -278,65 +304,69 @@ def setting_tab():
             interactive=False,
             info="输入配置文件使用的账号名称",
         )
-        gr_file_ui = gr.File(
-            label="当前登录信息文件",
-            value=global_cookie_path)
+        gr_file_ui = gr.File(label="当前登录信息文件", value=global_cookie_path)
     with gr.Row():
         upload_ui = gr.UploadButton(label="导入")
         add_btn = gr.Button("登录")
+
         def upload_file(file):
             try:
                 shutil.copy2(file.name, global_cookie_path)
                 set_main_request(BiliRequest(cookies_config_path=global_cookie_path))
                 name = main_request.get_request_name()
                 yield [
-                    "导入成功", 
-                    gr.update(value=name), 
-                    gr.update(value=global_cookie_path)
+                    "导入成功",
+                    gr.update(value=name),
+                    gr.update(value=global_cookie_path),
                 ]
             except Exception as e:
                 logger.exception(e)
                 name = main_request.get_request_name()
                 yield [
-                    "登录出现错误", 
-                    gr.update(value=name), 
-                    gr.update(value=global_cookie_path)
+                    "登录出现错误",
+                    gr.update(value=name),
+                    gr.update(value=global_cookie_path),
                 ]
 
-        upload_ui.upload(
-            upload_file, [upload_ui], [
-                info_ui, username_ui, gr_file_ui])
+        upload_ui.upload(upload_file, [upload_ui], [info_ui, username_ui, gr_file_ui])
 
         def add():
             main_request.cookieManager.db.delete("cookie")
             yield [
-                "已经注销，将打开浏览器，请在浏览器里面重新登录", gr.update(value="未登录"),
-                gr.update(value=global_cookie_path)]
+                "已经注销，将打开浏览器，请在浏览器里面重新登录",
+                gr.update(value="未登录"),
+                gr.update(value=global_cookie_path),
+            ]
             try:
                 main_request.cookieManager.get_cookies_str_force()
                 name = main_request.get_request_name()
-                yield [f"登录成功", gr.update(value=name), gr.update(value=global_cookie_path)]
+                yield [
+                    f"登录成功",
+                    gr.update(value=name),
+                    gr.update(value=global_cookie_path),
+                ]
             except Exception:
                 name = main_request.get_request_name()
-                yield ["登录出现错误", gr.update(value=name), gr.update(value=global_cookie_path)]
+                yield [
+                    "登录出现错误",
+                    gr.update(value=name),
+                    gr.update(value=global_cookie_path),
+                ]
 
-        add_btn.click(
-            fn=add,
-            inputs=None,
-            outputs=[info_ui, username_ui, gr_file_ui]
-        )
-    with gr.Accordion(label='填写你的当前账号所绑定的手机号[可选]', open=False):
+        add_btn.click(fn=add, inputs=None, outputs=[info_ui, username_ui, gr_file_ui])
+    with gr.Accordion(label="填写你的当前账号所绑定的手机号[可选]", open=False):
         phone_gate_ui = gr.Textbox(
-            label="填写你的当前账号所绑定的手机号", info="手机号验证出现概率极低，可不填",
-            value=main_request.cookieManager.get_config_value("phone", ""))
+            label="填写你的当前账号所绑定的手机号",
+            info="手机号验证出现概率极低，可不填",
+            value=main_request.cookieManager.get_config_value("phone", ""),
+        )
 
         def input_phone(_phone):
             main_request.cookieManager.set_config_value("phone", _phone)
 
-        phone_gate_ui.change(
-            fn=input_phone, inputs=phone_gate_ui, outputs=None)
+        phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
 
-    with gr.Accordion(label='填写你的HTTPS代理服务器[可选]', open=False):
+    with gr.Accordion(label="填写你的HTTPS代理服务器[可选]", open=False):
         gr.Markdown("""
                     > **注意**：
                     
@@ -348,15 +378,15 @@ def setting_tab():
                     
                     """)
         https_proxy_ui = gr.Textbox(
-            label="填写抢票时候的代理服务器地址", info="例如： http://127.0.0.1:8080",
-            value=main_request.cookieManager.get_config_value("https_proxy", ""))
+            label="填写抢票时候的代理服务器地址",
+            info="例如： http://127.0.0.1:8080",
+            value=main_request.cookieManager.get_config_value("https_proxy", ""),
+        )
 
         def input_https_proxy(_https_proxy):
-            main_request.cookieManager.set_config_value(
-                "https_proxy", _https_proxy)
+            main_request.cookieManager.set_config_value("https_proxy", _https_proxy)
 
-        https_proxy_ui.change(
-            fn=input_https_proxy, inputs=https_proxy_ui, outputs=None)
+        https_proxy_ui.change(fn=input_https_proxy, inputs=https_proxy_ui, outputs=None)
 
     with gr.Column():
         ticket_id_ui = gr.Textbox(
@@ -374,8 +404,11 @@ def setting_tab():
                     info="必填，请仔细核对起售时间，千万别选错其他时间点的票",
                 )
                 date_ui = Calendar(
-                    type="string", label="选择日期",
-                    info="此票需要你选择的时间,时间是否有效请自行判断", interactive=True)
+                    type="string",
+                    label="选择日期",
+                    info="此票需要你选择的时间,时间是否有效请自行判断",
+                    interactive=True,
+                )
             with gr.Row():
                 people_buyer_ui = gr.Dropdown(
                     label="联系人",
@@ -410,7 +443,7 @@ def setting_tab():
                     people_buyer_ui,
                     address_ui,
                 ],
-                outputs=[info_ui, config_output_ui, config_file_ui]
+                outputs=[info_ui, config_output_ui, config_file_ui],
             )
 
         ticket_id_btn.click(
@@ -423,7 +456,7 @@ def setting_tab():
                 address_ui,
                 inner,
                 info_ui,
-                date_ui
+                date_ui,
             ],
         )
 
@@ -433,8 +466,8 @@ def setting_tab():
 
             try:
                 ticket_that_day = main_request.get(
-                    url=f'https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={_date}').json()[
-                    "data"]
+                    url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={_date}"
+                ).json()["data"]
                 ticket_str_list = []
                 ticket_value = []
                 for screen in ticket_that_day["screen_list"]:
@@ -444,25 +477,29 @@ def setting_tab():
                     for ticket in screen["ticket_list"]:
                         ticket_desc = ticket["desc"]
                         sale_start = ticket["sale_start"]
-                        ticket["price"] = ticket_price = ticket["price"] + \
-                            express_fee
+                        ticket["price"] = ticket_price = ticket["price"] + express_fee
                         ticket["screen"] = screen_name
                         ticket["screen_id"] = screen_id
                         ticket_can_buy = "可购买" if ticket["clickable"] else "不可购买"
                         ticket_str = (
                             f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy}"
-                            f" - 【起售时间：{sale_start}】")
+                            f" - 【起售时间：{sale_start}】"
+                        )
                         ticket_str_list.append(ticket_str)
                         ticket_value.append(
-                            {"project_id": project_id, "ticket": ticket})
+                            {"project_id": project_id, "ticket": ticket}
+                        )
 
-                return [gr.update(value=_date, visible=True), gr.update(choices=ticket_str_list),
-                        gr.update(value=f"当前票日期更新为: {_date}")]
+                return [
+                    gr.update(value=_date, visible=True),
+                    gr.update(choices=ticket_str_list),
+                    gr.update(value=f"当前票日期更新为: {_date}"),
+                ]
             except Exception as e:
                 return [gr.update(), gr.update(), gr.update(value=e, visible=True)]
 
         date_ui.change(
             fn=on_submit_date,
             inputs=date_ui,
-            outputs=[date_ui, ticket_info_ui, info_ui]
+            outputs=[date_ui, ticket_info_ui, info_ui],
         )
