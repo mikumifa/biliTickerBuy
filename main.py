@@ -63,9 +63,11 @@ def main():
 
         filename_only = os.path.basename(args.filename)
         with gr.Blocks(
+            head="""
+                    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+                    """,
             title=f"{filename_only}",
             fill_height=True,
-            css=".xterm-screen {min-height: 70vh; max-height: 70vh}",
         ) as demo:
             gr.Markdown(
                 f"""
@@ -79,6 +81,7 @@ def main():
                 dark=True,
                 scale=1,
                 xterm_scrollback=5000,
+                elem_classes="h-full",
             )
 
             def exit_program():
@@ -132,7 +135,12 @@ def main():
             colorize=True,
         )
 
-        with gr.Blocks(title="biliTickerBuy") as demo:
+        with gr.Blocks(
+            head="""
+                    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+                    """,
+            title="biliTickerBuy",
+        ) as demo:
             gr.Markdown(header)
             with gr.Tab("生成配置"):
                 setting_tab()
