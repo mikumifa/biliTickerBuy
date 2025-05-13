@@ -235,8 +235,6 @@ def buy_stream(
         except Exception as e:
             logger.exception(e)
             yield f"程序异常: {repr(e)}"
-    while True:
-        time.sleep(1)
 
 
 def buy(

@@ -1,23 +1,22 @@
 from argparse import Namespace
-import uuid
-
-from util import LOG_DIR
 
 
 def buy_cmd(args: Namespace):
     from util.LogConfig import loguru_config
+    import uuid
+
+    from util import LOG_DIR
 
     log_file = loguru_config(
         LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False, file_colorize=True
     )
 
-    import os.path
+    import os
     import gradio_client
     from task.buy import buy
     from task.endpoint import start_heartbeat_thread
-    import os
-
     import gradio as gr
+    from loguru import logger
     from gradio_log import Log
 
     filename_only = os.path.basename(args.filename)
@@ -48,7 +47,7 @@ def buy_cmd(args: Namespace):
             print(f"{filename_only} ，关闭程序...")
             os._exit(0)
 
-        btn = gr.Button("退出程序")
+        btn = gr.Button("关闭程序")
         btn.click(fn=exit_program)
 
     print(f"抢票日志路径： {log_file}")
@@ -79,3 +78,4 @@ def buy_cmd(args: Namespace):
         args.pushplusToken,
         args.serverchanKey,
     )
+    logger.info("抢票完成后退出程序。。。。。")
