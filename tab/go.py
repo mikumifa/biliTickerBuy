@@ -29,18 +29,6 @@ if bili_ticket_gt_python is not None:
     # ways.insert(0, "本地过验证码(Amorter提供)")
 
 
-def handle_error(message, e):
-    logger.error(message + str(e))
-    return [
-        gr.update(
-            value=withTimeString(f"有错误，具体查看控制台日志\n\n当前错误 {e}"),
-            visible=True,
-        ),
-        gr.update(visible=True),
-        *[gr.update() for _ in range(6)],
-    ]
-
-
 def go_tab(demo: gr.Blocks):
     gr.Markdown("""
 > **分享一下经验**
@@ -219,7 +207,7 @@ def go_tab(demo: gr.Blocks):
                 serverchanKey=ConfigDB.get("serverchanKey"),
                 timeoffset=time_service.get_timeoffset(),
             )
-        return [gr.update()]
+        gr.Info("正在启动，请等待抢票页面弹出。")
 
     mode_ui.change(
         fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False),
@@ -227,18 +215,7 @@ def go_tab(demo: gr.Blocks):
         outputs=total_attempts_ui,
     )
 
-    with gr.Row():
-        go_btn = gr.Button("开始抢票")
-
-    with gr.Row():
-        go_ui = gr.Textbox(
-            info="此窗口为临时输出，具体请见控制台",
-            label="输出信息",
-            interactive=False,
-            visible=False,
-            show_copy_button=True,
-            max_lines=10,
-        )
+    go_btn = gr.Button("开始抢票")
 
     _time_tmp = gr.Textbox(visible=False)
     go_btn.click(
@@ -305,5 +282,4 @@ def go_tab(demo: gr.Blocks):
             total_attempts_ui,
             audio_path_ui,
         ],
-        outputs=[go_ui],
     )
