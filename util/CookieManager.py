@@ -1,6 +1,5 @@
 from loguru import logger
 from playwright.sync_api import sync_playwright
-
 from util.KVDatabase import KVDatabase
 
 
@@ -46,12 +45,14 @@ class CookieManager:
     def get_cookies_str(self):
         cookies = self.get_cookies()
         cookies_str = ""
+        assert cookies
         for cookie in cookies:
             cookies_str += cookie["name"] + "=" + cookie["value"] + "; "
         return cookies_str
 
     def get_cookies_value(self, name):
         cookies = self.get_cookies()
+        assert cookies
         for cookie in cookies:
             if cookie["name"] == name:
                 return cookie["value"]

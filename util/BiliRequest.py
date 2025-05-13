@@ -1,9 +1,6 @@
 import json
-from urllib.parse import quote
-
 import loguru
 import requests
-
 from util.CookieManager import CookieManager
 
 
