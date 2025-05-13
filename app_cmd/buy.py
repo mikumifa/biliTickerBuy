@@ -1,4 +1,5 @@
 from argparse import Namespace
+import uuid
 
 from util import LOG_DIR
 
@@ -7,7 +8,7 @@ def buy_cmd(args: Namespace):
     from util.LogConfig import loguru_config
 
     log_file = loguru_config(
-        LOG_DIR, "app.log", enable_console=False, file_colorize=True
+        LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False, file_colorize=True
     )
 
     import os.path
