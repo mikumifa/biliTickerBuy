@@ -65,7 +65,7 @@ def buy_stream(
     }
 
     if time_start != "":
-        timeoffset = time_service.get_timeoffset() * 1000
+        timeoffset = time_service.get_timeoffset()
         yield "0) 等待开始时间"
         yield f"时间偏差已被设置为: {timeoffset}s"
         try:
