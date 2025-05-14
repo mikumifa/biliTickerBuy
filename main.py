@@ -1,15 +1,9 @@
 import argparse
 import os
 
-import requests
-
 
 def get_env_default(key: str, default, cast_func):
     return cast_func(os.environ.get(f"BTB_{key}", default))
-
-
-def get_public_ip():
-    return requests.get("https://api.ipify.org").text
 
 
 def main():
@@ -84,7 +78,7 @@ def main():
     worker_parser.add_argument(
         "--self_ip",
         type=str,
-        default=os.environ.get("BTB_SELF_IP", get_public_ip()),
+        default=os.environ.get("BTB_SELF_IP", "127.0.0.1"),
         help="the ip that master note can access, like 127.0.0.1",
     )
     worker_parser.add_argument(
