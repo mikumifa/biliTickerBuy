@@ -47,7 +47,11 @@ jobs:
       - name: Build Pyinstaller
         shell: bash
         run: |
-          PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium
+          if [[ "$RUNNER_OS" != "Linux" ]]; then
+            PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium
+          else
+            echo "Skipping browser installation on Linux"
+            
           pyinstaller main.spec
       - name: Zip the Build-windows
         if: matrix.config.os.filename == 'windows_amd64'
