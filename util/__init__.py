@@ -2,6 +2,7 @@ from collections import namedtuple
 from dataclasses import dataclass, field
 import os
 import sys
+import time
 import loguru
 import importlib
 from typing import Any, Optional
@@ -99,6 +100,13 @@ Endpoint = namedtuple("Endpoint", ["endpoint", "detail", "update_at"])
 class GlobalStatus:
     nowTask: str = "none"
     endpoint_details: dict[str, Endpoint] = field(default_factory=dict)
+
+    def available_endpoints(self) -> list[Endpoint]:
+        return [
+            t
+            for endpoint, t in self.endpoint_details.items()
+            if time.time() - t.update_at < 4
+        ]
 
 
 GlobalStatusInstance = GlobalStatus()

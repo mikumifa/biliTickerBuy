@@ -5,7 +5,6 @@ import sys
 import time
 from datetime import datetime
 from json import JSONDecodeError
-from turtle import st
 from urllib.parse import urlencode
 
 import qrcode
@@ -13,7 +12,7 @@ from loguru import logger
 from playsound3 import playsound
 from requests import HTTPError, RequestException
 
-from util import ERRNO_DICT, PushPlusUtil, ServerChanUtil
+from util import ERRNO_DICT, PushPlusUtil, ServerChanUtil, time_service
 from util.BiliRequest import BiliRequest
 from util import bili_ticket_gt_python
 
@@ -35,11 +34,10 @@ def buy_stream(
     interval,
     mode,
     total_attempts,
-    timeoffset,
     audio_path,
     pushplusToken,
     serverchanKey,
-    https_proxy: str = "none",
+    https_proxys,
 ):
     if bili_ticket_gt_python is None:
         yield "当前设备不支持本地过验证码，无法使用"
@@ -53,7 +51,8 @@ def buy_stream(
     tickets_info.pop("cookies", None)
     tickets_info["buyer_info"] = json.dumps(tickets_info["buyer_info"])
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
-    _request = BiliRequest(cookies=cookies, proxy=https_proxy)
+    logger.info(f"使用代理：{https_proxys}")
+    _request = BiliRequest(cookies=cookies, proxy=https_proxys)
 
     token_payload = {
         "count": tickets_info["count"],
@@ -66,6 +65,7 @@ def buy_stream(
     }
 
     if time_start != "":
+        timeoffset = time_service.get_timeoffset() * 1000
         yield "0) 等待开始时间"
         yield f"时间偏差已被设置为: {timeoffset}s"
         try:
@@ -240,10 +240,10 @@ def buy(
     interval,
     mode,
     total_attempts,
-    timeoffset,
     audio_path,
     pushplusToken,
     serverchanKey,
+    https_proxys,
 ):
     for msg in buy_stream(
         tickets_info_str,
@@ -251,10 +251,10 @@ def buy(
         interval,
         mode,
         total_attempts,
-        timeoffset,
         audio_path,
         pushplusToken,
         serverchanKey,
+        https_proxys,
     ):
         logger.info(msg)
 
@@ -270,7 +270,7 @@ def buy_new_terminal(
     audio_path,
     pushplusToken,
     serverchanKey,
-    timeoffset,
+    https_proxys,
 ) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
@@ -282,7 +282,6 @@ def buy_new_terminal(
             str(interval),
             str(mode),
             str(total_attempts),
-            str(timeoffset),
         ]
     )
     if time_start:
@@ -293,6 +292,8 @@ def buy_new_terminal(
         command.extend(["--pushplusToken", pushplusToken])
     if serverchanKey:
         command.extend(["--serverchanKey", serverchanKey])
+    if https_proxys:
+        command.extend(["--https_proxys", https_proxys])
     command.extend(["--filename", filename])
     command.extend(["--endpoint_url", endpoint_url])
     proc = subprocess.Popen(command)

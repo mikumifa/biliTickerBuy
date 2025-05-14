@@ -2,10 +2,10 @@ import datetime
 import importlib
 import os
 import time
-from typing import List
 import gradio as gr
 from gradio import SelectData
 from loguru import logger
+import requests
 
 from geetest.Validator import Validator
 from task.buy import buy_new_terminal
@@ -114,21 +114,28 @@ def go_tab(demo: gr.Blocks):
             gr.Markdown("""
                         > **注意**：
 
-                        填写代理服务器地址后，程序在使用这个配置文件后会通过代理服务器去访问哔哩哔哩的抢票接口。
+                        填写代理服务器地址后，程序在使用这个配置文件后会在出现风控后后根据代理服务器去访问哔哩哔哩的抢票接口。
 
                         抢票前请确保代理服务器已经开启，并且可以正常访问哔哩哔哩的抢票接口。
 
                         """)
+
+            def get_latest_proxy():
+                return ConfigDB.get("https_proxy") or ""
+
             https_proxy_ui = gr.Textbox(
-                label="填写抢票时候的代理服务器地址",
-                info="例如： http://127.0.0.1:8080",
-                value=ConfigDB.get("https_proxy") or "",
+                label="填写抢票时候的代理服务器地址，使用逗号隔开|输入Enter保存",
+                info="例如： http://127.0.0.1:8080,http://127.0.0.1:8081,http://127.0.0.1:8082",
+                value=get_latest_proxy,
             )
 
             def input_https_proxy(_https_proxy):
-                ConfigDB.insert("https_proxy", _https_proxy)
+                ConfigDB.update("https_proxy", _https_proxy)
+                return gr.update(ConfigDB.get("https_proxy"))
 
-        https_proxy_ui.change(fn=input_https_proxy, inputs=https_proxy_ui, outputs=None)
+            https_proxy_ui.submit(
+                fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
+            )
         with gr.Accordion(label="配置抢票声音提醒[可选]", open=False):
             with gr.Row():
                 audio_path_ui = gr.Audio(
@@ -201,30 +208,84 @@ def go_tab(demo: gr.Blocks):
                 visible=False,
             )
 
-    def start_go(files, time_start, interval, mode, total_attempts, audio_path):
+    def try_assign_endpoint(endpoint_url, payload):
+        try:
+            response = requests.post(f"{endpoint_url}/buy", json=payload, timeout=5)
+            if response.status_code == 200:
+                return True
+            elif response.status_code == 409:
+                logger.info(f"{endpoint_url} 已经占用")
+                return False
+            else:
+                return False
+
+        except Exception as e:
+            logger.exception(e)
+            raise e
+
+    def split_proxies(https_proxy_list: list[str], task_num: int) -> list[list[str]]:
+        assigned_proxies: list[list[str]] = [[] for _ in range(task_num)]
+        for i, proxy in enumerate(https_proxy_list):
+            assigned_proxies[i % task_num].append(proxy)
+        return assigned_proxies
+
+    def start_go(
+        files, time_start, interval, mode, total_attempts, audio_path, https_proxys
+    ):
         if not files:
             return [gr.update(value=withTimeString("未提交抢票配置"), visible=True)]
         yield [
             gr.update(value=withTimeString("开始多开抢票,详细查看终端"), visible=True)
         ]
-        for filename in files:
+        endpoints = GlobalStatusInstance.available_endpoints()
+        endpoints_next_idx = 0
+        https_proxy_list = ["none"] + https_proxys.split(",")
+        assigned_proxies: list[list[str]] = []
+        assigned_proxies_next_idx = 0
+        for idx, filename in enumerate(files):
             with open(filename, "r", encoding="utf-8") as file:
                 content = file.read()
             filename_only = os.path.basename(filename)
             logger.info(f"启动 {filename_only}")
-            buy_new_terminal(
-                endpoint_url=demo.local_url,
-                filename=filename,
-                tickets_info_str=content,
-                time_start=time_start,
-                interval=interval,
-                mode=mode,
-                total_attempts=total_attempts,
-                audio_path=audio_path,
-                pushplusToken=ConfigDB.get("pushplusToken"),
-                serverchanKey=ConfigDB.get("serverchanKey"),
-                timeoffset=time_service.get_timeoffset(),
-            )
+            # 先分配worker
+            while endpoints_next_idx < len(endpoints):
+                success = try_assign_endpoint(
+                    endpoints[endpoints_next_idx].endpoint,
+                    payload={
+                        "force": True,
+                        "train_info": content,
+                        "time_start": time_start,
+                        "interval": interval,
+                        "mode": mode,
+                        "total_attempts": total_attempts,
+                        "audio_path": audio_path,
+                        "pushplusToken": ConfigDB.get("pushplusToken"),
+                        "serverchanKey": ConfigDB.get("serverchanKey"),
+                    },
+                )
+                endpoints_next_idx += 1
+                if success:
+                    break
+            else:
+                # 再分配https_proxys
+                if assigned_proxies == []:
+                    left_task_num = len(files) - idx
+                    assigned_proxies = split_proxies(https_proxy_list, left_task_num)
+
+                buy_new_terminal(
+                    endpoint_url=demo.local_url,
+                    filename=filename,
+                    tickets_info_str=content,
+                    time_start=time_start,
+                    interval=interval,
+                    mode=mode,
+                    total_attempts=total_attempts,
+                    audio_path=audio_path,
+                    pushplusToken=ConfigDB.get("pushplusToken"),
+                    serverchanKey=ConfigDB.get("serverchanKey"),
+                    https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
+                )
+                assigned_proxies_next_idx += 1
         gr.Info("正在启动，请等待抢票页面弹出。")
 
     mode_ui.change(
@@ -246,12 +307,6 @@ def go_tab(demo: gr.Blocks):
     _report_tmp.api_info
 
     # hander endpoint hearts
-    def available_endpoints() -> List[Endpoint]:
-        return [
-            t
-            for endpoint, t in GlobalStatusInstance.endpoint_details.items()
-            if time.time() - t.update_at < 3
-        ]
 
     _end_point_tinput = gr.Textbox(visible=False)
 
@@ -275,7 +330,7 @@ def go_tab(demo: gr.Blocks):
 
     @gr.render(inputs=timer)
     def show_split(text):
-        endpoints = available_endpoints()
+        endpoints = GlobalStatusInstance.available_endpoints()
         if len(endpoints) == 0:
             gr.Markdown("## 无运行终端")
         else:
@@ -296,5 +351,6 @@ def go_tab(demo: gr.Blocks):
             mode_ui,
             total_attempts_ui,
             audio_path_ui,
+            https_proxy_ui,
         ],
     )

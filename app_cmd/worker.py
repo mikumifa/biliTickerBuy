@@ -1,8 +1,11 @@
 from argparse import Namespace
-import threading
+import uuid
+
+from loguru import logger
+import uvicorn
 
 
-from service.WorkerService import create_worker_app
+from service.WorkerService import create_worker_app, stop_now_work
 from task.endpoint import start_heartbeat_thread
 from util import GlobalStatus
 
@@ -20,7 +23,7 @@ def worker_cmd(args: Namespace):
     from util import LOG_DIR
 
     log_file = loguru_config(
-        LOG_DIR, "app.log", enable_console=False, file_colorize=True
+        LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False, file_colorize=True
     )
     import os
     import gradio_client
@@ -48,10 +51,11 @@ def worker_cmd(args: Namespace):
         )
 
         def exit_program():
-            print("关闭程序...")
-            os._exit(0)
+            logger.info("停止当前任务...")
+            stop_now_work()
+            logger.info("已停止当前任务")
 
-        btn = gr.Button("关闭程序")
+        btn = gr.Button("停止当前任务")
         btn.click(fn=exit_program)
     print(f"抢票日志路径： {log_file}")
     print("运行程序网址   ↓↓↓↓↓↓↓↓↓↓↓↓↓↓")
@@ -73,4 +77,4 @@ def worker_cmd(args: Namespace):
         to_url=args.master,
     )
     create_worker_app(app, args)
-    threading.Event().wait()
+    uvicorn.run(app)
