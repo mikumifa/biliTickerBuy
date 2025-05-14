@@ -1,7 +1,6 @@
 from argparse import Namespace
 import threading
-from weakref import proxy
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 
 from task.buy import buy_stream
