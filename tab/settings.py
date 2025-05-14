@@ -224,9 +224,6 @@ def on_submit_all(
             },
             "cookies": main_request.cookieManager.get_cookies(),
             "phone": main_request.cookieManager.get_config_value("phone", ""),
-            "https_proxy": main_request.cookieManager.get_config_value(
-                "https_proxy", ""
-            ),
         }
         if "link_id" in ticket_cur["ticket"]:
             config_dir["link_id"] = ticket_cur["ticket"]["link_id"]
@@ -322,28 +319,6 @@ def setting_tab():
             main_request.cookieManager.set_config_value("phone", _phone)
 
         phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
-
-    with gr.Accordion(label="填写你的HTTPS代理服务器[可选]", open=False):
-        gr.Markdown("""
-                    > **注意**：
-
-                    填写代理服务器地址后，程序在使用这个配置文件后会通过代理服务器去访问哔哩哔哩的抢票接口。
-
-                    如果需要更改代理服务器，请更改这个配置文件中 'https_proxy' 的配置项。
-
-                    抢票前请确保代理服务器已经开启，并且可以正常访问哔哩哔哩的抢票接口。
-
-                    """)
-        https_proxy_ui = gr.Textbox(
-            label="填写抢票时候的代理服务器地址",
-            info="例如： http://127.0.0.1:8080",
-            value=main_request.cookieManager.get_config_value("https_proxy", ""),
-        )
-
-        def input_https_proxy(_https_proxy):
-            main_request.cookieManager.set_config_value("https_proxy", _https_proxy)
-
-        https_proxy_ui.change(fn=input_https_proxy, inputs=https_proxy_ui, outputs=None)
 
     with gr.Column(variant="compact"):
         info_ui = gr.TextArea(

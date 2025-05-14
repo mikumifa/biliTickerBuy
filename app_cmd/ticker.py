@@ -21,7 +21,7 @@ def ticker_cmd(args: Namespace):
 
     with gr.Blocks(
         title="biliTickerBuy",
-        css="body {overflow-y: scroll;} .xterm-screen {min-height: 70vh; max-height: 70vh} footer {visibility: hidden}",
+        head="""<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>""",
     ) as demo:
         gr.Markdown(header)
         with gr.Tab("生成配置"):

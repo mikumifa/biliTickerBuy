@@ -4,16 +4,21 @@ import time
 from gradio_client import Client
 from loguru import logger
 
+from util import GlobalStatusInstance
 
-def start_heartbeat_thread(
-    client: Client, self_url: str, to_url: str, detail: str = ""
-):
-    def report_heart(client: Client, self_url: str, to_url: str, detail: str = ""):
+
+def start_heartbeat_thread(client: Client, self_url: str, to_url: str):
+    """
+    send task detail to Master
+
+    """
+
+    def report_heart(client: Client, self_url: str, to_url: str):
         cnt = 0
         try:
             res = client.predict(
                 self_url,
-                detail,
+                GlobalStatusInstance.nowTask,
                 api_name="/report",
             )
             logger.debug(f"report_heart {self_url} -({res})-> {to_url}")
@@ -28,7 +33,7 @@ def start_heartbeat_thread(
 
     def heartbeat_loop():
         while True:
-            report_heart(client, self_url, to_url, detail)
+            report_heart(client, self_url, to_url)
             time.sleep(1)
 
     t = threading.Thread(target=heartbeat_loop, daemon=True)

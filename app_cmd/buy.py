@@ -1,5 +1,7 @@
 from argparse import Namespace
 
+from util import GlobalStatus
+
 
 def buy_cmd(args: Namespace):
     from util.LogConfig import loguru_config
@@ -21,9 +23,7 @@ def buy_cmd(args: Namespace):
 
     filename_only = os.path.basename(args.filename)
     with gr.Blocks(
-        head="""
-                    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-                    """,
+        head="""<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>""",
         title=f"{filename_only}",
         fill_height=True,
     ) as demo:
@@ -61,11 +61,11 @@ def buy_cmd(args: Namespace):
     )
     client = gradio_client.Client(args.endpoint_url)
     assert demo.local_url
+    GlobalStatus.nowTask = filename_only
     start_heartbeat_thread(
         client,
         self_url=demo.local_url,
         to_url=args.endpoint_url,
-        detail=filename_only,
     )
     buy(
         args.tickets_info_str,

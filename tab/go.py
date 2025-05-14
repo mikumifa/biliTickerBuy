@@ -1,4 +1,3 @@
-from collections import namedtuple
 import datetime
 import importlib
 import os
@@ -10,7 +9,7 @@ from loguru import logger
 
 from geetest.Validator import Validator
 from task.buy import buy_new_terminal
-from util import ConfigDB, time_service
+from util import ConfigDB, Endpoint, GlobalStatusInstance, time_service
 from util import bili_ticket_gt_python
 
 
@@ -30,33 +29,34 @@ if bili_ticket_gt_python is not None:
 
 
 def go_tab(demo: gr.Blocks):
-    gr.Markdown("""
-> **分享一下经验**
-> - 抢票前，不要去提前抢还没有发售的票，会被b站封掉一段时间导致错过抢票的
-> - 热门票要提前练习过验证码
-> - 使用不同的多个账号抢票 （可以每一个exe文件都使用不同的账号， 或者在使用这个程序的时候，手机使用其他的账号去抢）
-> - 程序能保证用最快的速度发送订单请求，但是不保证这一次订单请求能够成功。所以不要完全依靠程序
-> - 现在各个平台抢票和秒杀机制都是进抽签池抽签，网速快发请求多快在拥挤的时候基本上没有效果
-> 此时就要看你有没有足够的设备和账号来提高中签率
-> - 欢迎前往 [discussions](https://github.com/mikumifa/biliTickerBuy/discussions) 分享你的经验
-""")
     with gr.Column():
         gr.Markdown("""
             ### 上传或填入你要抢票票种的配置信息
             """)
-        with gr.Row(equal_height=True):
+        with gr.Row():
             upload_ui = gr.Files(
                 label="上传多个配置文件，点击不同的配置文件可快速切换",
                 file_count="multiple",
             )
             ticket_ui = gr.TextArea(label="查看", info="配置信息", interactive=False)
-
-        gr.HTML(
-            """<label for="datetime">程序已经提前帮你校准时间，设置成开票时间即可。请勿设置成开票前的时间。在开票前抢票会短暂封号</label><br>
-                <input type="datetime-local" id="datetime" name="datetime" step="1">""",
-            label="选择抢票的时间",
-            show_label=True,
-        )
+        with gr.Row(variant="compact"):
+            gr.HTML(
+                """
+                    <div class="text-pink-100">
+                        程序已经提前帮你校准时间，设置成开票时间即可。请勿设置成开票前的时间。在开票前抢票会短暂封号
+                    </div>
+                    <input 
+                        type="datetime-local" 
+                        id="datetime" 
+                        name="datetime" 
+                        step="1" 
+                        class="border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                </div>
+                """,
+                label="选择抢票的时间",
+                show_label=True,
+            )
 
         def upload(filepath):
             try:
@@ -110,7 +110,25 @@ def go_tab(demo: gr.Blocks):
             type="index",
             value=ways[select_way],
         )
+        with gr.Accordion(label="填写你的HTTPS代理服务器[可选]", open=False):
+            gr.Markdown("""
+                        > **注意**：
 
+                        填写代理服务器地址后，程序在使用这个配置文件后会通过代理服务器去访问哔哩哔哩的抢票接口。
+
+                        抢票前请确保代理服务器已经开启，并且可以正常访问哔哩哔哩的抢票接口。
+
+                        """)
+            https_proxy_ui = gr.Textbox(
+                label="填写抢票时候的代理服务器地址",
+                info="例如： http://127.0.0.1:8080",
+                value=ConfigDB.get("https_proxy") or "",
+            )
+
+            def input_https_proxy(_https_proxy):
+                ConfigDB.insert("https_proxy", _https_proxy)
+
+        https_proxy_ui.change(fn=input_https_proxy, inputs=https_proxy_ui, outputs=None)
         with gr.Accordion(label="配置抢票声音提醒[可选]", open=False):
             with gr.Row():
                 audio_path_ui = gr.Audio(
@@ -224,25 +242,22 @@ def go_tab(demo: gr.Blocks):
         outputs=_time_tmp,
         js='(x) => document.getElementById("datetime").value',
     )
-    Endpoint = namedtuple("Endpoint", ["endpoint", "detail", "update_at"])
-    endpoint_details: dict[str, Endpoint] = {}
     _report_tmp = gr.Button(visible=False)
     _report_tmp.api_info
 
+    # hander endpoint hearts
     def available_endpoints() -> List[Endpoint]:
-        nonlocal endpoint_details
         return [
             t
-            for endpoint, t in endpoint_details.items()
+            for endpoint, t in GlobalStatusInstance.endpoint_details.items()
             if time.time() - t.update_at < 3
         ]
 
     _end_point_tinput = gr.Textbox(visible=False)
 
     def report(end_point, detail):
-        nonlocal endpoint_details
         now = time.time()
-        endpoint_details[end_point] = Endpoint(
+        GlobalStatusInstance.endpoint_details[end_point] = Endpoint(
             endpoint=end_point, detail=detail, update_at=now
         )
 
