@@ -1,7 +1,6 @@
 from tinydb import TinyDB, Query
 from tinydb.storages import MemoryStorage
 from tinydb.storages import JSONStorage
-from tinydb.middlewares import CachingMiddleware
 
 
 class KVDatabase:
@@ -9,7 +8,7 @@ class KVDatabase:
         if db_path is None:
             self.db = TinyDB(storage=MemoryStorage)
         else:
-            self.db = TinyDB(db_path, storage=CachingMiddleware(JSONStorage))
+            self.db = TinyDB(db_path, storage=JSONStorage)
         self.KeyValue = Query()
 
     def insert(self, key, value):
@@ -34,7 +33,3 @@ class KVDatabase:
 
     def contains(self, key):
         return self.db.contains(self.KeyValue.key == key)
-
-    def flush(self):
-        if isinstance(self.db.storage, CachingMiddleware):
-            self.db.storage.flush()
