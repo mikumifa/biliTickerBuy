@@ -68,9 +68,9 @@ def on_submit_ticket_id(num):
         # logger.debug(ret)
 
         # 检查 errno
-        if ret.get("errno") == 100001:
+        if ret.get("errno", ret.get("code")) == 100001:
             raise gr.Error("输入无效，请输入一个有效的网址。", duration=5)
-        elif ret.get("errno") != 0:
+        elif ret.get("errno", ret.get("code")) != 0:
             raise gr.Error(ret.get("msg", "未知错误") + "。", duration=5)
         data = ret["data"]
         ticket_str_list = []

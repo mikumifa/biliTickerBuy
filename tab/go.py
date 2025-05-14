@@ -288,6 +288,79 @@ def go_tab(demo: gr.Blocks):
                 assigned_proxies_next_idx += 1
         gr.Info("正在启动，请等待抢票页面弹出。")
 
+    def start_process(
+        files,
+        time_start,
+        interval,
+        mode,
+        total_attempts,
+        audio_path,
+        https_proxys,
+        progress=gr.Progress(),
+    ):
+        """
+        不同start_go，start_process会采取队列的方式抢票，首先他会当前抢票的配置文件，依此进行抢票。
+
+        抢票并发量为： worker数目+ (1+代理数目)/2 向上取整
+
+
+        """
+        if not files:
+            return [gr.update(value=withTimeString("未提交抢票配置"), visible=True)]
+        yield [
+            gr.update(value=withTimeString("开始多开抢票,详细查看终端"), visible=True)
+        ]
+        endpoints = GlobalStatusInstance.available_endpoints()
+        endpoints_next_idx = 0
+        https_proxy_list = ["none"] + https_proxys.split(",")
+        assigned_proxies: list[list[str]] = []
+        assigned_proxies_next_idx = 0
+        for idx, filename in enumerate(files):
+            with open(filename, "r", encoding="utf-8") as file:
+                content = file.read()
+            filename_only = os.path.basename(filename)
+            logger.info(f"启动 {filename_only}")
+            # 先分配worker
+            while endpoints_next_idx < len(endpoints):
+                success = try_assign_endpoint(
+                    endpoints[endpoints_next_idx].endpoint,
+                    payload={
+                        "force": True,
+                        "train_info": content,
+                        "time_start": time_start,
+                        "interval": interval,
+                        "mode": mode,
+                        "total_attempts": total_attempts,
+                        "audio_path": audio_path,
+                        "pushplusToken": ConfigDB.get("pushplusToken"),
+                        "serverchanKey": ConfigDB.get("serverchanKey"),
+                    },
+                )
+                endpoints_next_idx += 1
+                if success:
+                    break
+            else:
+                # 再分配https_proxys
+                if assigned_proxies == []:
+                    left_task_num = len(files) - idx
+                    assigned_proxies = split_proxies(https_proxy_list, left_task_num)
+
+                buy_new_terminal(
+                    endpoint_url=demo.local_url,
+                    filename=filename,
+                    tickets_info_str=content,
+                    time_start=time_start,
+                    interval=interval,
+                    mode=mode,
+                    total_attempts=total_attempts,
+                    audio_path=audio_path,
+                    pushplusToken=ConfigDB.get("pushplusToken"),
+                    serverchanKey=ConfigDB.get("serverchanKey"),
+                    https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
+                )
+                assigned_proxies_next_idx += 1
+        gr.Info("正在启动，请等待抢票页面弹出。")
+
     mode_ui.change(
         fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False),
         inputs=[mode_ui],
@@ -295,6 +368,7 @@ def go_tab(demo: gr.Blocks):
     )
 
     go_btn = gr.Button("开始抢票")
+    process_btn = gr.Button("开始蹲票", visible=False)
 
     _time_tmp = gr.Textbox(visible=False)
     go_btn.click(
@@ -353,4 +427,17 @@ def go_tab(demo: gr.Blocks):
             audio_path_ui,
             https_proxy_ui,
         ],
+    )
+    process_btn.click(
+        fn=start_process,
+        inputs=[
+            upload_ui,
+            _time_tmp,
+            interval_ui,
+            mode_ui,
+            total_attempts_ui,
+            audio_path_ui,
+            https_proxy_ui,
+        ],
+        outputs=process_btn,
     )
