@@ -28,3 +28,4 @@ dependencies = [
 ]
 [tool.mypy]
 disable_error_code = ["import-untyped"]
+check_untyped_defs = true

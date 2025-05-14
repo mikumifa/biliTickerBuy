@@ -73,9 +73,9 @@ def buy_cmd(args: Namespace):
         args.interval,
         args.mode,
         args.total_attempts,
-        args.timeoffset,
         args.audio_path,
         args.pushplusToken,
         args.serverchanKey,
+        args.https_proxys,
     )
     logger.info("抢票完成后退出程序。。。。。")

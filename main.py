@@ -25,7 +25,6 @@ def main():
     buy_parser.add_argument(
         "total_attempts", type=int, help="Total number of attempts."
     )
-    buy_parser.add_argument("timeoffset", type=float, help="Time offset in seconds.")
     buy_parser.add_argument(
         "--endpoint_url",
         type=str,
@@ -68,6 +67,12 @@ def main():
         default=get_env_default("SHARE", False, lambda x: str(x).lower() == "true"),
         help="create a public link",
     )
+    buy_parser.add_argument(
+        "--https_proxys",
+        type=str,
+        default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
+        help="like none,http://127.0.0.1:8080",
+    )
     # `--worker` 子命令
     worker_parser = subparsers.add_parser("worker", help="Start the ticket worker ui")  # noqa: F841
     worker_parser.add_argument(
@@ -86,7 +91,6 @@ def main():
         "--https_proxys",
         type=str,
         default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
-        help="the ip that master note can access, like 127.0.0.1",
     )
     parser.add_argument(
         "--port",
