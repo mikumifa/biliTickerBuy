@@ -6,10 +6,13 @@ from util.CookieManager import CookieManager
 
 class BiliRequest:
     def __init__(
-        self, headers=None, cookies=None, cookies_config_path=None, proxy=None
+        self, headers=None, cookies=None, cookies_config_path=None, proxy: str = "none"
     ):
         self.session = requests.Session()
-        self.session.proxies = proxy or {}
+        self.proxy_list = proxy.split(",") if proxy else []
+        if len(self.proxy_list) == 0:
+            raise ValueError("at least have none proxy")
+        self.now_proxy_idx = 0
         self.cookieManager = CookieManager(cookies_config_path, cookies)
         self.headers = headers or {
             "accept": "*/*",

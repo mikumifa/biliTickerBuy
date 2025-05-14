@@ -5,10 +5,10 @@ import sys
 import time
 from datetime import datetime
 from json import JSONDecodeError
+from turtle import st
 from urllib.parse import urlencode
 
 import qrcode
-import retry
 from loguru import logger
 from playsound3 import playsound
 from requests import HTTPError, RequestException
@@ -39,6 +39,7 @@ def buy_stream(
     audio_path,
     pushplusToken,
     serverchanKey,
+    https_proxy: str = "none",
 ):
     if bili_ticket_gt_python is None:
         yield "当前设备不支持本地过验证码，无法使用"
@@ -48,17 +49,11 @@ def buy_stream(
     left_time = total_attempts
     tickets_info = json.loads(tickets_info_str)
     cookies = tickets_info["cookies"]
-    https_proxy = tickets_info.get("https_proxy", None)
     phone = tickets_info.get("phone", None)
     tickets_info.pop("cookies", None)
     tickets_info["buyer_info"] = json.dumps(tickets_info["buyer_info"])
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
-
-    if https_proxy:
-        yield f"使用代理: {https_proxy}"
-        _request = BiliRequest(cookies=cookies, proxy={"https": https_proxy})
-    else:
-        _request = BiliRequest(cookies=cookies)
+    _request = BiliRequest(cookies=cookies, proxy=https_proxy)
 
     token_payload = {
         "count": tickets_info["count"],
@@ -104,17 +99,19 @@ def buy_stream(
 
             if code == -401:
                 _url = "https://api.bilibili.com/x/gaia-vgate/v1/register"
-                _payload = urlencode(request_result["data"]["ga_data"]["riskParams"])
-                _data = _request.post(_url, _payload).json()
+                _data = _request.post(
+                    _url,
+                    urlencode(request_result["data"]["ga_data"]["riskParams"]),
+                ).json()
                 yield f"验证码请求: {_data}"
-                csrf = _request.cookieManager.get_cookies_value("bili_jct")
-                token = _data["data"]["token"]
+                csrf: str = _request.cookieManager.get_cookies_value("bili_jct")  # type: ignore
+                token: str = _data["data"]["token"]
 
                 if _data["data"]["type"] == "geetest":
                     gt = _data["data"]["geetest"]["gt"]
-                    challenge = _data["data"]["geetest"]["challenge"]
-                    geetest_validate = Amort.validate(gt=gt, challenge=challenge)
-                    geetest_seccode = geetest_validate + "|jordan"
+                    challenge: str = _data["data"]["geetest"]["challenge"]
+                    geetest_validate: str = Amort.validate(gt=gt, challenge=challenge)
+                    geetest_seccode: str = geetest_validate + "|jordan"
                     yield f"geetest_validate: {geetest_validate},geetest_seccode: {geetest_seccode}"
 
                     _url = "https://api.bilibili.com/x/gaia-vgate/v1/validate"

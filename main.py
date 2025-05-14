@@ -1,9 +1,15 @@
 import argparse
 import os
 
+import requests
+
 
 def get_env_default(key: str, default, cast_func):
     return cast_func(os.environ.get(f"BTB_{key}", default))
+
+
+def get_public_ip():
+    return requests.get("https://api.ipify.org").text
 
 
 def main():
@@ -62,7 +68,26 @@ def main():
         default=get_env_default("SHARE", False, lambda x: str(x).lower() == "true"),
         help="create a public link",
     )
-
+    # `--worker` 子命令
+    worker_parser = subparsers.add_parser("worker", help="Start the ticket worker ui")  # noqa: F841
+    worker_parser.add_argument(
+        "--master",
+        type=str,
+        default=os.environ.get("BTB_MASTER", ""),
+        help="master url, like http://127.0.0.1:7890",
+    )
+    worker_parser.add_argument(
+        "--self_ip",
+        type=str,
+        default=os.environ.get("BTB_SELF_IP", get_public_ip()),
+        help="the ip that master note can access, like 127.0.0.1",
+    )
+    worker_parser.add_argument(
+        "--https_proxys",
+        type=str,
+        default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
+        help="the ip that master note can access, like 127.0.0.1",
+    )
     parser.add_argument(
         "--port",
         type=int,
@@ -86,6 +111,10 @@ def main():
         from app_cmd.buy import buy_cmd
 
         buy_cmd(args=args)
+    elif args.command == "worker":
+        from app_cmd.worker import worker_cmd
+
+        worker_cmd(args=args)
     else:
         from app_cmd.ticker import ticker_cmd
 

@@ -1,5 +1,6 @@
+from collections import namedtuple
+from dataclasses import dataclass, field
 import os
-from pickle import TRUE
 import sys
 import loguru
 import importlib
@@ -64,6 +65,7 @@ __all__ = [
     "set_main_request",
     "time_service",
     "LOG_DIR",
+    "GlobalStatusInstance",
 ]
 loguru.logger.debug(
     f"设置路径, FILES_ROOT_PATH={FILES_ROOT_PATH} TEMP_PATH={TEMP_PATH} EXE_PATH={EXE_PATH}"
@@ -89,3 +91,14 @@ try:
 except Exception as e:
     logger.error(f"本地验证码模块加载失败，错误信息：{e}")
     logger.error("请更换设备")
+
+Endpoint = namedtuple("Endpoint", ["endpoint", "detail", "update_at"])
+
+
+@dataclass
+class GlobalStatus:
+    nowTask: str = "none"
+    endpoint_details: dict[str, Endpoint] = field(default_factory=dict)
+
+
+GlobalStatusInstance = GlobalStatus()
