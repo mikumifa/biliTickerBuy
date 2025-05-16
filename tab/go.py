@@ -130,7 +130,7 @@ def go_tab(demo: gr.Blocks):
             )
 
             def input_https_proxy(_https_proxy):
-                ConfigDB.update("https_proxy", _https_proxy)
+                ConfigDB.insert("https_proxy", _https_proxy)
                 return gr.update(ConfigDB.get("https_proxy"))
 
             https_proxy_ui.submit(
