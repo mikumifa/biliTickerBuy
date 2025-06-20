@@ -82,5 +82,8 @@ def buy_cmd(args: Namespace):
         args.pushplusToken,
         args.serverchanKey,
         args.https_proxys,
+        args.ntfy_url,
+        args.ntfy_username,
+        args.ntfy_password,
     )
     logger.info("抢票完成后退出程序。。。。。")

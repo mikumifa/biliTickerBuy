@@ -13,9 +13,9 @@ from loguru import logger
 from playsound3 import playsound
 from requests import HTTPError, RequestException
 
-from util import ERRNO_DICT, PushPlusUtil, ServerChanUtil, time_service
-from util.BiliRequest import BiliRequest
+from util import ERRNO_DICT, NtfyUtil, PushPlusUtil, ServerChanUtil, time_service
 from util import bili_ticket_gt_python
+from util.BiliRequest import BiliRequest
 
 if bili_ticket_gt_python is not None:
     Amort = importlib.import_module("geetest.TripleValidator").TripleValidator()
@@ -39,6 +39,9 @@ def buy_stream(
     pushplusToken,
     serverchanKey,
     https_proxys,
+    ntfy_url=None,
+    ntfy_username=None,
+    ntfy_password=None,
 ):
     if bili_ticket_gt_python is None:
         yield "当前设备不支持本地过验证码，无法使用"
@@ -218,6 +221,19 @@ def buy_stream(
                     ServerChanUtil.send_message(
                         serverchanKey, "抢票成功", "前往订单中心付款吧"
                     )
+                if ntfy_url:
+                    # 使用重复通知功能，每10秒发送一次，持续5分钟
+                    NtfyUtil.send_repeat_message(
+                        ntfy_url,
+                        "抢票成功，bilibili会员购，请尽快前往订单中心付款",
+                        title="Bili Ticket Payment Reminder",
+                        username=ntfy_username,
+                        password=ntfy_password,
+                        interval_seconds=15,
+                        duration_minutes=5,
+                    )
+                    yield "已启动重复通知，将每15秒发送一次提醒，持续5分钟"
+
                 if audio_path:
                     playsound(audio_path)
                 break
@@ -245,6 +261,9 @@ def buy(
     pushplusToken,
     serverchanKey,
     https_proxys,
+    ntfy_url=None,
+    ntfy_username=None,
+    ntfy_password=None,
 ):
     for msg in buy_stream(
         tickets_info_str,
@@ -256,6 +275,9 @@ def buy(
         pushplusToken,
         serverchanKey,
         https_proxys,
+        ntfy_url,
+        ntfy_username,
+        ntfy_password,
     ):
         logger.info(msg)
 
@@ -272,6 +294,9 @@ def buy_new_terminal(
     pushplusToken,
     serverchanKey,
     https_proxys,
+    ntfy_url=None,
+    ntfy_username=None,
+    ntfy_password=None,
     terminal_ui="网页",
 ) -> subprocess.Popen:
     command = [sys.executable]
@@ -294,6 +319,12 @@ def buy_new_terminal(
         command.extend(["--pushplusToken", pushplusToken])
     if serverchanKey:
         command.extend(["--serverchanKey", serverchanKey])
+    if ntfy_url:
+        command.extend(["--ntfy_url", ntfy_url])
+    if ntfy_username:
+        command.extend(["--ntfy_username", ntfy_username])
+    if ntfy_password:
+        command.extend(["--ntfy_password", ntfy_password])
     if https_proxys:
         command.extend(["--https_proxys", https_proxys])
     if terminal_ui:

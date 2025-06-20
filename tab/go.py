@@ -131,7 +131,7 @@ def go_tab(demo: gr.Blocks):
             )
 
             def input_https_proxy(_https_proxy):
-                ConfigDB.update("https_proxy", _https_proxy)
+                ConfigDB.insert("https_proxy", _https_proxy)
                 return gr.update(ConfigDB.get("https_proxy"))
 
             https_proxy_ui.submit(
@@ -147,7 +147,7 @@ def go_tab(demo: gr.Blocks):
                 """
                 🗨️ 抢票成功提醒
                 > 你需要去对应的网站获取key或token，然后填入下面的输入框
-                > [Server酱](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html)
+                > [Server酱](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html) | [ntfy](https://ntfy.sh/)
                 > 留空以不启用提醒功能
                 """
             )
@@ -170,15 +170,88 @@ def go_tab(demo: gr.Blocks):
                     info="https://www.pushplus.plus/",
                 )
 
+                ntfy_ui = gr.Textbox(
+                    value=ConfigDB.get("ntfyUrl")
+                    if ConfigDB.get("ntfyUrl") is not None
+                    else "",
+                    label="Ntfy服务器URL",
+                    interactive=True,
+                    info="例如: https://ntfy.sh/your-topic",
+                )
+
+                with gr.Accordion(label="Ntfy认证配置[可选]", open=False):
+                    with gr.Row():
+                        ntfy_username_ui = gr.Textbox(
+                            value=ConfigDB.get("ntfyUsername")
+                            if ConfigDB.get("ntfyUsername") is not None
+                            else "",
+                            label="Ntfy用户名",
+                            interactive=True,
+                            info="如果你的Ntfy服务器需要认证",
+                        )
+
+                        ntfy_password_ui = gr.Textbox(
+                            value=ConfigDB.get("ntfyPassword")
+                            if ConfigDB.get("ntfyPassword") is not None
+                            else "",
+                            label="Ntfy密码",
+                            interactive=True,
+                            type="password",
+                        )
+
+                    def test_ntfy_connection():
+                        url = ConfigDB.get("ntfyUrl")
+                        username = ConfigDB.get("ntfyUsername")
+                        password = ConfigDB.get("ntfyPassword")
+
+                        if not url:
+                            return "错误: 请先设置Ntfy服务器URL"
+
+                        from util import NtfyUtil
+
+                        success, message = NtfyUtil.test_connection(
+                            url, username, password
+                        )
+
+                        if success:
+                            return f"成功: {message}"
+                        else:
+                            return f"错误: {message}"
+
+                    test_ntfy_button = gr.Button("测试Ntfy连接")
+                    test_ntfy_result = gr.Textbox(label="测试结果", interactive=False)
+                    test_ntfy_button.click(
+                        fn=test_ntfy_connection, inputs=[], outputs=test_ntfy_result
+                    )
+
                 def inner_input_serverchan(x):
                     return ConfigDB.insert("serverchanKey", x)
 
                 def inner_input_pushplus(x):
                     return ConfigDB.insert("pushplusToken", x)
 
+                def inner_input_ntfy(x):
+                    return ConfigDB.insert("ntfyUrl", x)
+
+                def inner_input_ntfy_username(x):
+                    return ConfigDB.insert("ntfyUsername", x)
+
+                def inner_input_ntfy_password(x):
+                    return ConfigDB.insert("ntfyPassword", x)
+
                 serverchan_ui.change(fn=inner_input_serverchan, inputs=serverchan_ui)
 
                 pushplus_ui.change(fn=inner_input_pushplus, inputs=pushplus_ui)
+
+                ntfy_ui.change(fn=inner_input_ntfy, inputs=ntfy_ui)
+
+                ntfy_username_ui.change(
+                    fn=inner_input_ntfy_username, inputs=ntfy_username_ui
+                )
+
+                ntfy_password_ui.change(
+                    fn=inner_input_ntfy_password, inputs=ntfy_password_ui
+                )
 
         def choose_option(way):
             nonlocal select_way
@@ -280,6 +353,9 @@ def go_tab(demo: gr.Blocks):
                         "audio_path": audio_path,
                         "pushplusToken": ConfigDB.get("pushplusToken"),
                         "serverchanKey": ConfigDB.get("serverchanKey"),
+                        "ntfy_url": ConfigDB.get("ntfyUrl"),
+                        "ntfy_username": ConfigDB.get("ntfyUsername"),
+                        "ntfy_password": ConfigDB.get("ntfyPassword"),
                     },
                 )
                 endpoints_next_idx += 1
@@ -302,6 +378,9 @@ def go_tab(demo: gr.Blocks):
                     audio_path=audio_path,
                     pushplusToken=ConfigDB.get("pushplusToken"),
                     serverchanKey=ConfigDB.get("serverchanKey"),
+                    ntfy_url=ConfigDB.get("ntfyUrl"),
+                    ntfy_username=ConfigDB.get("ntfyUsername"),
+                    ntfy_password=ConfigDB.get("ntfyPassword"),
                     https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
                     terminal_ui=terminal_ui,
                 )
