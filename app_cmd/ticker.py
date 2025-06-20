@@ -21,7 +21,7 @@ def ticker_cmd(args: Namespace):
 
     with gr.Blocks(
         title="biliTickerBuy",
-        head="""<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>""",
+        # head="""<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>""",
     ) as demo:
         gr.Markdown(header)
         with gr.Tab("生成配置"):
@@ -34,7 +34,6 @@ def ticker_cmd(args: Namespace):
             problems_tab()
         with gr.Tab("日志查看"):
             log_tab()
-
     # 运行应用
 
     demo.launch(
