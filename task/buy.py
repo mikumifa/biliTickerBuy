@@ -7,6 +7,7 @@ from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
 
+from annotated_types import T
 import qrcode
 from loguru import logger
 from playsound3 import playsound
@@ -271,6 +272,7 @@ def buy_new_terminal(
     pushplusToken,
     serverchanKey,
     https_proxys,
+    terminal_ui="网页",
 ) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
@@ -294,7 +296,12 @@ def buy_new_terminal(
         command.extend(["--serverchanKey", serverchanKey])
     if https_proxys:
         command.extend(["--https_proxys", https_proxys])
+    if terminal_ui:
+        command.extend(["--terminal_ui", terminal_ui])
     command.extend(["--filename", filename])
     command.extend(["--endpoint_url", endpoint_url])
-    proc = subprocess.Popen(command)
+    if terminal_ui == "网页":
+        proc = subprocess.Popen(command)
+    else:
+        proc = subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
     return proc

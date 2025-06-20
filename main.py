@@ -67,6 +67,12 @@ def main():
         default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
         help="like none,http://127.0.0.1:8080",
     )
+    buy_parser.add_argument(
+        "--terminal_ui",
+        type=str,
+        default="网页",
+        help="server name",
+    )
     # `--worker` 子命令
     worker_parser = subparsers.add_parser("worker", help="Start the ticket worker ui")  # noqa: F841
     worker_parser.add_argument(
