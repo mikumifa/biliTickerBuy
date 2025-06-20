@@ -280,13 +280,16 @@ def add():
 def setting_tab():
     gr.Markdown("""
 > **必看**
->
+> 
 > 保证自己在抢票前，已经配置了地址和购买人信息(就算不需要也要提前填写) 如果没填，生成表单时候不会出现任何选项
 >
 > - 地址 ： 会员购中心->地址管理
 > - 购买人信息：会员购中心->购买人信息
 """)
     with gr.Column(variant="compact"):
+        gr.Markdown("""
+        > 如果遇到登录问题，请使用 https://mashir0-bilibili-qr-login.hf.space/
+        """)
         with gr.Row():
             username_ui = gr.Text(
                 main_request.get_request_name(),
