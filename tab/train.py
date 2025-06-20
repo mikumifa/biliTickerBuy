@@ -1,5 +1,5 @@
-from urllib.parse import urlencode
 import gradio as gr
+from loguru import logger
 from tab.go import ways_detail, ways
 from util import main_request
 
@@ -50,7 +50,8 @@ def train_tab():
             "csrf": test_csrf,
             "validate": test_geetest_validate,
         }
-        test_data = _request.post(_url, urlencode(_payload))
+        logger.info(_payload)
+        test_data = _request.post(_url, _payload)
         yield [
             gr.update(value=test_data.json()),
         ]
