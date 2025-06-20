@@ -15,8 +15,17 @@ class RepeatedNotifier(threading.Thread):
     后台通知发送线程类，用于重复发送ntfy通知
     """
 
-    def __init__(self, server_url, content, title=None, username=None, password=None,
-                 interval_seconds=10, duration_minutes=5, thread_id=None):
+    def __init__(
+        self,
+        server_url,
+        content,
+        title=None,
+        username=None,
+        password=None,
+        interval_seconds=10,
+        duration_minutes=5,
+        thread_id=None,
+    ):
         super().__init__()
         self.server_url = server_url
         self.content = content
@@ -47,13 +56,17 @@ class RepeatedNotifier(threading.Thread):
                 send_message(
                     self.server_url,
                     message,
-                    f"{self.title} ({count}/{self.duration_minutes * 60 // self.interval_seconds})" if self.title else None,
+                    f"{self.title} ({count}/{self.duration_minutes * 60 // self.interval_seconds})"
+                    if self.title
+                    else None,
                     self.username,
-                    self.password
+                    self.password,
                 )
 
                 # 等待指定的间隔时间或直到收到停止信号
-                for _ in range(int(self.interval_seconds * 10)):  # 分成更小的步骤检查停止事件
+                for _ in range(
+                    int(self.interval_seconds * 10)
+                ):  # 分成更小的步骤检查停止事件
                     if self.stop_event.is_set():
                         break
                     time.sleep(0.1)
@@ -89,7 +102,7 @@ def send_message(server_url, content, title=None, username=None, password=None):
         if title:
             # 如果标题不是ASCII字符，则使用一个英文标题
             try:
-                title.encode('ascii')
+                title.encode("ascii")
                 headers["Title"] = title
             except UnicodeEncodeError:
                 # 如果标题不是ASCII字符，则使用一个默认标题
@@ -101,7 +114,9 @@ def send_message(server_url, content, title=None, username=None, password=None):
             headers["Authorization"] = f"Basic {auth}"
 
         # 发送纯文本内容
-        response = requests.post(server_url, headers=headers, data=content.encode('utf-8'))
+        response = requests.post(
+            server_url, headers=headers, data=content.encode("utf-8")
+        )
         loguru.logger.info(f"Ntfy消息发送成功，状态码: {response.status_code}")
         return response
     except Exception as e:
@@ -109,8 +124,16 @@ def send_message(server_url, content, title=None, username=None, password=None):
         raise
 
 
-def send_repeat_message(server_url, content, title=None, username=None, password=None,
-                        interval_seconds=10, duration_minutes=5, thread_id=None):
+def send_repeat_message(
+    server_url,
+    content,
+    title=None,
+    username=None,
+    password=None,
+    interval_seconds=10,
+    duration_minutes=5,
+    thread_id=None,
+):
     """
     在后台线程中重复发送ntfy通知
 
@@ -134,8 +157,14 @@ def send_repeat_message(server_url, content, title=None, username=None, password
 
     # 创建新的通知线程
     notifier = RepeatedNotifier(
-        server_url, content, title, username, password,
-        interval_seconds, duration_minutes, thread_id
+        server_url,
+        content,
+        title,
+        username,
+        password,
+        interval_seconds,
+        duration_minutes,
+        thread_id,
     )
 
     # 存储线程引用
@@ -144,7 +173,9 @@ def send_repeat_message(server_url, content, title=None, username=None, password
 
     # 启动线程
     notifier.start()
-    loguru.logger.info(f"启动重复通知线程 {thread_id}，间隔{interval_seconds}秒，持续{duration_minutes}分钟")
+    loguru.logger.info(
+        f"启动重复通知线程 {thread_id}，间隔{interval_seconds}秒，持续{duration_minutes}分钟"
+    )
 
     return thread_id
 
@@ -193,14 +224,17 @@ def test_connection(server_url, username=None, password=None):
         response = requests.post(
             server_url,
             headers=headers,
-            data="这是一个测试连接消息，如果收到说明连接正常。".encode('utf-8'),
-            timeout=10
+            data="这是一个测试连接消息，如果收到说明连接正常。".encode("utf-8"),
+            timeout=10,
         )
 
         if response.status_code in [200, 201, 202]:
             return True, "测试连接成功，已发送测试消息"
         else:
-            return False, f"测试连接失败，状态码: {response.status_code}, 响应: {response.text}"
+            return (
+                False,
+                f"测试连接失败，状态码: {response.status_code}, 响应: {response.text}",
+            )
 
     except requests.RequestException as e:
         return False, f"连接失败: {str(e)}"

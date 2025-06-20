@@ -2,7 +2,7 @@ FROM python:3.12
 WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        curl tzdata libgl1 libglib2.0-0 && \
+    curl tzdata libgl1 libglib2.0-0 && \
     ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone && \
     apt-get clean && \
