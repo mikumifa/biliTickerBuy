@@ -73,7 +73,9 @@ loguru.logger.debug(
 )
 ConfigDB = KVDatabase(os.path.join(EXE_PATH, "config.json"))
 GLOBAL_COOKIE_PATH = os.path.join(EXE_PATH, "cookies.json")
-main_request = BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH)
+if ConfigDB.get("cookies_path") is None:
+    ConfigDB.insert("cookies_path", GLOBAL_COOKIE_PATH)
+main_request = BiliRequest(cookies_config_path=ConfigDB.get("cookies_path"))
 
 
 def set_main_request(request):

@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import shutil
 from datetime import datetime
 from typing import Any, Dict, List
 from urllib.parse import urlparse, parse_qs
@@ -11,7 +10,8 @@ from gradio_calendar import Calendar
 from loguru import logger
 
 from util.BiliRequest import BiliRequest
-from util import TEMP_PATH, GLOBAL_COOKIE_PATH, main_request, set_main_request
+from util import TEMP_PATH, GLOBAL_COOKIE_PATH, set_main_request, ConfigDB
+import util
 
 buyer_value: List[Dict[str, Any]] = []
 addr_value: List[Dict[str, Any]] = []
@@ -61,7 +61,7 @@ def on_submit_ticket_id(num):
             extracted_id_message = f"已提取URL票ID：{num}"
         else:
             raise gr.Error("输入无效，请输入一个有效的网址。", duration=5)
-        res = main_request.get(
+        res = util.main_request.get(
             url=f"https://show.bilibili.com/api/ticket/project/getV2?version=134&id={num}&project_id={num}"
         )
         ret = res.json()
@@ -71,7 +71,9 @@ def on_submit_ticket_id(num):
         if ret.get("errno", ret.get("code")) == 100001:
             raise gr.Error("输入无效，请输入一个有效的网址。", duration=5)
         elif ret.get("errno", ret.get("code")) != 0:
-            raise gr.Error(ret.get("msg", "未知错误") + "。", duration=5)
+            raise gr.Error(
+                ret.get("msg", ret.get("message", "未知错误")) + "。", duration=5
+            )
         data = ret["data"]
         ticket_str_list = []
 
@@ -93,13 +95,13 @@ def on_submit_ticket_id(num):
         for item in data["screen_list"]:
             item["project_id"] = data["id"]
         # 场贩
-        good_list = main_request.get(
+        good_list = util.main_request.get(
             url=f"https://show.bilibili.com/api/ticket/linkgoods/list?project_id={project_id}&page_type=0"
         )
         good_list = good_list.json()
         ids = [item["id"] for item in good_list["data"]["list"]]
         for id in ids:
-            good_detail = main_request.get(
+            good_detail = util.main_request.get(
                 url=f"https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={id}"
             )
             good_detail = good_detail.json()
@@ -134,11 +136,11 @@ def on_submit_ticket_id(num):
                     {"project_id": screen["project_id"], "ticket": ticket}
                 )
 
-        buyer_json = main_request.get(
+        buyer_json = util.main_request.get(
             url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={project_id}"
         ).json()
         logger.debug(buyer_json)
-        addr_json = main_request.get(
+        addr_json = util.main_request.get(
             url="https://show.bilibili.com/api/ticket/addr/list"
         ).json()
         logger.debug(addr_json)
@@ -186,18 +188,25 @@ def on_submit_all(
     address_index,
 ):
     try:
-        ticket_cur: dict[str, Any] = ticket_value[ticket_info]
-        people_cur = [buyer_value[item] for item in people_indices]
-        people_buyer_cur = buyer_value[people_buyer_index]
-        ticket_id = extract_id_from_url(ticket_id)
         if ticket_id is None:
             raise gr.Error("你所填不是网址，或者网址是错的", duration=5)
         if len(people_indices) == 0:
             raise gr.Error("至少选一个实名人", duration=5)
         if addr_value is None:
             raise gr.Error("没有填写地址", duration=5)
+        if ticket_info is None:
+            raise gr.Error("没有填写选票", duration=5)
+        if people_buyer_index is None:
+            raise gr.Error("没有填写联系人", duration=5)
+        if address_index is None:
+            raise gr.Error("没有填写地址", duration=5)
+        ticket_cur: dict[str, Any] = ticket_value[ticket_info]
+        people_cur = [buyer_value[item] for item in people_indices]
+        people_buyer_cur = buyer_value[people_buyer_index]
+        ticket_id = extract_id_from_url(ticket_id)
+
         address_cur = addr_value[address_index]
-        username = main_request.get_request_name()
+        username = util.main_request.get_request_name()
         detail = f"{username}-{project_name}-{ticket_str_list[ticket_info]}"
         for p in people_cur:
             detail += f"-{p['name']}"
@@ -222,8 +231,8 @@ def on_submit_all(
                 + address_cur["area"]
                 + address_cur["addr"],
             },
-            "cookies": main_request.cookieManager.get_cookies(),
-            "phone": main_request.cookieManager.get_config_value("phone", ""),
+            "cookies": util.main_request.cookieManager.get_cookies(),
+            "phone": util.main_request.cookieManager.get_config_value("phone", ""),
         }
         if "link_id" in ticket_cur["ticket"]:
             config_dir["link_id"] = ticket_cur["ticket"]["link_id"]
@@ -241,39 +250,38 @@ def on_submit_all(
 
 
 def upload_file(filepath):
-    gr.Info("已经注销，请选择登录信息文件", duration=5)
     try:
-        shutil.copy2(GLOBAL_COOKIE_PATH, filepath)
-        set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
-        name = main_request.get_request_name()
+        ConfigDB.update("cookies_path", filepath)
+        set_main_request(BiliRequest(cookies_config_path=ConfigDB.get("cookies_path")))
+        name = util.main_request.get_request_name()
         gr.Info("导入成功", duration=5)
         yield [
             gr.update(value=name),
-            gr.update(value=GLOBAL_COOKIE_PATH),
+            gr.update(value=ConfigDB.get("cookies_path")),
         ]
     except Exception as e:
-        name = main_request.get_request_name()
+        name = util.main_request.get_request_name()
         logger.exception(e)
         raise gr.Error("登录出现错误", duration=5)
 
 
 def add():
-    main_request.cookieManager.db.delete("cookie")
+    util.main_request.cookieManager.db.delete("cookie")
     gr.Info("已经注销，将打开浏览器，请在浏览器里面重新登录", duration=5)
     yield [
         gr.update(value="未登录"),
         gr.update(value=GLOBAL_COOKIE_PATH),
     ]
     try:
-        main_request.cookieManager.get_cookies_str_force()
-        name = main_request.get_request_name()
+        util.main_request.cookieManager.get_cookies_str_force()
+        name = util.main_request.get_request_name()
         gr.Info("登录成功", duration=5)
         yield [
             gr.update(value=name),
             gr.update(value=GLOBAL_COOKIE_PATH),
         ]
     except Exception:
-        name = main_request.get_request_name()
+        name = util.main_request.get_request_name()
         raise gr.Error("登录出现错误", duration=5)
 
 
@@ -292,7 +300,7 @@ def setting_tab():
         """)
         with gr.Row():
             username_ui = gr.Text(
-                main_request.get_request_name(),
+                util.main_request.get_request_name(),
                 label="账号名称",
                 interactive=False,
                 info="输入配置文件使用的账号名称",
@@ -315,11 +323,11 @@ def setting_tab():
         phone_gate_ui = gr.Textbox(
             label="填写你的当前账号所绑定的手机号",
             info="手机号验证出现概率极低，可不填",
-            value=main_request.cookieManager.get_config_value("phone", ""),
+            value=util.main_request.cookieManager.get_config_value("phone", ""),
         )
 
         def input_phone(_phone):
-            main_request.cookieManager.set_config_value("phone", _phone)
+            util.main_request.cookieManager.set_config_value("phone", _phone)
 
         phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
 
@@ -403,7 +411,7 @@ def setting_tab():
             global ticket_value
 
             try:
-                ticket_that_day = main_request.get(
+                ticket_that_day = util.main_request.get(
                     url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={_date}"
                 ).json()["data"]
                 ticket_str_list = []
