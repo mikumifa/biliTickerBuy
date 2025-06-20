@@ -6,7 +6,7 @@ import loguru
 import requests
 
 # 维护所有运行中的通知线程
-_active_notification_threads = {}
+_active_notification_threads = {}  # type: ignore
 _thread_lock = threading.Lock()
 
 

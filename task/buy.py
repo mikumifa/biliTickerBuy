@@ -7,7 +7,6 @@ from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
 
-from annotated_types import T
 import qrcode
 from loguru import logger
 from playsound3 import playsound
