@@ -39,7 +39,9 @@ def go_tab(demo: gr.Blocks):
                 label="上传多个配置文件，点击不同的配置文件可快速切换",
                 file_count="multiple",
             )
-            ticket_ui = gr.TextArea(label="查看", info="配置信息", interactive=False)
+            ticket_ui = gr.TextArea(
+                label="查看", info="只能通过上传文件方式上传信息", interactive=False
+            )
         with gr.Row(variant="compact"):
             gr.HTML(
                 """
@@ -56,7 +58,6 @@ def go_tab(demo: gr.Blocks):
                 </div>
                 """,
                 label="选择抢票的时间",
-                show_label=True,
             )
 
         def upload(filepath):
@@ -430,9 +431,7 @@ def go_tab(demo: gr.Blocks):
     @gr.render(inputs=timer)
     def show_split(text):
         endpoints = GlobalStatusInstance.available_endpoints()
-        if len(endpoints) == 0:
-            gr.Markdown("## 无运行终端")
-        else:
+        if len(endpoints) != 0:
             gr.Markdown("## 当前运行终端列表")
             for endpoint in endpoints:
                 with gr.Row():

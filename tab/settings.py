@@ -338,7 +338,8 @@ def setting_tab():
         ticket_id_ui = gr.Textbox(
             label="想要抢票的网址",
             interactive=True,
-            info="https://show.bilibili.com/platform/detail.html?id=84096或者https://mall.bilibili.com/mall-dayu/neul-next/ticket/detail.html?id=97701",
+            info="""形如 https://show.bilibili.com/platform/detail.html?id=84096
+                    或者 https://mall.bilibili.com/mall-dayu/neul-next/ticket/detail.html?id=97701""",
         )
         ticket_id_btn = gr.Button("获取票信息")
         with gr.Column(visible=False) as inner:
