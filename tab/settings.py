@@ -96,19 +96,20 @@ def on_submit_ticket_id(num):
             item["project_id"] = data["id"]
         # 场贩
         good_list = util.main_request.get(
-            url=f"https://show.bilibili.com/api/ticket/linkgoods/list?project_id={project_id}&page_type=0"
+            # url=f"https://show.bilibili.com/api/ticket/linkgoods/list?project_id={project_id}&page_type=0"
+            url=f"https://show.bilibili.com/api/ticket/project/getV2?id={project_id}&project_id={project_id}"
         )
         good_list = good_list.json()
-        ids = [item["id"] for item in good_list["data"]["list"]]
-        for id in ids:
-            good_detail = util.main_request.get(
-                url=f"https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={id}"
-            )
-            good_detail = good_detail.json()
-            for item in good_detail["data"]["specs_list"]:
-                item["project_id"] = good_detail["data"]["item_id"]
-                item["link_id"] = id
-            data["screen_list"] += good_detail["data"]["specs_list"]
+        # ids = [item["id"] for item in good_list["data"]["list"]]
+        # for id in ids:
+        #     good_detail = util.main_request.get(
+        #         url=f"https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={id}"
+        #     )
+        #     good_detail = good_detail.json()
+        #     for item in good_detail["data"]["specs_list"]:
+        #         item["project_id"] = good_detail["data"]["item_id"]
+        #         item["link_id"] = id
+        #     data["screen_list"] += good_detail["data"]["specs_list"]
         for screen in data["screen_list"]:
             screen_name = screen["name"]
             screen_id = screen["id"]
