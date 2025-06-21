@@ -3,7 +3,7 @@ import time
 import loguru
 import requests
 from util.CookieManager import CookieManager
-
+from util.RandomUA import get_global_ua
 
 class BiliRequest:
     def __init__(
@@ -22,7 +22,7 @@ class BiliRequest:
             "cookie": "",
             "referer": "https://show.bilibili.com/",
             "priority": "u=1, i",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
+            "User-Agent": get_global_ua(),
         }
         self.request_count = 0  # 记录请求次数
 
