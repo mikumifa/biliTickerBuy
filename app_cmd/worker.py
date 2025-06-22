@@ -25,7 +25,6 @@ def worker_cmd(args: Namespace):
     log_file = loguru_config(
         LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False, file_colorize=True
     )
-    import os
     import gradio_client
     import gradio as gr
     from gradio_log import Log

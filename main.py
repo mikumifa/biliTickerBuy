@@ -74,12 +74,6 @@ def main():
         help="filename (optional).",
     )
     buy_parser.add_argument(
-        "--share",
-        type=lambda x: x.lower() == "true",
-        default=get_env_default("SHARE", False, lambda x: str(x).lower() == "true"),
-        help="create a public link",
-    )
-    buy_parser.add_argument(
         "--https_proxys",
         type=str,
         default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
@@ -123,7 +117,7 @@ def main():
     )
     parser.add_argument(
         "--share",
-        type=lambda x: x.lower() == "true",
+        action="store_true",
         default=get_env_default("SHARE", False, lambda x: str(x).lower() == "true"),
         help="create a public link",
     )
