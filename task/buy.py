@@ -13,6 +13,7 @@ from playsound3 import playsound
 from requests import HTTPError, RequestException
 
 from util import ERRNO_DICT, NtfyUtil, PushPlusUtil, ServerChanUtil, time_service
+from util.Notifier import NotifierManager
 from util import bili_ticket_gt_python
 from util.BiliRequest import BiliRequest
 
@@ -202,6 +203,36 @@ def buy_stream(
 
             request_result, errno = result
             if errno == 0:
+
+                notifierManager = NotifierManager()
+                if pushplusToken:
+                    notifierManager.regiseter_notifier(
+                        "PushPlusNotifier",
+                        PushPlusUtil.PushPlusNotifier(
+                            pushplusToken, "抢票成功", "前往订单中心付款吧"
+                        )
+                    )
+                if serverchanKey:
+                    notifierManager.regiseter_notifier(
+                        "ServerChanNotifier", 
+                        ServerChanUtil.ServerChanNotifier(
+                            serverchanKey, "抢票成功", "前往订单中心付款吧"
+                        )
+                    )
+                if ntfy_url:
+                    # 使用重复通知功能，每10秒发送一次，持续5分钟
+                    NtfyUtil.send_repeat_message(
+                       ntfy_url,
+                        "抢票成功，bilibili会员购，请尽快前往订单中心付款",
+                        title="Bili Ticket Payment Reminder",
+                        username=ntfy_username,
+                        password=ntfy_password,
+                        interval_seconds=15,
+                        duration_minutes=5,
+                    )
+                    yield "已启动重复通知，将每15秒发送一次提醒，持续5分钟"
+                notifierManager.start_all()
+                
                 yield "3）抢票成功，弹出付款二维码"
                 qrcode_url = get_qrcode_url(
                     _request,
@@ -212,27 +243,6 @@ def buy_stream(
                 qr_gen.make(fit=True)
                 qr_gen_image = qr_gen.make_image()
                 qr_gen_image.show()  # type: ignore
-                if pushplusToken:
-                    PushPlusUtil.send_message(
-                        pushplusToken, "抢票成功", "前往订单中心付款吧"
-                    )
-                if serverchanKey:
-                    ServerChanUtil.send_message(
-                        serverchanKey, "抢票成功", "前往订单中心付款吧"
-                    )
-                if ntfy_url:
-                    # 使用重复通知功能，每10秒发送一次，持续5分钟
-                    NtfyUtil.send_repeat_message(
-                        ntfy_url,
-                        "抢票成功，bilibili会员购，请尽快前往订单中心付款",
-                        title="Bili Ticket Payment Reminder",
-                        username=ntfy_username,
-                        password=ntfy_password,
-                        interval_seconds=15,
-                        duration_minutes=5,
-                    )
-                    yield "已启动重复通知，将每15秒发送一次提醒，持续5分钟"
-
                 if audio_path:
                     playsound(audio_path)
                 break
