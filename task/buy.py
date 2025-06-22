@@ -50,6 +50,7 @@ def buy_stream(
     isRunning = True
     left_time = total_attempts
     tickets_info = json.loads(tickets_info_str)
+    detail = tickets_info["detail"]
     cookies = tickets_info["cookies"]
     phone = tickets_info.get("phone", None)
     tickets_info.pop("cookies", None)
@@ -203,27 +204,26 @@ def buy_stream(
 
             request_result, errno = result
             if errno == 0:
-
                 notifierManager = NotifierManager()
                 if pushplusToken:
                     notifierManager.regiseter_notifier(
                         "PushPlusNotifier",
                         PushPlusUtil.PushPlusNotifier(
-                            pushplusToken, "抢票成功", "前往订单中心付款吧"
-                        )
+                            pushplusToken, "抢票成功", f"前往订单中心付款吧: {detail}"
+                        ),
                     )
                 if serverchanKey:
                     notifierManager.regiseter_notifier(
-                        "ServerChanNotifier", 
+                        "ServerChanNotifier",
                         ServerChanUtil.ServerChanNotifier(
-                            serverchanKey, "抢票成功", "前往订单中心付款吧"
-                        )
+                            serverchanKey, "抢票成功", f"前往订单中心付款吧: {detail}"
+                        ),
                     )
                 if ntfy_url:
                     # 使用重复通知功能，每10秒发送一次，持续5分钟
                     NtfyUtil.send_repeat_message(
-                       ntfy_url,
-                        "抢票成功，bilibili会员购，请尽快前往订单中心付款",
+                        ntfy_url,
+                        f"抢票成功，bilibili会员购，请尽快前往订单中心付款: {detail}",
                         title="Bili Ticket Payment Reminder",
                         username=ntfy_username,
                         password=ntfy_password,
@@ -232,7 +232,7 @@ def buy_stream(
                     )
                     yield "已启动重复通知，将每15秒发送一次提醒，持续5分钟"
                 notifierManager.start_all()
-                
+
                 yield "3）抢票成功，弹出付款二维码"
                 qrcode_url = get_qrcode_url(
                     _request,
