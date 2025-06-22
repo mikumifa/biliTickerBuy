@@ -138,6 +138,42 @@ def go_tab(demo: gr.Blocks):
             https_proxy_ui.submit(
                 fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
             )
+            
+            # 代理连通性测试功能
+            with gr.Row():
+                test_proxy_btn = gr.Button("🔍 测试代理连通性")
+                test_timeout_ui = gr.Number(
+                    label="测试代理超时时间(秒)", 
+                    value=10, 
+                    minimum=5, 
+                    maximum=60,
+                    step=1
+                )
+            
+            test_result_ui = gr.Textbox(
+                label="测试结果",
+                lines=10,
+                max_lines=15,
+                interactive=False,
+                placeholder="点击上方按钮开始测试代理连通性..."
+            )
+            
+            def test_proxy_connectivity(proxy_string, timeout):
+                """测试代理连通性"""
+                try:
+                    from util.ProxyTester import test_proxy_connectivity
+                    if not proxy_string or proxy_string.strip() == "":
+                        proxy_string = "none"  # 测试直连
+                    result = test_proxy_connectivity(proxy_string, int(timeout))
+                    return result
+                except Exception as e:
+                    return f"❌ 测试过程中发生错误: {str(e)}"
+             
+            test_proxy_btn.click(
+                fn=test_proxy_connectivity,
+                inputs=[https_proxy_ui, test_timeout_ui],
+                outputs=test_result_ui
+            )
         with gr.Accordion(label="配置抢票声音提醒[可选]", open=False):
             with gr.Row():
                 audio_path_ui = gr.Audio(
