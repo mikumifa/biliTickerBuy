@@ -1,15 +1,23 @@
 import json
-
-import loguru
 import requests
 
+from util.Notifier import NotifierBase
 
-def send_message(token, desp, title):
-    try:
-        url = f"https://sctapi.ftqq.com/{token}.send"
+class ServerChanNotifier(NotifierBase):
+    def __init__(
+        self,
+        token,
+        title,
+        content,
+        interval_seconds=10,
+        duration_minutes=10
+    ):
+        super().__init__(title, content, interval_seconds, duration_minutes)
+        self.token = token
+
+    def send_message(self, title, message):
+        url = f"https://sctapi.ftqq.com/{self.token}.send"
         headers = {"Content-Type": "application/json"}
 
-        data = {"desp": desp, "title": title}
+        data = {"desp": message, "title": title}
         requests.post(url, headers=headers, data=json.dumps(data))
-    except Exception as e:
-        loguru.logger.info("ServerChan消息发送失败")
