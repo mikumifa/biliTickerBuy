@@ -286,167 +286,172 @@ def add():
 
 
 def setting_tab():
-    gr.Markdown("""
-> **必看**
-> 
-> 保证自己在抢票前，已经配置了地址和购买人信息(就算不需要也要提前填写) 如果没填，生成表单时候不会出现任何选项
->
-> - 地址 ： 会员购中心->地址管理
-> - 购买人信息：会员购中心->购买人信息
-""")
-    with gr.Column(variant="compact"):
-        gr.Markdown("""
-        > 如果遇到登录问题，请使用 https://mashir0-bilibili-qr-login.hf.space/
-        """)
-        with gr.Row():
-            username_ui = gr.Text(
-                util.main_request.get_request_name(),
-                label="账号名称",
-                interactive=False,
-                info="输入配置文件使用的账号名称",
-                scale=5,
-            )
-            gr_file_ui = gr.File(
-                label="当前登录信息文件", value=GLOBAL_COOKIE_PATH, scale=1
-            )
-        with gr.Row():
-            upload_ui = gr.UploadButton(label="导入")
-            add_btn = gr.Button(
-                "登录",
-            )
+    with gr.Column(elem_classes="!gap-4"):
+        # 顶部提示卡片
+        with gr.Column(elem_classes="!bg-yellow-100 !p-4 !rounded-xl !shadow-md"):
+            gr.Markdown("""
+            ### ⚠️ 使用前必读
+            请确保在抢票前已完成以下配置：
+            - **收货地址**：会员购中心 → 地址管理
+            - **购买人信息**：会员购中心 → 购买人信息
+            > 即使暂时不需要，也请提前填写。否则生成表单时将没有任何选项。
+            """)
 
-            upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
-
-            add_btn.click(fn=add, inputs=None, outputs=[username_ui, gr_file_ui])
-
-    with gr.Accordion(label="填写你的当前账号所绑定的手机号[可选]", open=False):
-        phone_gate_ui = gr.Textbox(
-            label="填写你的当前账号所绑定的手机号",
-            info="手机号验证出现概率极低，可不填",
-            value=util.main_request.cookieManager.get_config_value("phone", ""),
-        )
-
-        def input_phone(_phone):
-            util.main_request.cookieManager.set_config_value("phone", _phone)
-
-        phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
-
-    with gr.Column(variant="compact"):
-        info_ui = gr.TextArea(
-            info="票务信息", label="配置票的信息", interactive=False, visible=False
-        )
-        ticket_id_ui = gr.Textbox(
-            label="想要抢票的网址",
-            interactive=True,
-            info="""形如 https://show.bilibili.com/platform/detail.html?id=84096
-                    或者 https://mall.bilibili.com/mall-dayu/neul-next/ticket/detail.html?id=97701""",
-        )
-        ticket_id_btn = gr.Button("获取票信息")
-        with gr.Column(visible=False) as inner:
+        # 登录信息卡片
+        with gr.Column(elem_classes="!bg-white !p-4 !rounded-xl !shadow-md"):
+            gr.Markdown("""
+            如果遇到登录问题，请使用 [备用登录入口](https://login.bilibili.bi//)
+            """)
             with gr.Row():
-                ticket_info_ui = gr.Dropdown(
-                    label="选票",
-                    interactive=True,
-                    type="index",
-                    info="必填，请仔细核对起售时间，千万别选错其他时间点的票",
+                username_ui = gr.Text(
+                    util.main_request.get_request_name(),
+                    label="账号名称",
+                    interactive=False,
+                    info="输入配置文件使用的账号名称",
+                    scale=5,
                 )
-                data_ui = Calendar(
-                    type="string",
-                    label="选择日期",
-                    info="此票需要你选择的时间,时间是否有效请自行判断",
-                    interactive=True,
+                gr_file_ui = gr.File(
+                    label="当前登录信息文件", value=GLOBAL_COOKIE_PATH, scale=1
                 )
             with gr.Row():
-                people_buyer_ui = gr.Dropdown(
-                    label="联系人",
-                    interactive=True,
-                    type="index",
-                    info="必填，如果候选项为空请到「购票人信息」添加",
-                )
-                address_ui = gr.Dropdown(
-                    label="地址",
-                    interactive=True,
-                    type="index",
-                    info="必填，如果候选项为空请到「地址管理」添加",
-                )
-            people_ui = gr.CheckboxGroup(
-                label="身份证实名认证",
+                upload_ui = gr.UploadButton(label="导入")
+                add_btn = gr.Button("登录")
+                upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
+                add_btn.click(fn=add, inputs=None, outputs=[username_ui, gr_file_ui])
+
+        # 手机号输入卡片
+        with gr.Accordion(label="填写你的当前账号所绑定的手机号[可选]", open=False):
+            phone_gate_ui = gr.Textbox(
+                label="填写你的当前账号所绑定的手机号",
+                info="手机号验证出现概率极低，可不填",
+                value=util.main_request.cookieManager.get_config_value("phone", ""),
+            )
+
+            def input_phone(_phone):
+                util.main_request.cookieManager.set_config_value("phone", _phone)
+
+            phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
+
+        # 抢票信息卡片
+        with gr.Column(elem_classes="!bg-white !p-4 !rounded-xl !shadow-md !gap-2"):
+            info_ui = gr.TextArea(
+                info="票务信息", label="配置票的信息", interactive=False, visible=False
+            )
+            ticket_id_ui = gr.Textbox(
+                label="想要抢票的网址",
                 interactive=True,
-                type="index",
-                info="必填，选几个就代表买几个人的票，在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
+                info="形如 https://show.bilibili.com/platform/detail.html?id=84096",
             )
-            config_btn = gr.Button("生成配置")
-            config_file_ui = gr.File(visible=False)
-            config_output_ui = gr.JSON(
-                label="生成配置文件（右上角复制）",
-                visible=False,
-            )
-            config_btn.click(
-                fn=on_submit_all,
-                inputs=[
-                    ticket_id_ui,
+            ticket_id_btn = gr.Button("获取票信息")
+
+            with gr.Column(visible=False, elem_id="ticket-detail") as inner:
+                with gr.Row():
+                    ticket_info_ui = gr.Dropdown(
+                        label="选票",
+                        interactive=True,
+                        type="index",
+                        info="必填，请仔细核对起售时间，千万别选错其他时间点的票",
+                    )
+                    data_ui = Calendar(
+                        type="string",
+                        label="选择日期",
+                        info="此票需要你选择的时间,时间是否有效请自行判断",
+                        interactive=True,
+                    )
+
+                with gr.Row():
+                    people_buyer_ui = gr.Dropdown(
+                        label="联系人",
+                        interactive=True,
+                        type="index",
+                        info="必填，如果候选项为空请到「购票人信息」添加",
+                    )
+                    address_ui = gr.Dropdown(
+                        label="地址",
+                        interactive=True,
+                        type="index",
+                        info="必填，如果候选项为空请到「地址管理」添加",
+                    )
+
+                people_ui = gr.CheckboxGroup(
+                    label="身份证实名认证",
+                    interactive=True,
+                    type="index",
+                    info="必填，选几个就代表买几个人的票，在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
+                )
+
+                config_btn = gr.Button("生成配置")
+                config_file_ui = gr.File(visible=False)
+                config_output_ui = gr.JSON(
+                    label="生成配置文件（右上角复制）", visible=False
+                )
+
+                config_btn.click(
+                    fn=on_submit_all,
+                    inputs=[
+                        ticket_id_ui,
+                        ticket_info_ui,
+                        people_ui,
+                        people_buyer_ui,
+                        address_ui,
+                    ],
+                    outputs=[config_output_ui, config_file_ui],
+                )
+
+            ticket_id_btn.click(
+                fn=on_submit_ticket_id,
+                inputs=ticket_id_ui,
+                outputs=[
                     ticket_info_ui,
                     people_ui,
                     people_buyer_ui,
                     address_ui,
+                    inner,
+                    info_ui,
+                    data_ui,
                 ],
-                outputs=[config_output_ui, config_file_ui],
             )
 
-        ticket_id_btn.click(
-            fn=on_submit_ticket_id,
-            inputs=ticket_id_ui,
-            outputs=[
-                ticket_info_ui,
-                people_ui,
-                people_buyer_ui,
-                address_ui,
-                inner,
-                info_ui,
-                data_ui,
-            ],
-        )
+            def on_submit_data(_date):
+                global ticket_str_list
+                global ticket_value
 
-        def on_submit_data(_date):
-            global ticket_str_list
-            global ticket_value
+                try:
+                    ticket_that_day = util.main_request.get(
+                        url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={_date}"
+                    ).json()["data"]
+                    ticket_str_list = []
+                    ticket_value = []
+                    for screen in ticket_that_day["screen_list"]:
+                        screen_name = screen["name"]
+                        screen_id = screen["id"]
+                        express_fee = screen["express_fee"]
+                        for ticket in screen["ticket_list"]:
+                            ticket_desc = ticket["desc"]
+                            sale_start = ticket["sale_start"]
+                            ticket_price = ticket["price"] + express_fee
+                            ticket["price"] = ticket_price
+                            ticket["screen"] = screen_name
+                            ticket["screen_id"] = screen_id
+                            ticket_can_buy = (
+                                "可购买" if ticket["clickable"] else "不可购买"
+                            )
+                            ticket_str = f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy} - 【起售时间：{sale_start}】"
+                            ticket_str_list.append(ticket_str)
+                            ticket_value.append(
+                                {"project_id": project_id, "ticket": ticket}
+                            )
 
-            try:
-                ticket_that_day = util.main_request.get(
-                    url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={_date}"
-                ).json()["data"]
-                ticket_str_list = []
-                ticket_value = []
-                for screen in ticket_that_day["screen_list"]:
-                    screen_name = screen["name"]
-                    screen_id = screen["id"]
-                    express_fee = screen["express_fee"]
-                    for ticket in screen["ticket_list"]:
-                        ticket_desc = ticket["desc"]
-                        sale_start = ticket["sale_start"]
-                        ticket["price"] = ticket_price = ticket["price"] + express_fee
-                        ticket["screen"] = screen_name
-                        ticket["screen_id"] = screen_id
-                        ticket_can_buy = "可购买" if ticket["clickable"] else "不可购买"
-                        ticket_str = (
-                            f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy}"
-                            f" - 【起售时间：{sale_start}】"
-                        )
-                        ticket_str_list.append(ticket_str)
-                        ticket_value.append(
-                            {"project_id": project_id, "ticket": ticket}
-                        )
+                    return [
+                        gr.update(value=_date, visible=True),
+                        gr.update(choices=ticket_str_list),
+                        gr.update(value=f"当前票日期更新为: {_date}"),
+                    ]
+                except Exception as e:
+                    return [gr.update(), gr.update(), gr.update(value=e, visible=True)]
 
-                return [
-                    gr.update(value=_date, visible=True),
-                    gr.update(choices=ticket_str_list),
-                    gr.update(value=f"当前票日期更新为: {_date}"),
-                ]
-            except Exception as e:
-                return [gr.update(), gr.update(), gr.update(value=e, visible=True)]
-
-        data_ui.change(
-            fn=on_submit_data,
-            inputs=data_ui,
-            outputs=[data_ui, ticket_info_ui, info_ui],
-        )
+            data_ui.change(
+                fn=on_submit_data,
+                inputs=data_ui,
+                outputs=[data_ui, ticket_info_ui, info_ui],
+            )
