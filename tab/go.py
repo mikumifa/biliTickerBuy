@@ -45,18 +45,23 @@ def go_tab(demo: gr.Blocks):
         with gr.Row(variant="compact"):
             gr.HTML(
                 """
-                    <div class="text-pink-100">
-                        程序已经提前帮你校准时间，设置成开票时间即可。请勿设置成开票前的时间。在开票前抢票会短暂封号
-                    </div>
-                    <input 
-                        type="datetime-local" 
-                        id="datetime" 
-                        name="datetime" 
-                        step="1" 
-                        class="border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                </div>
-                """,
+            <div class="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
+                <p class="text-red-600 font-medium mb-2">
+                    程序已经提前帮你校准时间，<strong>请设置成开票时间</strong>。切勿设置为开票前时间，
+                    否则<strong>有封号风险</strong>！
+                </p>
+                <label for="datetime" class="block text-gray-700 font-semibold mb-1">选择抢票时间（精确到秒）</label>
+                <input 
+                    type="datetime-local" 
+                    id="datetime" 
+                    name="datetime" 
+                    step="1"
+                    class="w-full border border-gray-300 rounded-lg p-2 shadow-sm 
+                        focus:outline-none focus:ring-2 focus:ring-blue-400 
+                        hover:border-blue-400 transition-all"
+                >
+            </div>
+            """,
                 label="选择抢票的时间",
             )
 

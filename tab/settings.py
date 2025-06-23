@@ -288,20 +288,32 @@ def add():
 def setting_tab():
     with gr.Column(elem_classes="!gap-4"):
         # 顶部提示卡片
-        with gr.Column(elem_classes="!bg-yellow-100 !p-4 !rounded-xl !shadow-md"):
-            gr.Markdown("""
+        with gr.Column():
+            gr.Markdown(
+                """
             ### ⚠️ 使用前必读
             请确保在抢票前已完成以下配置：
             - **收货地址**：会员购中心 → 地址管理
             - **购买人信息**：会员购中心 → 购买人信息
             > 即使暂时不需要，也请提前填写。否则生成表单时将没有任何选项。
-            """)
+            """,
+                elem_classes="dark:!bg-grey-100 !p-4 !rounded-xl !shadow-md",
+            )
 
         # 登录信息卡片
-        with gr.Column(elem_classes="!bg-white !p-4 !rounded-xl !shadow-md"):
-            gr.Markdown("""
-            如果遇到登录问题，请使用 [备用登录入口](https://login.bilibili.bi//)
-            """)
+        with gr.Column(
+            elem_classes="!bg-sky-50 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-sky-200 dark:!border-gray-700 !shadow-sm !gap-3"
+        ):
+            gr.Markdown(
+                """
+                <span class="text-blue-700 dark:text-blue-200 font-medium">
+                    如果遇到登录问题，请使用 
+                    <a href="https://login.bilibili.bi/" class="underline text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100" target="_blank">备用登录入口</a>
+                </span>
+                """,
+                elem_classes="!text-sm",
+            )
+
             with gr.Row():
                 username_ui = gr.Text(
                     util.main_request.get_request_name(),
@@ -313,9 +325,16 @@ def setting_tab():
                 gr_file_ui = gr.File(
                     label="当前登录信息文件", value=GLOBAL_COOKIE_PATH, scale=1
                 )
+
             with gr.Row():
-                upload_ui = gr.UploadButton(label="导入")
-                add_btn = gr.Button("登录")
+                upload_ui = gr.UploadButton(
+                    label="导入",
+                    elem_classes="!bg-white dark:!bg-gray-700 !rounded-md !shadow-sm  dark:!text-white",
+                )
+                add_btn = gr.Button(
+                    "登录",
+                    elem_classes="!bg-blue-500 dark:!bg-blue-600 !rounded-md !hover:bg-blue-600 dark:hover:!bg-blue-400 !transition",
+                )
                 upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
                 add_btn.click(fn=add, inputs=None, outputs=[username_ui, gr_file_ui])
 
@@ -333,7 +352,9 @@ def setting_tab():
             phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
 
         # 抢票信息卡片
-        with gr.Column(elem_classes="!bg-white !p-4 !rounded-xl !shadow-md !gap-2"):
+        with gr.Column(
+            elem_classes="!bg-sky-50 dark:!bg-gray-800  !p-4 !rounded-xl !shadow-md !gap-2"
+        ):
             info_ui = gr.TextArea(
                 info="票务信息", label="配置票的信息", interactive=False, visible=False
             )
@@ -359,7 +380,7 @@ def setting_tab():
                         interactive=True,
                     )
 
-                with gr.Row():
+                with gr.Row(elem_classes="!gap-2"):
                     people_buyer_ui = gr.Dropdown(
                         label="联系人",
                         interactive=True,
@@ -372,7 +393,6 @@ def setting_tab():
                         type="index",
                         info="必填，如果候选项为空请到「地址管理」添加",
                     )
-
                 people_ui = gr.CheckboxGroup(
                     label="身份证实名认证",
                     interactive=True,
