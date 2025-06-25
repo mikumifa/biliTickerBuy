@@ -9,7 +9,6 @@ def get_env_default(key: str, default, cast_func):
 def main():
     parser = argparse.ArgumentParser(description="Ticket Purchase Tool or Gradio UI")
     subparsers = parser.add_subparsers(dest="command")
-    # `--buy` 子命令
     buy_parser = subparsers.add_parser("buy", help="Start the ticket buying ui")
     buy_parser.add_argument(
         "tickets_info_str", type=str, help="Ticket information in string format."
