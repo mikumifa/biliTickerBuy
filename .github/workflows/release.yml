@@ -3,16 +3,16 @@ name: Python Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 permissions:
   contents: write
   discussions: write
 
 env:
-  WEBDAV_URL: ${{ vars.WEBDAV_URL }}
-  WEBDAV_USERNAME: ${{ vars.WEBDAV_USERNAME }}
-  WEBDAV_PASSWORD: ${{ vars.WEBDAV_PASSWORD }}
+  WEBDAV_URL: ${{ secrets.WEBDAV_URL }}
+  WEBDAV_USERNAME: ${{ secrets.WEBDAV_USERNAME }}
+  WEBDAV_PASSWORD: ${{ secrets.WEBDAV_PASSWORD }}
 
 #https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners
 jobs:
@@ -45,7 +45,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: 3.11
-          cache: 'pip'
+          cache: "pip"
 
       - name: Upgrade setuptools, wheel, and install requirements
         run: |
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: env.WEBDAV_URL != ''
-    
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -101,9 +101,9 @@ jobs:
           mkdir -p release-files
           # Wait for GitHub Release to complete
           sleep 30
-          
+
           ARCHITECTURES=("linux_amd64" "linux_arm64" "macos_arm64" "macos_intel" "windows_amd64")
-          
+
           for arch in "${ARCHITECTURES[@]}"; do
             FILE_NAME="${{ secrets.ReleaseZipName }}_${arch}_${{ steps.version.outputs.version }}.zip"
             DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${FILE_NAME}"
@@ -140,21 +140,21 @@ jobs:
         run: |
           # Install curl
           sudo apt-get update && sudo apt-get install -y curl
-          
+
           # Create WebDAV directories
           WEBDAV_DIR="releases/${{ steps.version.outputs.version }}"
-          
+
           curl -X MKCOL \
             -u "$WEBDAV_USERNAME:$WEBDAV_PASSWORD" \
             "$WEBDAV_URL/releases/" || true
-          
+
           curl -X MKCOL \
             -u "$WEBDAV_USERNAME:$WEBDAV_PASSWORD" \
             "$WEBDAV_URL/$WEBDAV_DIR/" || true
-          
+
           # Upload files to versioned directory
           cd release-files
-          
+
           for file in *.zip; do
             if [ -f "$file" ]; then
               echo "Uploading $file to releases directory..."
@@ -163,12 +163,12 @@ jobs:
                 "$WEBDAV_URL/$WEBDAV_DIR/$file"
             fi
           done
-          
+
           # Upload version-info.json to releases directory
           curl -T "version-info.json" \
             -u "$WEBDAV_USERNAME:$WEBDAV_PASSWORD" \
             "$WEBDAV_URL/$WEBDAV_DIR/version-info.json"
-          
+
           # Upload latest versions to root directory
           echo "Uploading latest versions to root directory..."
           for file in *.zip; do
@@ -179,10 +179,10 @@ jobs:
                 "$WEBDAV_URL/$file"
             fi
           done
-          
+
           # Upload latest version-info.json to root
           curl -T "version-info.json" \
             -u "$WEBDAV_USERNAME:$WEBDAV_PASSWORD" \
             "$WEBDAV_URL/version-info.json"
-          
+
           echo "WebDAV upload completed"
