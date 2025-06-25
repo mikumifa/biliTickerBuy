@@ -286,23 +286,22 @@ def add():
 
 
 def setting_tab():
-    with gr.Column(elem_classes="!gap-4"):
+    with gr.Column():
         # 顶部提示卡片
-        with gr.Column():
-            gr.Markdown(
-                """
-            ### ⚠️ 使用前必读
-            请确保在抢票前已完成以下配置：
-            - **收货地址**：会员购中心 → 地址管理
-            - **购买人信息**：会员购中心 → 购买人信息
-            > 即使暂时不需要，也请提前填写。否则生成表单时将没有任何选项。
-            """,
-                elem_classes="dark:!bg-grey-100 !p-4 !rounded-xl !shadow-md",
-            )
+        gr.Markdown(
+            """
+        ### ⚠️ 使用前必读
+        请确保在抢票前已完成以下配置：
+        - **收货地址**：会员购中心 → 地址管理
+        - **购买人信息**：会员购中心 → 购买人信息
+        > 即使暂时不需要，也请提前填写。否则生成表单时将没有任何选项。
+        """,
+            elem_classes="!bg-yellow-200 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-yellow-400 dark:!border-gray-700 !shadow-sm "
+        )
 
         # 登录信息卡片
         with gr.Column(
-            elem_classes="!bg-sky-50 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-sky-200 dark:!border-gray-700 !shadow-sm !gap-3"
+            elem_classes="!bg-red-50 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-red-200 dark:!border-gray-700 !shadow-sm !gap-3"
         ):
             gr.Markdown(
                 """
@@ -353,7 +352,7 @@ def setting_tab():
 
         # 抢票信息卡片
         with gr.Column(
-            elem_classes="!bg-sky-50 dark:!bg-gray-800  !p-4 !rounded-xl !shadow-md !gap-2"
+            elem_classes="!bg-sky-200 dark:!bg-gray-800  !p-4 !rounded-xl !shadow-md !gap-2"
         ):
             info_ui = gr.TextArea(
                 info="票务信息", label="配置票的信息", interactive=False, visible=False

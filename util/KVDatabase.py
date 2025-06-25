@@ -19,7 +19,10 @@ class KVDatabase:
             self.db.insert({"key": key, "value": value})
 
     def get(self, key):
-        result = self.db.get(self.KeyValue.key == key)
+        try:
+            result = self.db.get(self.KeyValue.key == key)
+        except Exception:
+            return None
         return result["value"] if result else None  # type: ignore
 
     def update(self, key, value):
