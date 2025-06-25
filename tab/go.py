@@ -1,5 +1,6 @@
 import datetime
 import importlib
+from math import lgamma
 import os
 import platform
 import time
@@ -131,7 +132,7 @@ def go_tab(demo: gr.Blocks):
                 return ConfigDB.get("https_proxy") or ""
 
             https_proxy_ui = gr.Textbox(
-                label="填写抢票时候的代理服务器地址，使用逗号隔开|输入Enter保存",
+                label="填写抢票时候的代理服务器地址，使用逗号隔开|输入完成后，回车键保存",
                 info="例如： http://127.0.0.1:8080,http://127.0.0.1:8081,http://127.0.0.1:8082",
                 value=get_latest_proxy,
             )
@@ -144,16 +145,14 @@ def go_tab(demo: gr.Blocks):
                 fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
             )
 
-            # 代理连通性测试功能
-            with gr.Row():
-                test_proxy_btn = gr.Button("🔍 测试代理连通性")
-                test_timeout_ui = gr.Number(
-                    label="测试代理超时时间(秒)",
-                    value=10,
-                    minimum=5,
-                    maximum=60,
-                    step=1,
-                )
+            test_proxy_btn = gr.Button("🔍 测试代理连通性")
+            test_timeout_ui = gr.Number(
+                label="测试代理超时时间(秒)",
+                value=10,
+                minimum=5,
+                maximum=60,
+                step=1,
+            )
 
             test_result_ui = gr.Textbox(
                 label="测试结果",
@@ -180,63 +179,65 @@ def go_tab(demo: gr.Blocks):
                 inputs=[https_proxy_ui, test_timeout_ui],
                 outputs=test_result_ui,
             )
-        with gr.Accordion(label="配置抢票声音提醒[可选]", open=False):
+        with gr.Accordion(label="配置抢票成功后播放音乐[可选]", open=False):
             with gr.Row():
                 audio_path_ui = gr.Audio(
                     label="上传提示声音[只支持格式wav]", type="filepath", loop=True
                 )
-        with gr.Accordion(label="配置抢票消息提醒[可选]", open=False):
+        with gr.Accordion(label="配置抢票推送消息[可选]", open=False):
             gr.Markdown(
-                """
-                🗨️ 抢票成功提醒
-                > 你需要去对应的网站获取key或token，然后填入下面的输入框
-                > [Server酱](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html) | [ntfy](https://ntfy.sh/)
-                > 留空以不启用提醒功能
-                """
-            )
+            """
+            🗨️ **抢票成功提醒**
+
+            > 你需要去对应的网站获取 key 或 token，然后填入下面的输入框  
+            > [Server酱](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html) | [ntfy](https://ntfy.sh/)  
+            > 留空以不启用提醒功能
+
+            ### 🔍 推送服务对比
+
+            | 服务     | 优点                               | 缺点                            |
+            |----------|------------------------------------|---------------------------------|
+            | Server酱 | 简单易用，微信推送              | 微信推送很难看到 |
+            | pushplus | 简单易用，微信推送| 微信推送很难看到               |
+            | ntfy     | APP推送 | 配置复杂，需要手动搭建或注册公网地址 |
+
+            ✅ 推荐：初次使用建议选择 **pushplus** 或 **Server酱**，配置最简单  
+            🛠️ 追求高度自由或有自建服务器建议用 **ntfy**
+            """
+            )   
             with gr.Row():
                 serverchan_ui = gr.Textbox(
-                    value=ConfigDB.get("serverchanKey")
-                    if ConfigDB.get("serverchanKey") is not None
-                    else "",
-                    label="Server酱的SendKey",
+                    value= lambda : (ConfigDB.get("serverchanKey") or ""),
+                    label="Server酱的SendKey｜输入完成后，回车键保存",
                     interactive=True,
                     info="https://sct.ftqq.com/",
                 )
 
                 pushplus_ui = gr.Textbox(
-                    value=ConfigDB.get("pushplusToken")
-                    if ConfigDB.get("pushplusToken") is not None
-                    else "",
-                    label="PushPlus的Token",
+                    value=lambda :(ConfigDB.get("pushplusToken") or ''),
+                    label="PushPlus的Token｜输入完成后，回车键保存",
                     interactive=True,
                     info="https://www.pushplus.plus/",
                 )
 
                 ntfy_ui = gr.Textbox(
-                    value=ConfigDB.get("ntfyUrl")
-                    if ConfigDB.get("ntfyUrl") is not None
-                    else "",
-                    label="Ntfy服务器URL",
+                    value=lambda :(ConfigDB.get("ntfyUrl") or ""),
+                    label="Ntfy服务器URL｜输入完成后，回车键保存",
                     interactive=True,
                     info="例如: https://ntfy.sh/your-topic",
                 )
 
-                with gr.Accordion(label="Ntfy认证配置[可选]", open=False):
+            with gr.Accordion(label="Ntfy认证配置[可选]", open=False):
                     with gr.Row():
                         ntfy_username_ui = gr.Textbox(
-                            value=ConfigDB.get("ntfyUsername")
-                            if ConfigDB.get("ntfyUsername") is not None
-                            else "",
+                            value=lambda :(ConfigDB.get("ntfyUsername") or ""),
                             label="Ntfy用户名",
                             interactive=True,
                             info="如果你的Ntfy服务器需要认证",
                         )
 
                         ntfy_password_ui = gr.Textbox(
-                            value=ConfigDB.get("ntfyPassword")
-                            if ConfigDB.get("ntfyPassword") is not None
-                            else "",
+                            value=lambda :(ConfigDB.get("ntfyPassword") or ""),
                             label="Ntfy密码",
                             interactive=True,
                             type="password",
@@ -267,34 +268,36 @@ def go_tab(demo: gr.Blocks):
                         fn=test_ntfy_connection, inputs=[], outputs=test_ntfy_result
                     )
 
-                def inner_input_serverchan(x):
-                    return ConfigDB.insert("serverchanKey", x)
+            def inner_input_serverchan(x):
+                ConfigDB.insert("serverchanKey", x)
+                return gr.update(value=ConfigDB.get("serverchanKey"))
 
-                def inner_input_pushplus(x):
-                    return ConfigDB.insert("pushplusToken", x)
+            def inner_input_pushplus(x):
+                ConfigDB.insert("pushplusToken", x)
+                return gr.update(value=ConfigDB.get("pushplusToken"))
 
-                def inner_input_ntfy(x):
-                    return ConfigDB.insert("ntfyUrl", x)
+            def inner_input_ntfy(x):
+                ConfigDB.insert("ntfyUrl", x)
+                return gr.update(value=ConfigDB.get("ntfyUrl"))
 
-                def inner_input_ntfy_username(x):
-                    return ConfigDB.insert("ntfyUsername", x)
+            def inner_input_ntfy_username(x):
+                ConfigDB.insert("ntfyUsername", x)
+                return gr.update(value=ConfigDB.get("ntfyUsername"))
 
-                def inner_input_ntfy_password(x):
-                    return ConfigDB.insert("ntfyPassword", x)
+            def inner_input_ntfy_password(x):
+                ConfigDB.insert("ntfyPassword", x)
+                return gr.update(value=ConfigDB.get("ntfyPassword"))
 
-                serverchan_ui.change(fn=inner_input_serverchan, inputs=serverchan_ui)
+            serverchan_ui.submit(fn=inner_input_serverchan, inputs=serverchan_ui, outputs=serverchan_ui)
 
-                pushplus_ui.change(fn=inner_input_pushplus, inputs=pushplus_ui)
+            pushplus_ui.submit(fn=inner_input_pushplus, inputs=pushplus_ui, outputs=pushplus_ui)
 
-                ntfy_ui.change(fn=inner_input_ntfy, inputs=ntfy_ui)
+            ntfy_ui.submit(fn=inner_input_ntfy, inputs=ntfy_ui, outputs=ntfy_ui)
 
-                ntfy_username_ui.change(
-                    fn=inner_input_ntfy_username, inputs=ntfy_username_ui
-                )
+            ntfy_username_ui.submit(fn=inner_input_ntfy_username, inputs=ntfy_username_ui, outputs=ntfy_username_ui)
 
-                ntfy_password_ui.change(
-                    fn=inner_input_ntfy_password, inputs=ntfy_password_ui
-                )
+            ntfy_password_ui.submit(fn=inner_input_ntfy_password, inputs=ntfy_password_ui, outputs=ntfy_password_ui)
+
 
         def choose_option(way):
             nonlocal select_way
