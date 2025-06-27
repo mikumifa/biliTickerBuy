@@ -28,7 +28,7 @@ class BiliRequest:
 
     def count_and_sleep(self, threshold=60, sleep_time=60):
         """
-        当记录到一定次数就sleap
+        当记录到一定次数就sleep
         """
         self.request_count += 1
         if self.request_count % threshold == 0:
