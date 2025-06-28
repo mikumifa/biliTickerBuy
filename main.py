@@ -49,6 +49,12 @@ def main():
         help="ServerChan key (optional).",
     )
     buy_parser.add_argument(
+        "--barkToken",
+        type=str,
+        default=os.environ.get("BTB_BARKTOKEN", ""),
+        help="Bark token (optional).",
+    )
+    buy_parser.add_argument(
         "--ntfy_url",
         type=str,
         default=os.environ.get("BTB_NTFY_URL", ""),

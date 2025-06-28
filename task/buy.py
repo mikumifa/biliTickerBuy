@@ -12,7 +12,7 @@ from loguru import logger
 from playsound3 import playsound
 from requests import HTTPError, RequestException
 
-from util import ERRNO_DICT, NtfyUtil, PushPlusUtil, ServerChanUtil, time_service
+from util import ERRNO_DICT, NtfyUtil, PushPlusUtil, ServerChanUtil, BarkUtil, time_service
 from util.Notifier import NotifierManager
 from util import bili_ticket_gt_python
 from util.BiliRequest import BiliRequest
@@ -30,18 +30,19 @@ def get_qrcode_url(_request, order_id) -> str:
 
 
 def buy_stream(
-    tickets_info_str,
-    time_start,
-    interval,
-    mode,
-    total_attempts,
-    audio_path,
-    pushplusToken,
-    serverchanKey,
-    https_proxys,
-    ntfy_url=None,
-    ntfy_username=None,
-    ntfy_password=None,
+        tickets_info_str,
+        time_start,
+        interval,
+        mode,
+        total_attempts,
+        audio_path,
+        pushplusToken,
+        serverchanKey,
+        barkToken,
+        https_proxys,
+        ntfy_url=None,
+        ntfy_username=None,
+        ntfy_password=None,
 ):
     if bili_ticket_gt_python is None:
         yield "当前设备不支持本地过验证码，无法使用"
@@ -75,15 +76,15 @@ def buy_stream(
         yield f"时间偏差已被设置为: {timeoffset}s"
         try:
             time_difference = (
-                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
-                - time.time()
-                + timeoffset
+                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
+                    - time.time()
+                    + timeoffset
             )
         except ValueError:
             time_difference = (
-                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
-                - time.time()
-                + timeoffset
+                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
+                    - time.time()
+                    + timeoffset
             )
         start_time = time.perf_counter()
         end_time = start_time + time_difference
@@ -219,6 +220,15 @@ def buy_stream(
                             serverchanKey, "抢票成功", f"前往订单中心付款吧: {detail}"
                         ),
                     )
+
+                if barkToken:
+                    notifierManager.regiseter_notifier(
+                        "BarkNotifier",
+                        BarkUtil.BarkNotifier(
+                            barkToken, "抢票成功", f"前往订单中心付款吧: {detail}"
+                        ),
+                    )
+
                 if ntfy_url:
                     # 使用重复通知功能，每10秒发送一次，持续5分钟
                     NtfyUtil.send_repeat_message(
@@ -261,20 +271,6 @@ def buy_stream(
 
 
 def buy(
-    tickets_info_str,
-    time_start,
-    interval,
-    mode,
-    total_attempts,
-    audio_path,
-    pushplusToken,
-    serverchanKey,
-    https_proxys,
-    ntfy_url=None,
-    ntfy_username=None,
-    ntfy_password=None,
-):
-    for msg in buy_stream(
         tickets_info_str,
         time_start,
         interval,
@@ -283,30 +279,47 @@ def buy(
         audio_path,
         pushplusToken,
         serverchanKey,
+        barkToken,
         https_proxys,
-        ntfy_url,
-        ntfy_username,
-        ntfy_password,
+        ntfy_url=None,
+        ntfy_username=None,
+        ntfy_password=None,
+):
+    for msg in buy_stream(
+            tickets_info_str,
+            time_start,
+            interval,
+            mode,
+            total_attempts,
+            audio_path,
+            pushplusToken,
+            serverchanKey,
+            barkToken,
+            https_proxys,
+            ntfy_url,
+            ntfy_username,
+            ntfy_password,
     ):
         logger.info(msg)
 
 
 def buy_new_terminal(
-    endpoint_url,
-    filename,
-    tickets_info_str,
-    time_start,
-    interval,
-    mode,
-    total_attempts,
-    audio_path,
-    pushplusToken,
-    serverchanKey,
-    https_proxys,
-    ntfy_url=None,
-    ntfy_username=None,
-    ntfy_password=None,
-    terminal_ui="网页",
+        endpoint_url,
+        filename,
+        tickets_info_str,
+        time_start,
+        interval,
+        mode,
+        total_attempts,
+        audio_path,
+        pushplusToken,
+        serverchanKey,
+        barkToken,
+        https_proxys,
+        ntfy_url=None,
+        ntfy_username=None,
+        ntfy_password=None,
+        terminal_ui="网页",
 ) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
@@ -328,6 +341,8 @@ def buy_new_terminal(
         command.extend(["--pushplusToken", pushplusToken])
     if serverchanKey:
         command.extend(["--serverchanKey", serverchanKey])
+    if barkToken:
+        command.extend(["--barkToken", barkToken])
     if ntfy_url:
         command.extend(["--ntfy_url", ntfy_url])
     if ntfy_username:
