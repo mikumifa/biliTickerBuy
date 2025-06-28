@@ -16,6 +16,7 @@ from util import ERRNO_DICT, NtfyUtil, PushPlusUtil, ServerChanUtil, time_servic
 from util.Notifier import NotifierManager
 from util import bili_ticket_gt_python
 from util.BiliRequest import BiliRequest
+from util.RandomMessages import get_random_fail_message
 
 if bili_ticket_gt_python is not None:
     Amort = importlib.import_module("geetest.TripleValidator").TripleValidator()
@@ -195,6 +196,8 @@ def buy_stream(
                     yield f"[尝试 {attempt}/60] 未知异常: {e}"
                     time.sleep(interval / 1000)
             else:
+                # 输出群友语录
+                yield f"群友说👴： {get_random_fail_message()}"
                 yield "重试次数过多，重新准备订单"
                 continue
             if result is None:
