@@ -345,6 +345,12 @@ def go_tab(demo: gr.Blocks):
             ntfy_password_ui.submit(fn=inner_input_ntfy_password, inputs=ntfy_password_ui, outputs=ntfy_password_ui)
 
             test_bark_button.click(fn=test_bark_push, inputs=[], outputs=test_push_result)
+        with gr.Accordion(label="杂项配置", open=False):
+            show_random_message_ui = gr.Checkbox(
+                label="关闭群友语录",
+                value=True,
+                info="关闭后，抢票失败时将不再显示有趣的语录",
+            )
 
         def choose_option(way):
             nonlocal select_way
@@ -408,14 +414,15 @@ def go_tab(demo: gr.Blocks):
         return assigned_proxies
 
     def start_go(
-            files,
-            time_start,
-            interval,
-            mode,
-            total_attempts,
-            audio_path,
-            https_proxys,
-            terminal_ui,
+        files,
+        time_start,
+        interval,
+        mode,
+        total_attempts,
+        audio_path,
+        https_proxys,
+        terminal_ui,
+        hide_random_message,
     ):
         if not files:
             return [gr.update(value=withTimeString("未提交抢票配置"), visible=True)]
@@ -478,6 +485,7 @@ def go_tab(demo: gr.Blocks):
                     ntfy_password=ConfigDB.get("ntfyPassword"),
                     https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
                     terminal_ui=terminal_ui,
+                    show_random_message=not hide_random_message,
                 )
                 assigned_proxies_next_idx += 1
         gr.Info("正在启动，请等待抢票页面弹出。")
@@ -545,5 +553,6 @@ def go_tab(demo: gr.Blocks):
             audio_path_ui,
             https_proxy_ui,
             terminal_ui,
+            show_random_message_ui,
         ],
     )

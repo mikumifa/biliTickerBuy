@@ -99,8 +99,15 @@ def main():
         default="网页",
         help="server name",
     )
+    buy_parser.add_argument(
+        "--hide_random_message",
+        action="store_true",
+        help="hide random message when fail",
+    )
     # `--worker` 子命令
-    worker_parser = subparsers.add_parser("worker", help="Start the ticket worker ui")  # noqa: F841
+    worker_parser = subparsers.add_parser(
+        "worker", help="Start the ticket worker ui"
+    )  # noqa: F841
     worker_parser.add_argument(
         "--master",
         type=str,
