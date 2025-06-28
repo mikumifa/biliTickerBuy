@@ -1,6 +1,15 @@
 import argparse
 import os
 
+# 清理系统代理变量以防止 httpx / requests 连接失败
+cleared_vars = []
+for proxy_var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+    if proxy_var in os.environ:
+        del os.environ[proxy_var]
+        cleared_vars.append(proxy_var)
+
+if cleared_vars:
+    print(f"[WARN] 已清除以下代理环境变量，避免连接失败: {', '.join(cleared_vars)}")
 
 def get_env_default(key: str, default, cast_func):
     return cast_func(os.environ.get(f"BTB_{key}", default))
@@ -47,6 +56,12 @@ def main():
         type=str,
         default=os.environ.get("BTB_SERVERCHANKEY", ""),
         help="ServerChan key (optional).",
+    )
+    buy_parser.add_argument(
+        "--barkToken",
+        type=str,
+        default=os.environ.get("BTB_BARKTOKEN", ""),
+        help="Bark token (optional).",
     )
     buy_parser.add_argument(
         "--ntfy_url",

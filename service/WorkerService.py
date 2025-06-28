@@ -17,6 +17,7 @@ class BuyRequest(BaseModel):
     total_attempts: int
     audio_path: str | None
     pushplusToken: str | None
+    barkToken: str | None
     ntfy_url: str | None
     ntfy_username: str | None
     ntfy_password: str | None
@@ -55,6 +56,7 @@ def create_worker_app(app: FastAPI, args):
                     audio_path=data.audio_path,
                     pushplusToken=data.pushplusToken,
                     serverchanKey=data.serverchanKey,
+                    barkToken=data.barkToken,
                     ntfy_url=data.ntfy_url,
                     ntfy_username=data.ntfy_username,
                     ntfy_password=data.ntfy_password,
