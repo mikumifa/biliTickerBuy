@@ -16,6 +16,7 @@ from util import ERRNO_DICT, NtfyUtil, PushPlusUtil, ServerChanUtil, BarkUtil, t
 from util.Notifier import NotifierManager
 from util import bili_ticket_gt_python
 from util.BiliRequest import BiliRequest
+from util.RandomMessages import get_random_fail_message
 
 if bili_ticket_gt_python is not None:
     Amort = importlib.import_module("geetest.TripleValidator").TripleValidator()
@@ -30,19 +31,20 @@ def get_qrcode_url(_request, order_id) -> str:
 
 
 def buy_stream(
-        tickets_info_str,
-        time_start,
-        interval,
-        mode,
-        total_attempts,
-        audio_path,
-        pushplusToken,
-        serverchanKey,
-        barkToken,
-        https_proxys,
-        ntfy_url=None,
-        ntfy_username=None,
-        ntfy_password=None,
+    tickets_info_str,
+    time_start,
+    interval,
+    mode,
+    total_attempts,
+    audio_path,
+    pushplusToken,
+    serverchanKey,
+    barkToken,
+    https_proxys,
+    ntfy_url=None,
+    ntfy_username=None,
+    ntfy_password=None,
+    show_random_message=True,
 ):
     if bili_ticket_gt_python is None:
         yield "当前设备不支持本地过验证码，无法使用"
@@ -196,6 +198,9 @@ def buy_stream(
                     yield f"[尝试 {attempt}/60] 未知异常: {e}"
                     time.sleep(interval / 1000)
             else:
+                if show_random_message:
+                    # 输出群友语录
+                    yield f"群友说👴： {get_random_fail_message()}"
                 yield "重试次数过多，重新准备订单"
                 continue
             if result is None:
@@ -271,6 +276,22 @@ def buy_stream(
 
 
 def buy(
+    tickets_info_str,
+    time_start,
+    interval,
+    mode,
+    total_attempts,
+    audio_path,
+    pushplusToken,
+    serverchanKey,
+    barkToken,
+    https_proxys,
+    ntfy_url=None,
+    ntfy_username=None,
+    ntfy_password=None,
+    show_random_message=True,
+):
+    for msg in buy_stream(
         tickets_info_str,
         time_start,
         interval,
@@ -281,45 +302,32 @@ def buy(
         serverchanKey,
         barkToken,
         https_proxys,
-        ntfy_url=None,
-        ntfy_username=None,
-        ntfy_password=None,
-):
-    for msg in buy_stream(
-            tickets_info_str,
-            time_start,
-            interval,
-            mode,
-            total_attempts,
-            audio_path,
-            pushplusToken,
-            serverchanKey,
-            barkToken,
-            https_proxys,
-            ntfy_url,
-            ntfy_username,
-            ntfy_password,
+        ntfy_url,
+        ntfy_username,
+        ntfy_password,
+        show_random_message,
     ):
         logger.info(msg)
 
 
 def buy_new_terminal(
-        endpoint_url,
-        filename,
-        tickets_info_str,
-        time_start,
-        interval,
-        mode,
-        total_attempts,
-        audio_path,
-        pushplusToken,
-        serverchanKey,
-        barkToken,
-        https_proxys,
-        ntfy_url=None,
-        ntfy_username=None,
-        ntfy_password=None,
-        terminal_ui="网页",
+    endpoint_url,
+    filename,
+    tickets_info_str,
+    time_start,
+    interval,
+    mode,
+    total_attempts,
+    audio_path,
+    pushplusToken,
+    serverchanKey,
+    barkToken,
+    https_proxys,
+    ntfy_url=None,
+    ntfy_username=None,
+    ntfy_password=None,
+    show_random_message=True,
+    terminal_ui="网页",
 ) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
@@ -351,6 +359,8 @@ def buy_new_terminal(
         command.extend(["--ntfy_password", ntfy_password])
     if https_proxys:
         command.extend(["--https_proxys", https_proxys])
+    if not show_random_message:
+        command.extend(["--hide_random_message"])
     if terminal_ui:
         command.extend(["--terminal_ui", terminal_ui])
     command.extend(["--filename", filename])
