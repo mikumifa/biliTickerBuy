@@ -118,13 +118,15 @@ def go_tab(demo: gr.Blocks):
             type="index",
             value=ways[select_way],
         )
-        with gr.Accordion(label="填写你的HTTPS代理服务器[可选]", open=False):
+        with gr.Accordion(label="填写你的代理服务器[可选]", open=False):
             gr.Markdown("""
                         > **注意**：
 
                         填写代理服务器地址后，程序在使用这个配置文件后会在出现风控后后根据代理服务器去访问哔哩哔哩的抢票接口。
 
                         抢票前请确保代理服务器已经开启，并且可以正常访问哔哩哔哩的抢票接口。
+
+                        支持 HTTP/HTTPS/SOCKS 代理。
 
                         """)
 
@@ -133,7 +135,7 @@ def go_tab(demo: gr.Blocks):
 
             https_proxy_ui = gr.Textbox(
                 label="填写抢票时候的代理服务器地址，使用逗号隔开|输入完成后，回车键保存",
-                info="例如： http://127.0.0.1:8080,http://127.0.0.1:8081,http://127.0.0.1:8082",
+                info="例如： http://127.0.0.1:8080,https://127.0.0.1:8081,socks5://127.0.0.1:1080",
                 value=get_latest_proxy,
             )
 
