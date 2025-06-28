@@ -48,13 +48,18 @@ class ProxyTester:
             )
             end_time = time.time()
             response_time = round((end_time - start_time) * 1000, 2)  # 毫秒
+            
             if response.status_code == 200:
                 result["status"] = "success"
                 result["response_time"] = response_time
+                # 获取出口IP信息
+                result["ip_info"] = self._get_ip_info(session)
             else:
                 result["error"] = f"B站连接失败: HTTP {response.status_code}"
                 result["status"] = "partial"
                 result["response_time"] = response_time
+                # 部分成功时也尝试获取IP
+                result["ip_info"] = self._get_ip_info(session)
         except requests.exceptions.Timeout:
             result["error"] = f"连接超时 (>{self.timeout}s)"
         except requests.exceptions.ProxyError:
@@ -68,6 +73,33 @@ class ProxyTester:
             result["error"] = f"未知错误: {str(e)}"
         
         return result
+    
+    def _get_ip_info(self, session) -> str:
+        """获取出口IP信息"""
+        # 服务列表：优先详细信息，然后降级到基础服务
+        ip_services = [
+            {
+                'name': 'ip-api.com',
+                'url': 'http://ip-api.com/json/',
+                'parser': lambda data: f"{data.get('query', '未知')} ({data.get('city', '未知')}, {data.get('isp', '未知')})"
+            },
+            {
+                'name': 'httpbin.org', 
+                'url': 'http://httpbin.org/ip',
+                'parser': lambda data: data.get('origin', '未知')
+            }
+        ]
+        
+        for service in ip_services:
+            try:
+                ip_response = session.get(service['url'], timeout=3)
+                if ip_response.status_code == 200:
+                    ip_data = ip_response.json()
+                    return service['parser'](ip_data)
+            except Exception:
+                continue
+        
+        return "IP获取失败"
     
     # 验证代理格式是否正确
     def _validate_proxy_format(self, proxy: str) -> bool:
@@ -144,12 +176,14 @@ class ProxyTester:
             if status == "success":
                 output.append(f"✅ [{i}] {proxy}")
                 output.append(f"    响应时间: {response_time}ms")
-                output.append(f"    出口IP: {ip_info}")
+                if ip_info and ip_info != "IP获取失败":
+                    output.append(f"    出口IP: {ip_info}")
                 success_count += 1
             elif status == "partial":
                 output.append(f"⚠️  [{i}] {proxy}")
                 output.append(f"    响应时间: {response_time}ms")
-                output.append(f"    出口IP: {ip_info}")
+                if ip_info and ip_info != "IP获取失败":
+                    output.append(f"    出口IP: {ip_info}")
                 output.append(f"    警告: {error}")
             else:
                 output.append(f"❌ [{i}] {proxy}")
