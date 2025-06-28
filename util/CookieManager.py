@@ -1,7 +1,9 @@
+import os
+import subprocess
+import sys
 from loguru import logger
 from playwright.sync_api import sync_playwright
 from util.KVDatabase import KVDatabase
-
 
 class CookieManager:
     def __init__(self, config_file_path=None, cookies=None):
@@ -9,10 +11,24 @@ class CookieManager:
         if cookies is not None:
             self.db.insert("cookie", cookies)
 
+    # 自动下载浏览器
+    def _ensure_playwright_installed(self):
+        try:
+            # 切换国内源
+            os.environ["PLAYWRIGHT_DOWNLOAD_HOST"] = "https://npmmirror.com/mirrors/playwright/"
+            # 下载浏览器二进制文件
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Playwright 浏览器安装失败: {e}")
+            raise RuntimeError("Playwright 浏览器缺失，且自动安装失败")
+
     @logger.catch
     def _login_and_save_cookies(
         self, login_url="https://show.bilibili.com/platform/home.html"
     ):
+        # 确保浏览器已安装
+        self._ensure_playwright_installed()
+
         logger.info("启动浏览器中，第一次启动会比较慢，请使用在浏览器登录")
         with sync_playwright() as p:
             try:
