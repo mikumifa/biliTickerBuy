@@ -43,6 +43,7 @@ def buy_stream(
     ntfy_url=None,
     ntfy_username=None,
     ntfy_password=None,
+    show_random_message=True,
 ):
     if bili_ticket_gt_python is None:
         yield "当前设备不支持本地过验证码，无法使用"
@@ -196,8 +197,9 @@ def buy_stream(
                     yield f"[尝试 {attempt}/60] 未知异常: {e}"
                     time.sleep(interval / 1000)
             else:
-                # 输出群友语录
-                yield f"群友说👴： {get_random_fail_message()}"
+                if show_random_message:
+                    # 输出群友语录
+                    yield f"群友说👴： {get_random_fail_message()}"
                 yield "重试次数过多，重新准备订单"
                 continue
             if result is None:
@@ -276,6 +278,7 @@ def buy(
     ntfy_url=None,
     ntfy_username=None,
     ntfy_password=None,
+    show_random_message=True,
 ):
     for msg in buy_stream(
         tickets_info_str,
@@ -290,6 +293,7 @@ def buy(
         ntfy_url,
         ntfy_username,
         ntfy_password,
+        show_random_message,
     ):
         logger.info(msg)
 
@@ -310,6 +314,7 @@ def buy_new_terminal(
     ntfy_username=None,
     ntfy_password=None,
     terminal_ui="网页",
+    show_random_message=True,
 ) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
@@ -339,6 +344,8 @@ def buy_new_terminal(
         command.extend(["--ntfy_password", ntfy_password])
     if https_proxys:
         command.extend(["--https_proxys", https_proxys])
+    if not show_random_message:
+        command.extend(["--hide_random_message"])
     if terminal_ui:
         command.extend(["--terminal_ui", terminal_ui])
     command.extend(["--filename", filename])
