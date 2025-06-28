@@ -29,22 +29,3 @@ class BarkNotifier(NotifierBase):
         url = f"https://api.day.app/{self.token}/{title}/{message}"
 
         requests.post(url, headers=headers, data=json.dumps(data))
-
-
-"""if __name__ == "__main__":
-
-    my_bark_token = "jmGYKWhdpjJ89KxqZYJzzj"
-
-    notifier = BarkNotifier(
-        token=my_bark_token,
-        title="商品监控",
-        content="正在监控商品价格",
-        interval_seconds=30,
-        duration_minutes=60
-    )
-
-    notification_title_for_bark = "特价提醒"
-    notification_message_content = "Nintendo Switch OLED 价格降至历史新低！赶紧去看看！"
-
-    notifier.send_message(notification_title_for_bark, notification_message_content)
-"""
