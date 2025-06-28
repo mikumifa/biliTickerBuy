@@ -10,7 +10,11 @@ class BiliRequest:
         self, headers=None, cookies=None, cookies_config_path=None, proxy: str = "none"
     ):
         self.session = requests.Session()
-        self.proxy_list = proxy.split(",") if proxy else []
+        self.proxy_list = (
+            [v.strip() for v in proxy.split(",") if len(v.strip()) != 0]
+            if proxy
+            else []
+        )
         if len(self.proxy_list) == 0:
             raise ValueError("at least have none proxy")
         self.now_proxy_idx = 0
@@ -86,7 +90,7 @@ class BiliRequest:
             loguru.logger.warning(
                 f"412风控，切换代理到 {self.proxy_list[self.now_proxy_idx]}"
             )
-            return self.get(url, data, isJson)
+            return self.post(url, data, isJson)
         response.raise_for_status()
         self.clear_request_count()
         if response.json().get("msg", "") == "请先登录":
