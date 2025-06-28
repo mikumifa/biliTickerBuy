@@ -81,6 +81,7 @@ def buy_cmd(args: Namespace):
         args.audio_path,
         args.pushplusToken,
         args.serverchanKey,
+        args.barkToken,
         args.https_proxys,
         args.ntfy_url,
         args.ntfy_username,
