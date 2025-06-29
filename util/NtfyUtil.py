@@ -98,6 +98,9 @@ def send_message(server_url, content, title=None, username=None, password=None):
         # 方法1: 不指定Content-Type，让服务器自动判断
         headers = {}
 
+        # 设置最高优先级 (5)
+        headers["Priority"] = "5"
+
         # 如果标题存在，处理中文标题
         if title:
             # 如果标题不是ASCII字符，则使用一个英文标题
