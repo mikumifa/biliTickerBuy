@@ -6,8 +6,22 @@ from dataclasses import dataclass
 from typing import Optional
 
 class NotifierBase(ABC):
-    """
-    循环通知发送基类，使用请实现send_message方法
+    """推送器基类。
+
+    默认实现的 :py:meth:`run` 逻辑 **成功发送一次** 消息便退出；如果需要 *重复推送*（如
+    `ntfy` 的持续提醒场景），应当在子类自行覆写 ``run`` 或 ``send_message`` 逻辑。
+
+    Attributes
+    ----------
+    title : str
+        推送标题。
+    content : str
+        推送正文。
+    interval_seconds : int
+        默认实现中，当 ``send_message`` 抛异常时的**重试间隔**；
+        若子类覆写为循环推送模式，它也可作为每次循环发送的间隔。
+    duration_minutes : int
+        允许持续推送的总时长，默认 10 分钟。
     """
     def __init__(
         self,
@@ -94,15 +108,24 @@ class NotifierManager():
     def __init__(self):
         self.notifier_dict:dict[str,NotifierBase] = {}
 
-    def regiseter_notifier(self, name:str, notifer:NotifierBase):
+    def register_notifier(self, name: str, notifier: NotifierBase):
+        """注册推送器到管理器中。
+
+        Args:
+            name (str): 推送器名称（唯一键）。
+            notifier (NotifierBase): 推送器实例。
+
+        注意：如果 *name* 已存在，将记录错误并忽略本次注册。
+        """
         if name in self.notifier_dict:
             loguru.logger.error(f"推送器添加失败: 已存在名为{name}的推送器")
         else:
-            self.notifier_dict[name] = notifer
+            self.notifier_dict[name] = notifier
             loguru.logger.info(f"成功添加推送器: {name}")
     
-    def remove_notifier(self, name:str):
-        if name in self.notifier_dict:
+    def remove_notifier(self, name: str):
+        """从管理器中移除指定名称的推送器。"""
+        if name not in self.notifier_dict:
             loguru.logger.error(f"推送器删除失败: 不存在名为{name}的推送器")
         else:
             self.notifier_dict.pop(name)
@@ -116,21 +139,22 @@ class NotifierManager():
         for notifer in self.notifier_dict.values():
             notifer.stop()
 
-    def start_notifer(self, name: str):
+    def start_notifier(self, name: str):
         notifer = self.notifier_dict.get(name)
         if notifer:
             notifer.start()
         else:
             loguru.logger.error(f"推送器启动失败: 不存在名为{name}的推送器")
 
-    def stop_notifer(self, name: str):
+    def stop_notifier(self, name: str):
         notifer = self.notifier_dict.get(name)
         if notifer:
             notifer.stop()
         else:
             loguru.logger.error(f"推送器停止失败: 不存在名为{name}的推送器")
     
-    def list_notifers(self):
+    def list_notifiers(self):
+        """返回当前已注册的推送器名称列表。"""
         return list(self.notifier_dict.keys())
 
     @staticmethod
@@ -150,7 +174,7 @@ class NotifierManager():
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes
                 )
-                manager.regiseter_notifier("ServerChanTurbo", notifier)
+                manager.register_notifier("ServerChanTurbo", notifier)
             except ImportError as e:
                 loguru.logger.error(f"ServerChanTurbo导入失败: {e}")
             except Exception as e:
@@ -167,7 +191,7 @@ class NotifierManager():
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes
                 )
-                manager.regiseter_notifier("ServerChan3", notifier)
+                manager.register_notifier("ServerChan3", notifier)
             except ImportError as e:
                 loguru.logger.error(f"ServerChan3导入失败: {e}")
             except Exception as e:
@@ -184,7 +208,7 @@ class NotifierManager():
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes
                 )
-                manager.regiseter_notifier("PushPlus", notifier)
+                manager.register_notifier("PushPlus", notifier)
             except ImportError as e:
                 loguru.logger.error(f"PushPlus导入失败: {e}")
             except Exception as e:
@@ -201,7 +225,7 @@ class NotifierManager():
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes
                 )
-                manager.regiseter_notifier("Bark", notifier)
+                manager.register_notifier("Bark", notifier)
             except ImportError as e:
                 loguru.logger.error(f"Bark导入失败: {e}")
             except Exception as e:
@@ -220,7 +244,7 @@ class NotifierManager():
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes
                 )
-                manager.regiseter_notifier("Ntfy", notifier)
+                manager.register_notifier("Ntfy", notifier)
             except ImportError as e:
                 loguru.logger.error(f"Ntfy导入失败: {e}")
             except Exception as e:
@@ -237,7 +261,7 @@ class NotifierManager():
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes
                 )
-                manager.regiseter_notifier("Audio", notifier)
+                manager.register_notifier("Audio", notifier)
             except ImportError as e:
                 loguru.logger.error(f"Audio导入失败: {e}")
             except Exception as e:
