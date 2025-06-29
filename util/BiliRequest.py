@@ -49,7 +49,7 @@ class BiliRequest:
             data = json.dumps(data)
         else:
             self.headers["Content-Type"] = "application/x-www-form-urlencoded"
-        response = self.session.get(url, data=data, headers=self.headers)
+        response = self.session.get(url, data=data, headers=self.headers, timeout=10)
         if response.status_code == 412:
             self.count_and_sleep()
             self.switch_proxy()
@@ -83,7 +83,7 @@ class BiliRequest:
             data = json.dumps(data)
         else:
             self.headers["content-type"] = "application/x-www-form-urlencoded"
-        response = self.session.post(url, data=data, headers=self.headers)
+        response = self.session.post(url, data=data, headers=self.headers, timeout=10)
         if response.status_code == 412:
             self.count_and_sleep()
             self.switch_proxy()
