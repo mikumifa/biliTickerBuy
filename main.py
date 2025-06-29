@@ -58,6 +58,12 @@ def main():
         help="ServerChan key (optional).",
     )
     buy_parser.add_argument(
+        "--serverchan3ApiUrl",
+        type=str,
+        default=os.environ.get("BTB_SERVERCHAN3APIURL", ""),
+        help="ServerChan3 API URL (optional).",
+    )
+    buy_parser.add_argument(
         "--barkToken",
         type=str,
         default=os.environ.get("BTB_BARKTOKEN", ""),

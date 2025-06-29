@@ -83,6 +83,7 @@ def buy_cmd(args: Namespace):
         args.serverchanKey,
         args.barkToken,
         args.https_proxys,
+        args.serverchan3ApiUrl,
         args.ntfy_url,
         args.ntfy_username,
         args.ntfy_password,
