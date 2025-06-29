@@ -57,7 +57,8 @@ def create_worker_app(app: FastAPI, args):
                     bark_token=data.barkToken,
                     ntfy_url=data.ntfy_url,
                     ntfy_username=data.ntfy_username,
-                    ntfy_password=data.ntfy_password
+                    ntfy_password=data.ntfy_password,
+                    audio_path=data.audio_path
                 )
                 
                 for msg in buy_stream(
@@ -66,7 +67,6 @@ def create_worker_app(app: FastAPI, args):
                     interval=data.interval,
                     mode=data.mode,
                     total_attempts=data.total_attempts,
-                    audio_path=data.audio_path,
                     notifier_config=notifier_config,
                     https_proxys=args.https_proxys,
                 ):
