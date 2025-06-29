@@ -136,7 +136,7 @@ def go_tab(demo: gr.Blocks):
             https_proxy_ui = gr.Textbox(
                 label="填写抢票时候的代理服务器地址，使用逗号隔开|输入完成后，回车键保存",
                 info="例如： http://127.0.0.1:8080,https://127.0.0.1:8081,socks5://127.0.0.1:1080",
-                value=get_latest_proxy,
+                value=(ConfigDB.get("https_proxy") or ""),
             )
 
             def input_https_proxy(_https_proxy):
@@ -184,7 +184,8 @@ def go_tab(demo: gr.Blocks):
         with gr.Accordion(label="配置抢票成功后播放音乐[可选]", open=False):
             with gr.Row():
                 audio_path_ui = gr.Audio(
-                    label="上传提示声音[只支持格式wav]", type="filepath", loop=True
+                    label="上传提示声音[只支持格式wav]", type="filepath", loop=True,
+                    value=(ConfigDB.get("audioPath") or None)
                 )
         with gr.Accordion(label="配置抢票推送消息[可选]", open=False):
             gr.Markdown(
@@ -212,36 +213,36 @@ def go_tab(demo: gr.Blocks):
             )
             with gr.Row():
                 serverchan_ui = gr.Textbox(
-                    value=lambda: (ConfigDB.get("serverchanKey") or ""),
+                    value=(ConfigDB.get("serverchanKey") or ""),
                     label="Server酱ᵀᵘʳᵇᵒ的SendKey｜输入完成后，回车键保存",
                     interactive=True,
                     info="https://sct.ftqq.com/",
                 )
 
                 serverchan3_ui = gr.Textbox(
-                    value=lambda: (ConfigDB.get("serverchan3ApiUrl") or ""),
+                    value=(ConfigDB.get("serverchan3ApiUrl") or ""),
                     label="Server酱³的API URL｜输入完成后，回车键保存",
                     interactive=True,
                     info="https://sc3.ft07.com/",
                 )
 
                 pushplus_ui = gr.Textbox(
-                    value=lambda: (ConfigDB.get("pushplusToken") or ''),
+                    value=(ConfigDB.get("pushplusToken") or ''),
                     label="PushPlus的Token｜输入完成后，回车键保存",
                     interactive=True,
                     info="https://www.pushplus.plus/",
                 )
 
                 bark_ui = gr.Textbox(
-                    value=lambda: (ConfigDB.get("barkToken") or ""),
+                    value=(ConfigDB.get("barkToken") or ""),
                     label="Bark的Token｜输入完成后，回车键保存",
                     interactive=True,
-                    info="iOS Bark App的“服务器”页面获取，例如: jmGYK*****(并非Device Token)",
+                    info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)',
                 )
 
             with gr.Accordion(label="Ntfy配置", open=False):
                 ntfy_ui = gr.Textbox(
-                    value=lambda: (ConfigDB.get("ntfyUrl") or ""),
+                    value=(ConfigDB.get("ntfyUrl") or ""),
                     label="Ntfy服务器URL｜输入完成后，回车键保存",
                     interactive=True,
                     info="例如: https://ntfy.sh/your-topic",
@@ -250,14 +251,14 @@ def go_tab(demo: gr.Blocks):
                 with gr.Accordion(label="Ntfy认证配置[可选]", open=False):
                     with gr.Row():
                         ntfy_username_ui = gr.Textbox(
-                            value=lambda: (ConfigDB.get("ntfyUsername") or ""),
+                            value=(ConfigDB.get("ntfyUsername") or ""),
                             label="Ntfy用户名",
                             interactive=True,
                             info="如果你的Ntfy服务器需要认证",
                         )
 
                         ntfy_password_ui = gr.Textbox(
-                            value=lambda: (ConfigDB.get("ntfyPassword") or ""),
+                            value=(ConfigDB.get("ntfyPassword") or ""),
                             label="Ntfy密码",
                             interactive=True,
                             type="password",
