@@ -98,6 +98,9 @@ def send_message(server_url, content, title=None, username=None, password=None):
         # 方法1: 不指定Content-Type，让服务器自动判断
         headers = {}
 
+        # 设置最高优先级 (5)
+        headers["Priority"] = "5"
+
         # 如果标题存在，处理中文标题
         if title:
             # 如果标题不是ASCII字符，则使用一个英文标题
@@ -240,3 +243,61 @@ def test_connection(server_url, username=None, password=None):
         return False, f"连接失败: {str(e)}"
     except Exception as e:
         return False, f"测试过程中发生错误: {str(e)}"
+
+
+# 添加NtfyNotifier类，和其他推送渠道一样的静态类
+from util.Notifier import NotifierBase
+
+
+class NtfyNotifier(NotifierBase):
+    """Ntfy通知器，继承自NotifierBase，实现统一接口"""
+    def __init__(
+        self,
+        url,
+        username=None,
+        password=None,
+        title="",
+        content="",
+        interval_seconds=15,
+        duration_minutes=5
+    ):
+        super().__init__(title, content, interval_seconds, duration_minutes)
+        self.url = url
+        self.username = username
+        self.password = password
+    
+    def send_message(self, title, message):
+        """使用send_message函数发送单次通知"""
+        send_message(self.url, message, title, self.username, self.password)
+
+    def run(self):
+        """重写run方法，实现Ntfy特有的重复通知逻辑"""
+        start_time = time.time()
+        end_time = start_time + (self.duration_minutes * 60)
+        count = 0
+
+        while time.time() < end_time and not self.stop_event.is_set():
+            try:
+                count += 1
+                # 构建消息内容，包含计数和剩余时间
+                remaining_minutes = int((end_time - time.time()) / 60)
+                remaining_seconds = int((end_time - time.time()) % 60)
+                message = f"{self.content} [#{count}, 剩余 {remaining_minutes}分{remaining_seconds}秒]"
+
+                # 使用send_message方法发送
+                self.send_message(
+                    f"{self.title} ({count}/{self.duration_minutes * 60 // self.interval_seconds})" if self.title else "Bili Ticket Notification",
+                    message
+                )
+
+                # 等待指定的间隔时间或直到收到停止信号
+                for _ in range(int(self.interval_seconds * 10)):  # 分成更小的步骤检查停止事件
+                    if self.stop_event.is_set():
+                        break
+                    time.sleep(0.1)
+
+            except Exception as e:
+                loguru.logger.error(f"Ntfy重复通知发送失败: {e}")
+                time.sleep(self.interval_seconds)  # 发生错误时仍然等待
+
+        loguru.logger.info(f"Ntfy重复通知完成，共发送了{count}条通知")

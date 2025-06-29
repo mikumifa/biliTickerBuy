@@ -4,6 +4,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from task.buy import buy_stream
+from util.Notifier import NotifierConfig
 
 cancel_event = threading.Event()
 
@@ -22,6 +23,7 @@ class BuyRequest(BaseModel):
     ntfy_username: str | None
     ntfy_password: str | None
     serverchanKey: str | None
+    serverchan3ApiUrl: str | None
 
 
 current_task_thread: threading.Thread | None = None
@@ -47,19 +49,25 @@ def create_worker_app(app: FastAPI, args):
             cancel_event.clear()
 
             def stream():
+                # 创建NotifierConfig对象
+                notifier_config = NotifierConfig(
+                    serverchan_key=data.serverchanKey,
+                    serverchan3_api_url=data.serverchan3ApiUrl,
+                    pushplus_token=data.pushplusToken,
+                    bark_token=data.barkToken,
+                    ntfy_url=data.ntfy_url,
+                    ntfy_username=data.ntfy_username,
+                    ntfy_password=data.ntfy_password,
+                    audio_path=data.audio_path
+                )
+                
                 for msg in buy_stream(
                     tickets_info_str=data.train_info,
                     time_start=data.time_start,
                     interval=data.interval,
                     mode=data.mode,
                     total_attempts=data.total_attempts,
-                    audio_path=data.audio_path,
-                    pushplusToken=data.pushplusToken,
-                    serverchanKey=data.serverchanKey,
-                    barkToken=data.barkToken,
-                    ntfy_url=data.ntfy_url,
-                    ntfy_username=data.ntfy_username,
-                    ntfy_password=data.ntfy_password,
+                    notifier_config=notifier_config,
                     https_proxys=args.https_proxys,
                 ):
                     if cancel_event.is_set():
