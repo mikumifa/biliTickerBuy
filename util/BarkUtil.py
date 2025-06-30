@@ -1,8 +1,8 @@
 import json
 import requests
 
+from urllib.parse import urlparse
 from util.Notifier import NotifierBase
-
 
 class BarkNotifier(NotifierBase):
     def __init__(
@@ -26,6 +26,9 @@ class BarkNotifier(NotifierBase):
             "level": "critical",  # 重要警告
             "volume": "10",
         }
-        url = f"https://api.day.app/{self.token}/{title}/{message}"
+        if isinstance(self.token, str) and urlparse(self.token).scheme in {"http", "https"}:
+            url = f"{self.token.rstrip('/')}/{title}/{message}"
+        else:
+            url = f"https://api.day.app/{self.token}/{title}/{message}"
 
         requests.post(url, headers=headers, data=json.dumps(data))

@@ -237,7 +237,7 @@ def go_tab(demo: gr.Blocks):
                     value=(ConfigDB.get("barkToken") or ""),
                     label="Bark的Token｜输入完成后，回车键保存",
                     interactive=True,
-                    info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)',
+                    info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)；自托管服务请输入完整推送地址，例如: https://bark.example.app/jmGYK*****',
                 )
 
             with gr.Accordion(label="Ntfy配置", open=False):
