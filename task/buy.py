@@ -163,7 +163,7 @@ def buy_stream(
             tickets_info["again"] = 1
             tickets_info["token"] = request_result["data"]["token"]
             yield "2）创建订单"
-            tickets_info["timestamp"] = int(time.time()) * 100
+            tickets_info["timestamp"] = int(time.time()) * 1000
             payload = tickets_info
             if tickets_info["is_hot_project"]:
                 payload["ptoken"] = request_result["data"]["ptoken"]
@@ -176,6 +176,9 @@ def buy_stream(
                     url = f"{base_url}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
                     if tickets_info["is_hot_project"]:
                         payload["ctoken"] = ctoken_generator.generate_ctoken()  # type: ignore
+                        payload["orderCreateUrl"] = (
+                            "https://show.bilibili.com/api/ticket/order/createV2"
+                        )
                         url += "&ptoken=" + request_result["data"]["ptoken"]
                     ret = _request.post(
                         url=url,
