@@ -1,23 +1,12 @@
 import argparse
 import os
 
+
 def get_env_default(key: str, default, cast_func):
     return cast_func(os.environ.get(f"BTB_{key}", default))
 
-def clear_env_proxy()
-    # 清理系统代理变量以防止 httpx / requests 连接失败
-    cleared_vars = []
-    for proxy_var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
-        if proxy_var in os.environ:
-            del os.environ[proxy_var]
-            cleared_vars.append(proxy_var)
-
-    if cleared_vars:
-        print(f"[WARN] 已清除以下代理环境变量，避免连接失败: {', '.join(cleared_vars)}")
-
 
 def main():
-    clear_env_proxy()
     parser = argparse.ArgumentParser(description="Ticket Purchase Tool or Gradio UI")
     subparsers = parser.add_subparsers(dest="command")
     buy_parser = subparsers.add_parser("buy", help="Start the ticket buying ui")
@@ -113,9 +102,7 @@ def main():
         help="hide random message when fail",
     )
     # `--worker` 子命令
-    worker_parser = subparsers.add_parser(
-        "worker", help="Start the ticket worker ui"
-    )  # noqa: F841
+    worker_parser = subparsers.add_parser("worker", help="Start the ticket worker ui")  # noqa: F841
     worker_parser.add_argument(
         "--master",
         type=str,

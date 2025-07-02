@@ -23,9 +23,11 @@ from util.CTokenUtil import CTokenGenerator
 if bili_ticket_gt_python is not None:
     Amort = importlib.import_module("geetest.TripleValidator").TripleValidator()
 
+base_url = "https://show.bilibili.com"
+
 
 def get_qrcode_url(_request, order_id) -> str:
-    url = f"https://show.bilibili.com/api/ticket/order/getPayParam?order_id={order_id}"
+    url = f"{base_url}/api/ticket/order/getPayParam?order_id={order_id}"
     data = _request.get(url).json()
     if data.get("errno", data.get("code")) == 0:
         return data["data"]["code_url"]
@@ -33,14 +35,14 @@ def get_qrcode_url(_request, order_id) -> str:
 
 
 def buy_stream(
-        tickets_info_str,
-        time_start,
-        interval,
-        mode,
-        total_attempts,
-        notifier_config,
-        https_proxys,
-        show_random_message=True,
+    tickets_info_str,
+    time_start,
+    interval,
+    mode,
+    total_attempts,
+    notifier_config,
+    https_proxys,
+    show_random_message=True,
 ):
     if bili_ticket_gt_python is None:
         yield "当前设备不支持本地过验证码，无法使用"
@@ -70,9 +72,7 @@ def buy_stream(
 
     if tickets_info["is_hot_project"]:
         ctoken_generator = CTokenGenerator(
-            time.time(),
-            time_service.get_timeoffset(),
-            randint(2000, 10000)
+            time.time(), time_service.get_timeoffset(), randint(2000, 10000)
         )
         token_payload["token"] = ctoken_generator.generate_ctoken(type="prepare")
 
@@ -82,15 +82,15 @@ def buy_stream(
         yield f"时间偏差已被设置为: {timeoffset}s"
         try:
             time_difference = (
-                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
-                    - time.time()
-                    + timeoffset
+                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
+                - time.time()
+                + timeoffset
             )
         except ValueError:
             time_difference = (
-                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
-                    - time.time()
-                    + timeoffset
+                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
+                - time.time()
+                + timeoffset
             )
         start_time = time.perf_counter()
         end_time = start_time + time_difference
@@ -101,7 +101,7 @@ def buy_stream(
         try:
             yield "1）订单准备"
             request_result_normal = _request.post(
-                url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
+                url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                 data=token_payload,
                 isJson=True,
             )
@@ -154,7 +154,7 @@ def buy_stream(
                     continue
 
                 request_result = _request.post(
-                    url=f"https://show.bilibili.com/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
+                    url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                     data=token_payload,
                     isJson=True,
                 ).json()
@@ -173,9 +173,9 @@ def buy_stream(
                     yield "抢票结束"
                     break
                 try:
-                    url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
+                    url = f"{base_url}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
                     if tickets_info["is_hot_project"]:
-                        payload["ctoken"] = ctoken_generator.generate_ctoken()
+                        payload["ctoken"] = ctoken_generator.generate_ctoken()  # type: ignore
                         url += "&ptoken=" + request_result["data"]["ptoken"]
                     ret = _request.post(
                         url=url,
@@ -225,9 +225,9 @@ def buy_stream(
                 notifierManager = NotifierManager.create_from_config(
                     config=notifier_config,
                     title="抢票成功",
-                    content=f"bilibili会员购，请尽快前往订单中心付款: {detail}"
+                    content=f"bilibili会员购，请尽快前往订单中心付款: {detail}",
                 )
-                
+
                 # 启动所有已配置的推送渠道
                 notifierManager.start_all()
 
@@ -257,21 +257,21 @@ def buy_stream(
 
 
 def buy(
-        tickets_info_str,
-        time_start,
-        interval,
-        mode,
-        total_attempts,
-        audio_path,
-        pushplusToken,
-        serverchanKey,
-        barkToken,
-        https_proxys,
-        serverchan3ApiUrl=None,
-        ntfy_url=None,
-        ntfy_username=None,
-        ntfy_password=None,
-        show_random_message=True,
+    tickets_info_str,
+    time_start,
+    interval,
+    mode,
+    total_attempts,
+    audio_path,
+    pushplusToken,
+    serverchanKey,
+    barkToken,
+    https_proxys,
+    serverchan3ApiUrl=None,
+    ntfy_url=None,
+    ntfy_username=None,
+    ntfy_password=None,
+    show_random_message=True,
 ):
     # 创建NotifierConfig对象
     notifier_config = NotifierConfig(
@@ -282,41 +282,41 @@ def buy(
         ntfy_url=ntfy_url,
         ntfy_username=ntfy_username,
         ntfy_password=ntfy_password,
-        audio_path=audio_path
+        audio_path=audio_path,
     )
-    
+
     for msg in buy_stream(
-            tickets_info_str,
-            time_start,
-            interval,
-            mode,
-            total_attempts,
-            notifier_config,
-            https_proxys,
-            show_random_message,
-    ):
-        logger.info(msg)
-
-
-def buy_new_terminal(
-        endpoint_url,
-        filename,
         tickets_info_str,
         time_start,
         interval,
         mode,
         total_attempts,
-        audio_path,
-        pushplusToken,
-        serverchanKey,
-        barkToken,
+        notifier_config,
         https_proxys,
-        serverchan3ApiUrl=None,
-        ntfy_url=None,
-        ntfy_username=None,
-        ntfy_password=None,
-        show_random_message=True,
-        terminal_ui="网页",
+        show_random_message,
+    ):
+        logger.info(msg)
+
+
+def buy_new_terminal(
+    endpoint_url,
+    filename,
+    tickets_info_str,
+    time_start,
+    interval,
+    mode,
+    total_attempts,
+    audio_path,
+    pushplusToken,
+    serverchanKey,
+    barkToken,
+    https_proxys,
+    serverchan3ApiUrl=None,
+    ntfy_url=None,
+    ntfy_username=None,
+    ntfy_password=None,
+    show_random_message=True,
+    terminal_ui="网页",
 ) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
