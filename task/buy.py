@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 import time
+from random import randint
 from datetime import datetime
 from json import JSONDecodeError
 from urllib.parse import urlencode
@@ -17,6 +18,7 @@ from util.Notifier import NotifierManager, NotifierConfig
 from util import bili_ticket_gt_python
 from util.BiliRequest import BiliRequest
 from util.RandomMessages import get_random_fail_message
+from util.CTokenUtil import CTokenGenerator
 
 if bili_ticket_gt_python is not None:
     Amort = importlib.import_module("geetest.TripleValidator").TripleValidator()
@@ -65,6 +67,14 @@ def buy_stream(
         "token": "",
         "newRisk": True,
     }
+
+    if tickets_info["is_hot_project"]:
+        ctoken_generator = CTokenGenerator(
+            time.time(),
+            time_service.get_timeoffset(),
+            randint(2000, 10000)
+        )
+        token_payload["token"] = ctoken_generator.generate_ctoken(type="prepare")
 
     if time_start != "":
         timeoffset = time_service.get_timeoffset()
@@ -155,14 +165,20 @@ def buy_stream(
             yield "2）创建订单"
             tickets_info["timestamp"] = int(time.time()) * 100
             payload = tickets_info
+            if tickets_info["is_hot_project"]:
+                payload["ptoken"] = request_result["data"]["ptoken"]
             result = None
             for attempt in range(1, 61):
                 if not isRunning:
                     yield "抢票结束"
                     break
                 try:
+                    url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
+                    if tickets_info["is_hot_project"]:
+                        payload["ctoken"] = ctoken_generator.generate_ctoken()
+                        url += "&ptoken=" + request_result["data"]["ptoken"]
                     ret = _request.post(
-                        url=f"https://show.bilibili.com/api/ticket/order/createV2?project_id={tickets_info['project_id']}",
+                        url=url,
                         data=payload,
                         isJson=True,
                     ).json()
