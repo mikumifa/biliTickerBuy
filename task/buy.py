@@ -9,6 +9,8 @@ from json import JSONDecodeError
 from urllib.parse import urlencode
 
 import qrcode
+import requests
+from anyio import sleep
 from loguru import logger
 
 from requests import HTTPError, RequestException
@@ -35,14 +37,14 @@ def get_qrcode_url(_request, order_id) -> str:
 
 
 def buy_stream(
-    tickets_info_str,
-    time_start,
-    interval,
-    mode,
-    total_attempts,
-    notifier_config,
-    https_proxys,
-    show_random_message=True,
+        tickets_info_str,
+        time_start,
+        interval,
+        mode,
+        total_attempts,
+        notifier_config,
+        https_proxys,
+        show_random_message=True,
 ):
     if bili_ticket_gt_python is None:
         yield "当前设备不支持本地过验证码，无法使用"
@@ -82,15 +84,15 @@ def buy_stream(
         yield f"时间偏差已被设置为: {timeoffset}s"
         try:
             time_difference = (
-                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
-                - time.time()
-                + timeoffset
+                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
+                    - time.time()
+                    + timeoffset
             )
         except ValueError:
             time_difference = (
-                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
-                - time.time()
-                + timeoffset
+                    datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
+                    - time.time()
+                    + timeoffset
             )
         start_time = time.perf_counter()
         end_time = start_time + time_difference
@@ -160,15 +162,51 @@ def buy_stream(
                 ).json()
                 yield f"prepare: {request_result}"
 
+            if code == 412:
+                yield "当前IP已被风控, 暂停10s, 10s后将重新进行订单准备"
+                sleep(10)
+                continue
+
             tickets_info["again"] = 1
             tickets_info["token"] = request_result["data"]["token"]
+
+            yield "1.5）等待有票"
+            has_ticket = False
+            count = 0
+            while not has_ticket and count < 30:
+                yield "无票"
+                time.sleep(1)
+                headers = {
+                    "accept": "*/*",
+                    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,zh-TW;q=0.5,ja;q=0.4",
+                    "content-type": "application/x-www-form-urlencoded",
+                    "cookie": "",
+                    "referer": "https://show.bilibili.com/",
+                    "priority": "u=1, i",
+                    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
+                }
+                request_can_click = requests.get(
+                    url=f"https://show.bilibili.com/api/ticket/project/getV2?version=134&id={tickets_info['project_id']}&project_id={tickets_info['project_id']}",
+                    headers=headers
+                )
+                if request_can_click.status_code == 200:
+                    try:
+                        response = request_can_click.json()
+                        has_ticket = response["data"]["screen_list"][1]["ticket_list"][7]["clickable"] != False
+                    except Exception:
+                        yield "无效json"
+                count += 1
+            if not has_ticket:
+                yield "token过期，需要重新准备订单"
+                continue
+
             yield "2）创建订单"
             tickets_info["timestamp"] = int(time.time()) * 100
             payload = tickets_info
             if tickets_info["is_hot_project"]:
                 payload["ptoken"] = request_result["data"]["ptoken"]
             result = None
-            for attempt in range(1, 61):
+            for attempt in range(1, 31):
                 if not isRunning:
                     yield "抢票结束"
                     break
@@ -257,21 +295,21 @@ def buy_stream(
 
 
 def buy(
-    tickets_info_str,
-    time_start,
-    interval,
-    mode,
-    total_attempts,
-    audio_path,
-    pushplusToken,
-    serverchanKey,
-    barkToken,
-    https_proxys,
-    serverchan3ApiUrl=None,
-    ntfy_url=None,
-    ntfy_username=None,
-    ntfy_password=None,
-    show_random_message=True,
+        tickets_info_str,
+        time_start,
+        interval,
+        mode,
+        total_attempts,
+        audio_path,
+        pushplusToken,
+        serverchanKey,
+        barkToken,
+        https_proxys,
+        serverchan3ApiUrl=None,
+        ntfy_url=None,
+        ntfy_username=None,
+        ntfy_password=None,
+        show_random_message=True,
 ):
     # 创建NotifierConfig对象
     notifier_config = NotifierConfig(
@@ -286,37 +324,37 @@ def buy(
     )
 
     for msg in buy_stream(
-        tickets_info_str,
-        time_start,
-        interval,
-        mode,
-        total_attempts,
-        notifier_config,
-        https_proxys,
-        show_random_message,
+            tickets_info_str,
+            time_start,
+            interval,
+            mode,
+            total_attempts,
+            notifier_config,
+            https_proxys,
+            show_random_message,
     ):
         logger.info(msg)
 
 
 def buy_new_terminal(
-    endpoint_url,
-    filename,
-    tickets_info_str,
-    time_start,
-    interval,
-    mode,
-    total_attempts,
-    audio_path,
-    pushplusToken,
-    serverchanKey,
-    barkToken,
-    https_proxys,
-    serverchan3ApiUrl=None,
-    ntfy_url=None,
-    ntfy_username=None,
-    ntfy_password=None,
-    show_random_message=True,
-    terminal_ui="网页",
+        endpoint_url,
+        filename,
+        tickets_info_str,
+        time_start,
+        interval,
+        mode,
+        total_attempts,
+        audio_path,
+        pushplusToken,
+        serverchanKey,
+        barkToken,
+        https_proxys,
+        serverchan3ApiUrl=None,
+        ntfy_url=None,
+        ntfy_username=None,
+        ntfy_password=None,
+        show_random_message=True,
+        terminal_ui="网页",
 ) -> subprocess.Popen:
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
