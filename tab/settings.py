@@ -79,6 +79,7 @@ def on_submit_ticket_id(num):
 
         project_id = data["id"]
         project_name = data["name"]
+        is_hot_project = data["hotProject"]
 
         project_start_time = datetime.fromtimestamp(data["start_time"]).strftime(
             "%Y-%m-%d %H:%M:%S"
@@ -127,6 +128,7 @@ def on_submit_ticket_id(num):
                 ticket["price"] = ticket_price = ticket["price"] + express_fee
                 ticket["screen"] = screen_name
                 ticket["screen_id"] = screen_id
+                ticket["is_hot_project"] = is_hot_project
                 if "link_id" in screen:
                     ticket["link_id"] = screen["link_id"]
                 ticket_can_buy = sales_flag_number_map[ticket["sale_flag_number"]]
@@ -216,6 +218,7 @@ def on_submit_all(
             "count": len(people_indices),
             "screen_id": ticket_cur["ticket"]["screen_id"],
             "project_id": ticket_cur["project_id"],
+            "is_hot_project": ticket_cur["ticket"]["is_hot_project"],
             "sku_id": ticket_cur["ticket"]["id"],
             "order_type": 1,
             "pay_money": ticket_cur["ticket"]["price"] * len(people_indices),
