@@ -32,45 +32,49 @@ if bili_ticket_gt_python is not None:
 
 def go_tab(demo: gr.Blocks):
     with gr.Column():
-        gr.Markdown("""
-            ### 上传或填入你要抢票票种的配置信息
-            """)
-        with gr.Row():
-            upload_ui = gr.Files(
-                label="上传多个配置文件,每一个上传的文件都会启动一个抢票程序",
-                file_count="multiple",
-            )
-            ticket_ui = gr.TextArea(
-                label="查看", info="只能通过上传文件方式上传信息", interactive=False
-            )
-        with gr.Row(variant="compact"):
-            gr.HTML(
-                """
-            <div class="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
-                <p class="text-red-600 font-medium mb-2">
-                    程序已经提前帮你校准时间，<strong>请设置成开票时间</strong>。切勿设置为开票前时间，
-                    否则<strong>有封号风险</strong>！
-                </p>
-                <label for="datetime" class="block text-gray-700 font-semibold mb-1">选择抢票时间（精确到秒）</label>
-                <input 
-                    type="datetime-local" 
-                    id="datetime" 
-                    name="datetime" 
-                    step="1"
-                    class="w-full border border-gray-300 rounded-lg p-2 shadow-sm 
-                        focus:outline-none focus:ring-2 focus:ring-blue-400 
-                        hover:border-blue-400 transition-all"
-                >
-            </div>
-            """,
-                label="选择抢票的时间",
-            )
+        with gr.Column(elem_classes="rounded-xl border p-4  rounded-lg shadow-sm"):
+            gr.Markdown("""
+                ## 上传或填入你要抢票票种的配置信息
+                """)
+            with gr.Row():
+                upload_ui = gr.Files(
+                    label="上传多个配置文件,每一个上传的文件都会启动一个抢票程序",
+                    file_count="multiple",
+                )
+                ticket_ui = gr.TextArea(
+                    label="查看",
+                    info="只能通过上传文件方式上传信息",
+                    interactive=False,
+                    visible=False,
+                )
+            with gr.Row(variant="compact"):
+                gr.HTML(
+                    """
+                <div class="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
+                    <p class="text-red-600 font-medium mb-2">
+                        程序已经提前帮你校准时间，<strong>请设置成开票时间</strong>。切勿设置为开票前时间，
+                        否则<strong>有封号风险</strong>！
+                    </p>
+                    <label for="datetime" class="block  font-semibold mb-1">选择抢票时间（精确到秒）</label>
+                    <input 
+                        type="datetime-local" 
+                        id="datetime" 
+                        name="datetime" 
+                        step="1"
+                        class="w-full border rounded-lg p-2 shadow-sm 
+                            focus:outline-none focus:ring-2 focus:ring-blue-400 
+                            hover:border-blue-400 transition-all"
+                    >
+                </div>
+                """,
+                    label="选择抢票的时间",
+                )
 
         def upload(filepath):
             try:
                 with open(filepath[0], "r", encoding="utf-8") as file:
                     content = file.read()
-                return content
+                return gr.update(content, visible=True)
             except Exception as e:
                 return str(e)
 
@@ -84,6 +88,12 @@ def go_tab(demo: gr.Blocks):
                 return str(e)
 
         upload_ui.upload(fn=upload, inputs=upload_ui, outputs=ticket_ui)
+        upload_ui.clear(
+            fn=lambda x: gr.update("", visible=False),
+            inputs=upload_ui,
+            outputs=ticket_ui,
+        )
+
         upload_ui.select(file_select_handler, upload_ui, ticket_ui)
 
         # 手动设置/更新时间偏差
@@ -184,8 +194,10 @@ def go_tab(demo: gr.Blocks):
         with gr.Accordion(label="配置抢票成功后播放音乐[可选]", open=False):
             with gr.Row():
                 audio_path_ui = gr.Audio(
-                    label="上传提示声音[只支持格式wav]", type="filepath", loop=True,
-                    value=(ConfigDB.get("audioPath") or None)
+                    label="上传提示声音[只支持格式wav]",
+                    type="filepath",
+                    loop=True,
+                    value=(ConfigDB.get("audioPath") or None),
                 )
         with gr.Accordion(label="配置抢票推送消息[可选]", open=False):
             gr.Markdown(
@@ -227,7 +239,7 @@ def go_tab(demo: gr.Blocks):
                 )
 
                 pushplus_ui = gr.Textbox(
-                    value=(ConfigDB.get("pushplusToken") or ''),
+                    value=(ConfigDB.get("pushplusToken") or ""),
                     label="PushPlus的Token｜输入完成后，回车键保存",
                     interactive=True,
                     info="https://www.pushplus.plus/",
@@ -247,7 +259,7 @@ def go_tab(demo: gr.Blocks):
                     interactive=True,
                     info="例如: https://ntfy.sh/your-topic",
                 )
-                
+
                 with gr.Accordion(label="Ntfy认证配置[可选]", open=False):
                     with gr.Row():
                         ntfy_username_ui = gr.Textbox(
@@ -330,28 +342,49 @@ def go_tab(demo: gr.Blocks):
                 """调用NotifierManager统一测试所有推送渠道"""
                 try:
                     from util.Notifier import NotifierManager
+
                     return NotifierManager.test_all_notifiers()
                 except Exception as e:
                     logger.exception(e)
                     return f"错误: 测试过程中发生异常 - {str(e)}"
 
-            serverchan_ui.submit(fn=inner_input_serverchan, inputs=serverchan_ui, outputs=serverchan_ui)
+            serverchan_ui.submit(
+                fn=inner_input_serverchan, inputs=serverchan_ui, outputs=serverchan_ui
+            )
 
-            serverchan3_ui.submit(fn=inner_input_serverchan3, inputs=serverchan3_ui, outputs=serverchan3_ui)
+            serverchan3_ui.submit(
+                fn=inner_input_serverchan3,
+                inputs=serverchan3_ui,
+                outputs=serverchan3_ui,
+            )
 
-            pushplus_ui.submit(fn=inner_input_pushplus, inputs=pushplus_ui, outputs=pushplus_ui)
+            pushplus_ui.submit(
+                fn=inner_input_pushplus, inputs=pushplus_ui, outputs=pushplus_ui
+            )
 
             bark_ui.submit(fn=inner_input_bark, inputs=bark_ui, outputs=bark_ui)
 
             ntfy_ui.submit(fn=inner_input_ntfy, inputs=ntfy_ui, outputs=ntfy_ui)
 
-            ntfy_username_ui.submit(fn=inner_input_ntfy_username, inputs=ntfy_username_ui, outputs=ntfy_username_ui)
+            ntfy_username_ui.submit(
+                fn=inner_input_ntfy_username,
+                inputs=ntfy_username_ui,
+                outputs=ntfy_username_ui,
+            )
 
-            ntfy_password_ui.submit(fn=inner_input_ntfy_password, inputs=ntfy_password_ui, outputs=ntfy_password_ui)
+            ntfy_password_ui.submit(
+                fn=inner_input_ntfy_password,
+                inputs=ntfy_password_ui,
+                outputs=ntfy_password_ui,
+            )
 
-            test_all_push_button.click(fn=test_all_push, inputs=[], outputs=test_push_result)
+            test_all_push_button.click(
+                fn=test_all_push, inputs=[], outputs=test_push_result
+            )
 
-            audio_path_ui.upload(fn=inner_input_audio_path, inputs=audio_path_ui, outputs=audio_path_ui)
+            audio_path_ui.upload(
+                fn=inner_input_audio_path, inputs=audio_path_ui, outputs=audio_path_ui
+            )
         with gr.Accordion(label="杂项配置", open=False):
             show_random_message_ui = gr.Checkbox(
                 label="关闭群友语录",
