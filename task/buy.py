@@ -169,6 +169,9 @@ def buy_stream(
             yield "2）创建订单"
             tickets_info["timestamp"] = int(time.time()) * 1000
             payload = tickets_info
+            if "detail" in payload:
+                del payload["detail"]
+            
             result = None
             for attempt in range(1, 61):
                 if not isRunning:
