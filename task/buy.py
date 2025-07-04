@@ -165,6 +165,10 @@ def buy_stream(
             yield "2）创建订单"
             tickets_info["timestamp"] = int(time.time()) * 1000
             payload = tickets_info
+
+            if "detail" in payload:
+                del payload["detail"]
+            
             if tickets_info["is_hot_project"]:
                 payload["ptoken"] = request_result["data"]["ptoken"]
             result = None
