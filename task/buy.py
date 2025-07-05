@@ -94,6 +94,9 @@ def buy_stream(
         start_time = time.perf_counter()
         end_time = start_time + time_difference
         while time.perf_counter() < end_time:
+            #因为时间精度问题，结果不做缓存处理
+            yield f"未到开始时间，休眠{(end_time-time.perf_counter())/2}秒"
+            time.sleep((end_time-time.perf_counter())/2)
             pass
 
     while isRunning:
