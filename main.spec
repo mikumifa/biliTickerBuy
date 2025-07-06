@@ -18,7 +18,6 @@ a = Analysis(
         'gradio_calendar': 'py',  # Collect'
         'gradio_log': 'py',  # Collect'
     },
-    hiddenimports=['scipy._lib.array_api_compat.numpy.fft'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
