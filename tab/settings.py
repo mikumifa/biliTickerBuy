@@ -456,7 +456,6 @@ def setting_tab():
                     on_login_click,
                     outputs=[qr_img, username_ui, gr_file_ui, qrcode_key_state],
                 )
-                qrcode_key_state.change()
 
                 @gr.on(
                     qrcode_key_state.change, inputs=qrcode_key_state, outputs=check_btn
