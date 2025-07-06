@@ -1,6 +1,4 @@
 import datetime
-import importlib
-from math import lgamma
 import os
 import platform
 import time
@@ -9,25 +7,12 @@ from gradio import SelectData
 from loguru import logger
 import requests
 
-from geetest.Validator import Validator
 from task.buy import buy_new_terminal
 from util import ConfigDB, Endpoint, GlobalStatusInstance, time_service
-from util import bili_ticket_gt_python
 
 
 def withTimeString(string):
     return f"{datetime.datetime.now()}: {string}"
-
-
-ways: list[str] = []
-ways_detail: list[Validator] = []
-if bili_ticket_gt_python is not None:
-    ways_detail.insert(
-        0, importlib.import_module("geetest.TripleValidator").TripleValidator()
-    )
-    ways.insert(0, "本地过验证码v2(Amorter提供)")
-    # ways_detail.insert(0, importlib.import_module("geetest.AmorterValidator").AmorterValidator())
-    # ways.insert(0, "本地过验证码(Amorter提供)")
 
 
 def go_tab(demo: gr.Blocks):
@@ -119,15 +104,6 @@ def go_tab(demo: gr.Blocks):
                 outputs=None,
             )
 
-        # 验证码选择
-        select_way = 0
-        way_select_ui = gr.Radio(
-            ways,
-            label="过验证码的方式",
-            info="详细说明请前往 `训练你的验证码速度` 那一栏",
-            type="index",
-            value=ways[select_way],
-        )
         with gr.Accordion(label="填写你的代理服务器[可选]", open=False):
             gr.Markdown("""
                         > **注意**：
@@ -302,7 +278,7 @@ def go_tab(demo: gr.Blocks):
                     )
 
             # 推送测试按钮区域
-            with gr.Row():
+            with gr.Column():
                 test_all_push_button = gr.Button("🧪 测试所有推送")
                 test_push_result = gr.Textbox(label="推送测试结果", interactive=False)
 
@@ -391,12 +367,6 @@ def go_tab(demo: gr.Blocks):
                 value=True,
                 info="关闭后，抢票失败时将不再显示有趣的语录",
             )
-
-        def choose_option(way):
-            nonlocal select_way
-            select_way = way
-
-        way_select_ui.change(choose_option, inputs=way_select_ui)
 
         with gr.Row():
             interval_ui = gr.Number(

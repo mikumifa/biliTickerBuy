@@ -2,16 +2,20 @@ import json
 import os
 import re
 from datetime import datetime
+import time
 from typing import Any, Dict, List
 from urllib.parse import urlparse, parse_qs
 
 import gradio as gr
 from gradio_calendar import Calendar
 from loguru import logger
+import qrcode
+import requests
 
 from util.BiliRequest import BiliRequest
 from util import TEMP_PATH, GLOBAL_COOKIE_PATH, set_main_request, ConfigDB
 import util
+from util.CookieManager import parse_cookie_list
 
 buyer_value: List[Dict[str, Any]] = []
 addr_value: List[Dict[str, Any]] = []
@@ -254,8 +258,7 @@ def on_submit_all(
 
 def upload_file(filepath):
     try:
-        ConfigDB.update("cookies_path", filepath)
-        set_main_request(BiliRequest(cookies_config_path=ConfigDB.get("cookies_path")))
+        set_main_request(BiliRequest(cookies_config_path=filepath))
         name = util.main_request.get_request_name()
         gr.Info("导入成功", duration=5)
         yield [
@@ -265,26 +268,6 @@ def upload_file(filepath):
     except Exception as e:
         name = util.main_request.get_request_name()
         logger.exception(e)
-        raise gr.Error("登录出现错误", duration=5)
-
-
-def add():
-    util.main_request.cookieManager.db.delete("cookie")
-    gr.Info("已经注销，将打开浏览器，请在浏览器里面重新登录", duration=5)
-    yield [
-        gr.update(value="未登录"),
-        gr.update(value=GLOBAL_COOKIE_PATH),
-    ]
-    try:
-        util.main_request.cookieManager.get_cookies_str_force()
-        name = util.main_request.get_request_name()
-        gr.Info("登录成功", duration=5)
-        yield [
-            gr.update(value=name),
-            gr.update(value=GLOBAL_COOKIE_PATH),
-        ]
-    except Exception:
-        name = util.main_request.get_request_name()
         raise gr.Error("登录出现错误", duration=5)
 
 
@@ -299,7 +282,7 @@ def setting_tab():
         - **购买人信息**：会员购中心 → 购买人信息
         > 即使暂时不需要，也请提前填写。否则生成表单时将没有任何选项。
         """,
-            elem_classes="!bg-yellow-200 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-yellow-400 dark:!border-gray-700 !shadow-sm "
+            elem_classes="!bg-yellow-200 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-yellow-400 dark:!border-gray-700 !shadow-sm ",
         )
 
         # 登录信息卡片
@@ -311,6 +294,8 @@ def setting_tab():
                 <span class="text-blue-700 dark:text-blue-200 font-medium">
                     如果遇到登录问题，请使用 
                     <a href="https://login.bilibili.bi/" class="underline text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100" target="_blank">备用登录入口</a>
+                    <br>
+                    注意，导入配置文件方式登录是临时登录。如果想长期使用一个账号，请使用扫码登录
                 </span>
                 """,
                 elem_classes="!text-sm",
@@ -318,27 +303,178 @@ def setting_tab():
 
             with gr.Row():
                 username_ui = gr.Text(
-                    util.main_request.get_request_name(),
+                    lambda: util.main_request.get_request_name(),
                     label="账号名称",
                     interactive=False,
                     info="输入配置文件使用的账号名称",
                     scale=5,
                 )
                 gr_file_ui = gr.File(
-                    label="当前登录信息文件", value=GLOBAL_COOKIE_PATH, scale=1
+                    label="当前登录信息文件", value=lambda: GLOBAL_COOKIE_PATH, scale=1
                 )
 
+            def generate_qrcode():
+                global session_cookies
+                headers = {
+                    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
+                }
+                max_retry = 10
+                for _ in range(max_retry):
+                    res = requests.request(
+                        "GET",
+                        "https://passport.bilibili.com/x/passport-login/web/qrcode/generate",
+                        headers=headers,
+                    )
+                    res_json = res.json()
+                    if res_json["code"] == 0:
+                        break
+                    time.sleep(1)
+                else:
+                    return None, "二维码生成失败"
+
+                url = res_json["data"]["url"]
+                qrcode_key = res_json["data"]["qrcode_key"]
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_H,  # type: ignore
+                    box_size=10,
+                    border=4,
+                )
+                qr.add_data(url)
+                qr.make(fit=True)
+                path = os.path.join(TEMP_PATH, "login_qrcode.png")
+
+                qr.make_image(fill_color="black", back_color="white").get_image().save(
+                    path
+                )
+                return path, qrcode_key
+
+            def poll_login(qrcode_key):
+                headers = {"User-Agent": "Mozilla/5.0"}
+                for _ in range(120):  # 轮询60秒，每0.5秒一次
+                    res = requests.request(
+                        "GET",
+                        "https://passport.bilibili.com/x/passport-login/web/qrcode/poll",
+                        params={"qrcode_key": qrcode_key},
+                        headers=headers,
+                        timeout=5,
+                    )
+                    poll_res = res.json()
+                    if poll_res.get("code") == 0:
+                        code = poll_res["data"]["code"]
+                        if code == 0:
+                            # 登录成功 requests.utils.dict_from_cookiejar(
+                            cookies = parse_cookie_list(res.headers["set-cookie"])
+                            return "登录成功！", cookies
+                        elif code in (86101, 86090):
+                            # 等待扫码或确认
+                            time.sleep(0.5)
+                            continue
+                        else:
+                            return f"扫码失败：{poll_res['data']['message']}", None
+                    else:
+                        time.sleep(0.5)
+                return "登录超时，请重试。", None
+
+            def start_login():
+                img_path, qrcode_key = generate_qrcode()
+                if not img_path:
+                    return None, "二维码生成失败"
+                return img_path, qrcode_key
+
+            qr_img = gr.Image(label="登录验证码", visible=False)
+            check_btn = gr.Button("扫码后点击此按钮", visible=False)
+
             with gr.Row():
+                login_btn = gr.Button(
+                    "注销并生成二维码登录",
+                    elem_classes="!bg-blue-500 dark:!bg-blue-600 !rounded-md !hover:bg-blue-600 dark:hover:!bg-blue-400 !transition",
+                )
+
+                qrcode_key_state = gr.State("")
+
+                def on_login_click():
+                    util.main_request.cookieManager.db.delete("cookie")
+                    gr.Info("已经注销，请重新登录", duration=5)
+                    img_path, msg_or_key = start_login()
+                    if img_path:
+                        gr.Info("已经生成二维码", duration=5)
+                        return [
+                            gr.update(value=img_path, visible=True),
+                            gr.update(value="未登录"),
+                            gr.update(value=GLOBAL_COOKIE_PATH),
+                            msg_or_key,
+                        ]
+
+                    else:
+                        gr.Warning("生成二维码异常", duration=5)
+                        return [
+                            gr.update(value="", visible=False),
+                            gr.update(value="未登录"),
+                            gr.update(value=GLOBAL_COOKIE_PATH),
+                            "",
+                        ]
+
+                def on_check_login(key):
+                    if not key:
+                        return [
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                        ]
+                    msg, cookies = poll_login(key)
+                    if cookies:
+                        try:
+                            # 扫码登录使用 GLOBAL_COOKIE_PATH
+                            set_main_request(
+                                BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH)
+                            )
+                            util.main_request.cookieManager.db.insert("cookie", cookies)
+                            name = util.main_request.get_request_name()
+                            if name:
+                                gr.Info("登录成功", duration=5)
+                            return [
+                                gr.update(value=name),
+                                gr.update(value=GLOBAL_COOKIE_PATH),
+                                gr.update(visible=False),
+                                gr.update(visible=False),
+                            ]
+                        except Exception:
+                            pass
+
+                    name = util.main_request.get_request_name()
+                    gr.Warning(f"登录出现错误 {msg}", duration=5)
+                    return [
+                        gr.update(value=name),
+                        gr.update(value=GLOBAL_COOKIE_PATH),
+                        gr.update(),
+                        gr.update(),
+                    ]
+
+                login_btn.click(
+                    on_login_click,
+                    outputs=[qr_img, username_ui, gr_file_ui, qrcode_key_state],
+                )
+                qrcode_key_state.change()
+
+                @gr.on(
+                    qrcode_key_state.change, inputs=qrcode_key_state, outputs=check_btn
+                )
+                def qrcode_key_state_change(key):
+                    if key:
+                        return gr.update(visible=True)
+
+                check_btn.click(
+                    on_check_login,
+                    inputs=[qrcode_key_state],
+                    outputs=[username_ui, gr_file_ui, qr_img, check_btn],
+                )
                 upload_ui = gr.UploadButton(
                     label="导入",
                     elem_classes="!bg-white dark:!bg-gray-700 !rounded-md !shadow-sm  dark:!text-white",
                 )
-                add_btn = gr.Button(
-                    "登录",
-                    elem_classes="!bg-blue-500 dark:!bg-blue-600 !rounded-md !hover:bg-blue-600 dark:hover:!bg-blue-400 !transition",
-                )
                 upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
-                add_btn.click(fn=add, inputs=None, outputs=[username_ui, gr_file_ui])
 
         # 手机号输入卡片
         with gr.Accordion(label="填写你的当前账号所绑定的手机号[可选]", open=False):
