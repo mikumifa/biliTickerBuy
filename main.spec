@@ -1,26 +1,35 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_all
 
 datas = []
-datas += collect_data_files('gradio_client')
-datas += collect_data_files('gradio')
-datas += collect_data_files('gradio_calendar')
-datas += collect_data_files('gradio_log')
-
+datas += collect_data_files("gradio_client")
+datas += collect_data_files("gradio")
+datas += collect_data_files("gradio_calendar")
+datas += collect_data_files("gradio_log")
+numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all("numpy")
 
 a = Analysis(
-    ['main.py'],
+    ["main.py"],
     pathex=[],
     binaries=[],
     datas=datas,
     module_collection_mode={
-        'gradio': 'py',  # Collect gradio package as source .py files
-        'gradio_calendar': 'py',  # Collect'
-        'gradio_log': 'py',  # Collect'
+        "gradio": "py",  # Collect gradio package as source .py files
+        "gradio_calendar": "py",  # Collect'
+        "gradio_log": "py",  # Collect'
     },
-    hiddenimports=[        
-        'numpy', 
-        'numpy.core._multiarray_umath',],
+    hiddenimports=[
+        "numpy",
+        "numpy.core._multiarray_umath",
+        "numpy.core.multiarray",
+        "numpy.random.common",
+        "numpy.random.bounded_integers",
+        "numpy.random.entropy",
+        "numpy.random",
+        "numpy.ctypeslib",
+    ]
+    + numpy_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,7 +44,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='biliTickerBuy',
+    name="biliTickerBuy",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -48,5 +57,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['assets/icon.ico']
+    icon=["assets/icon.ico"],
 )
