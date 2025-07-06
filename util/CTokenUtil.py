@@ -5,7 +5,7 @@ import time
 class CTokenGenerator:
     def __init__(self, ticket_collection_t, time_offset, stay_time):
         self.touch_event = 0
-        self.isibility_change = 0
+        self.visibility_change = 0
         self.page_unload = 0
         self.timer = 0
         self.time_difference = 0
@@ -29,7 +29,7 @@ class CTokenGenerator:
         data_mapping = {
             0: {'data': self.touch_event, 'length': 1},
             1: {'data': self.scroll_x, 'length': 1},
-            2: {'data': self.isibility_change, 'length': 1},
+            2: {'data': self.visibility_change, 'length': 1},
             3: {'data': self.scroll_y, 'length': 1},
             4: {'data': self.inner_width, 'length': 1},
             5: {'data': self.page_unload, 'length': 1},
@@ -75,9 +75,9 @@ class CTokenGenerator:
         byte_data = bytes(uint8_data)
         return base64.b64encode(byte_data).decode('ascii')
 
-    def generate_ctoken(self, type="createV2") -> str:
+    def generate_ctoken(self, is_create_v2: bool) -> str:
         self.touch_event = 255                              # 触摸事件数: 手机端抓包数据
-        self.isibility_change = 2                           # 可见性变化数: 手机端抓包数据
+        self.visibility_change = 2                          # 可见性变化数: 手机端抓包数据
         self.inner_width = 255                              # 窗口内部宽度: 手机端抓包数据
         self.inner_height = 255                             # 窗口内部高度: 手机端抓包数据
         self.outer_width = 255                              # 窗口外部宽度: 手机端抓包数据
@@ -85,7 +85,7 @@ class CTokenGenerator:
         self.screen_width = 255                             # 屏幕宽度: 手机端抓包数据
         self.screen_height = random.randint(1000, 3000)     # 屏幕高度: 用于条件判断
         self.screen_avail_width = random.randint(1, 100)    # 屏幕可用宽度: 用于条件判断
-        if type == "createV2":
+        if is_create_v2:
             # createV2阶段
             self.time_difference = int(time.time() + self.time_offset - self.ticket_collection_t)
             self.timer = int(self.time_difference + self.stay_time)

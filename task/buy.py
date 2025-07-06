@@ -52,6 +52,11 @@ def buy_stream(
     logger.info(f"使用代理：{https_proxys}")
     _request = BiliRequest(cookies=cookies, proxy=https_proxys)
 
+    if "is_hot_project" in tickets_info:
+        is_hot_project = tickets_info["is_hot_project"]
+    else:
+        is_hot_project = False
+
     token_payload = {
         "count": tickets_info["count"],
         "screen_id": tickets_info["screen_id"],
@@ -61,12 +66,6 @@ def buy_stream(
         "token": "",
         "newRisk": True,
     }
-
-    if tickets_info["is_hot_project"]:
-        ctoken_generator = CTokenGenerator(
-            time.time(), time_service.get_timeoffset(), randint(2000, 10000)
-        )
-        token_payload["token"] = ctoken_generator.generate_ctoken(type="prepare")
 
     if time_start != "":
         timeoffset = time_service.get_timeoffset()
@@ -92,6 +91,11 @@ def buy_stream(
     while isRunning:
         try:
             yield "1）订单准备"
+            if is_hot_project:
+                ctoken_generator = CTokenGenerator(
+                    time.time(), 0, randint(2000, 10000)
+                )
+                token_payload["token"] = ctoken_generator.generate_ctoken(is_create_v2=False)
             request_result_normal = _request.post(
                 url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                 data=token_payload,
@@ -104,8 +108,9 @@ def buy_stream(
             yield "2）创建订单"
             tickets_info["timestamp"] = int(time.time()) * 1000
             payload = tickets_info
-            if tickets_info["is_hot_project"]:
-                payload["ptoken"] = request_result["data"]["ptoken"]
+            if "detail" in payload:
+                del payload["detail"]
+            
             result = None
             for attempt in range(1, 61):
                 if not isRunning:
@@ -113,8 +118,9 @@ def buy_stream(
                     break
                 try:
                     url = f"{base_url}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
-                    if tickets_info["is_hot_project"]:
-                        payload["ctoken"] = ctoken_generator.generate_ctoken()  # type: ignore
+                    if is_hot_project:
+                        payload["ctoken"] = ctoken_generator.generate_ctoken(is_create_v2=True)
+                        payload["ptoken"] = request_result["data"]["ptoken"]
                         payload["orderCreateUrl"] = (
                             "https://show.bilibili.com/api/ticket/order/createV2"
                         )
