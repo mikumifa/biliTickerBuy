@@ -18,7 +18,7 @@ a = Analysis(
         'gradio_calendar': 'py',  # Collect'
         'gradio_log': 'py',  # Collect'
     },
-    hiddenimports=['numpy._libs._multiarray_umath'],
+    hiddenimports=['numpy.core._multiarray_umath'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
