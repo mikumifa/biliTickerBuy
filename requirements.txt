@@ -11,3 +11,4 @@ gradio_calendar~=0.0.6
 playsound3~=3.2.2
 pydantic~=2.8.2
 gradio_log~=0.0.4
+numpy>=1.26.4
