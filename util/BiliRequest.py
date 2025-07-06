@@ -60,8 +60,7 @@ class BiliRequest:
         response.raise_for_status()
         self.clear_request_count()
         if response.json().get("msg", "") == "请先登录":
-            self.headers["cookie"] = self.cookieManager.get_cookies_str_force()
-            self.get(url, data)
+            raise RuntimeError("当前未登录，请重新登陆")
         return response
 
     def switch_proxy(self):
@@ -94,8 +93,7 @@ class BiliRequest:
         response.raise_for_status()
         self.clear_request_count()
         if response.json().get("msg", "") == "请先登录":
-            self.headers["cookie"] = self.cookieManager.get_cookies_str_force()
-            self.post(url, data)
+            raise RuntimeError("当前未登录，请重新登陆")
         return response
 
     def get_request_name(self):

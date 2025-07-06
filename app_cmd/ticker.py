@@ -6,7 +6,6 @@ def ticker_cmd(args: Namespace):
     from tab.go import go_tab
     from tab.problems import problems_tab
     from tab.settings import setting_tab
-    from tab.train import train_tab
     from tab.log import log_tab
 
     from util.LogConfig import loguru_config
@@ -28,8 +27,6 @@ def ticker_cmd(args: Namespace):
             setting_tab()
         with gr.Tab("操作抢票"):
             go_tab(demo)
-        with gr.Tab("过码测试"):
-            train_tab()
         with gr.Tab("项目说明"):
             problems_tab()
         with gr.Tab("日志查看"):
