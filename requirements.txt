@@ -12,3 +12,4 @@ playsound3~=3.2.2
 pydantic~=2.8.2
 gradio_log~=0.0.4
 numpy>=1.26.4
+scipy~=1.15.2
