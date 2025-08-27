@@ -162,7 +162,6 @@ def on_submit_ticket_id(num):
         yield [
             gr.update(choices=ticket_str_list),
             gr.update(choices=buyer_str_list),
-            gr.update(choices=buyer_str_list),
             gr.update(choices=addr_str_list),
             gr.update(visible=True),
             gr.update(
@@ -190,7 +189,8 @@ def on_submit_all(
     ticket_id,
     ticket_info: int,
     people_indices,
-    people_buyer_index,
+    people_buyer_name,
+    people_buyer_phone,
     address_index,
 ):
     try:
@@ -202,14 +202,18 @@ def on_submit_all(
             raise gr.Error("没有填写地址", duration=5)
         if ticket_info is None:
             raise gr.Error("没有填写选票", duration=5)
-        if people_buyer_index is None:
-            raise gr.Error("没有填写联系人", duration=5)
+        if not people_buyer_name:
+            raise gr.Error("没有填写联系人姓名", duration=5)
+        if not people_buyer_phone:
+            raise gr.Error("没有填写联系人电话", duration=5)
         if address_index is None:
             raise gr.Error("没有填写地址", duration=5)
         ticket_cur: dict[str, Any] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
-        people_buyer_cur = buyer_value[people_buyer_index]
         ticket_id = extract_id_from_url(ticket_id)
+
+        ConfigDB.insert("people_buyer_name", people_buyer_name)
+        ConfigDB.insert("people_buyer_phone", people_buyer_phone)
 
         address_cur = addr_value[address_index]
         username = util.main_request.get_request_name()
@@ -227,8 +231,8 @@ def on_submit_all(
             "order_type": 1,
             "pay_money": ticket_cur["ticket"]["price"] * len(people_indices),
             "buyer_info": people_cur,
-            "buyer": people_buyer_cur["name"],
-            "tel": people_buyer_cur["tel"],
+            "buyer": people_buyer_name,
+            "tel": people_buyer_phone,
             "deliver_info": {
                 "name": address_cur["name"],
                 "tel": address_cur["phone"],
@@ -518,11 +522,19 @@ def setting_tab():
                     )
 
                 with gr.Row(elem_classes="!gap-2"):
-                    people_buyer_ui = gr.Dropdown(
-                        label="联系人",
+                    people_buyer_name = gr.Textbox(
+                        value=lambda: ConfigDB.get("people_buyer_name") or "",
+                        label="联系人姓名",
+                        placeholder="请输入姓名",
                         interactive=True,
-                        type="index",
-                        info="必填，如果候选项为空请到「购票人信息」添加",
+                        info="必填",
+                    )
+                    people_buyer_phone = gr.Textbox(
+                        value=lambda: ConfigDB.get("people_buyer_phone") or "",
+                        label="联系人电话",
+                        placeholder="请输入电话",
+                        interactive=True,
+                        info="必填",
                     )
                     address_ui = gr.Dropdown(
                         label="地址",
@@ -549,7 +561,8 @@ def setting_tab():
                         ticket_id_ui,
                         ticket_info_ui,
                         people_ui,
-                        people_buyer_ui,
+                        people_buyer_name,
+                        people_buyer_phone,
                         address_ui,
                     ],
                     outputs=[config_output_ui, config_file_ui],
@@ -561,7 +574,6 @@ def setting_tab():
                 outputs=[
                     ticket_info_ui,
                     people_ui,
-                    people_buyer_ui,
                     address_ui,
                     inner,
                     info_ui,
