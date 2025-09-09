@@ -119,6 +119,9 @@ def on_submit_ticket_id(num):
             logger.warning(f"获取场贩商品信息出错: {e}")
 
         for screen in data["screen_list"]:
+            if "name" not in screen:
+                #  TODO 应该是跳转到会员购了
+                continue
             screen_name = screen["name"]
             screen_id = screen["id"]
             project_id = screen["project_id"]
