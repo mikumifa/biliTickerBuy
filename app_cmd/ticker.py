@@ -4,11 +4,13 @@ import gradio as gr
 import threading
 from argparse import Namespace
 
+
 def exit_app_ui():
     loguru.logger.info("程序退出")
     threading.Timer(2.0, lambda: os._exit(0)).start()
     gr.Info("⚠️ 程序将在弹出Error提示后退出 ⚠️")
     return
+
 
 def ticker_cmd(args: Namespace):
     from tab.go import go_tab
@@ -32,11 +34,6 @@ def ticker_cmd(args: Namespace):
         head="""<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>""",
     ) as demo:
         gr.Markdown(header)
-        gr.Button("退出应用").click(
-            fn=exit_app_ui,
-            inputs=[],
-            outputs=[],
-        )
         with gr.Tab("生成配置"):
             setting_tab()
         with gr.Tab("操作抢票"):
