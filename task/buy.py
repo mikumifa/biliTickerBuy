@@ -85,8 +85,12 @@ def buy_stream(
             )
         start_time = time.perf_counter()
         end_time = start_time + time_difference
-        while time.perf_counter() < end_time:
-            pass
+        while True:
+            now = time.perf_counter()
+            if now >= end_time:
+                break
+            remaining = end_time - now
+            time.sleep(min(0.5, remaining))
 
     while isRunning:
         try:
