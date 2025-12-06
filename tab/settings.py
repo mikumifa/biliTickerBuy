@@ -2,16 +2,20 @@ import json
 import os
 import re
 from datetime import datetime
+import time
 from typing import Any, Dict, List
 from urllib.parse import urlparse, parse_qs
 
 import gradio as gr
 from gradio_calendar import Calendar
 from loguru import logger
+import qrcode
+import requests
 
 from util.BiliRequest import BiliRequest
 from util import TEMP_PATH, GLOBAL_COOKIE_PATH, set_main_request, ConfigDB
 import util
+from util.CookieManager import parse_cookie_list
 
 buyer_value: List[Dict[str, Any]] = []
 addr_value: List[Dict[str, Any]] = []
@@ -79,6 +83,7 @@ def on_submit_ticket_id(num):
 
         project_id = data["id"]
         project_name = data["name"]
+        is_hot_project = data["hotProject"]
 
         project_start_time = datetime.fromtimestamp(data["start_time"]).strftime(
             "%Y-%m-%d %H:%M:%S"
@@ -94,22 +99,29 @@ def on_submit_ticket_id(num):
         sales_dates_show = len(data["sales_dates"]) != 0
         for item in data["screen_list"]:
             item["project_id"] = data["id"]
-        # 场贩
-        # good_list = util.main_request.get(
-        #     url=f"https://show.bilibili.com/api/ticket/project/getV2?id={project_id}&project_id={project_id}"
-        # )
-        # good_list = good_list.json()
-        # ids = [item["id"] for item in good_list["data"]["list"]]
-        # for id in ids:
-        #     good_detail = util.main_request.get(
-        #         url=f"https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={id}"
-        #     )
-        #     good_detail = good_detail.json()
-        #     for item in good_detail["data"]["specs_list"]:
-        #         item["project_id"] = good_detail["data"]["item_id"]
-        #         item["link_id"] = id
-        #     data["screen_list"] += good_detail["data"]["specs_list"]
+
+        try:
+            good_list = util.main_request.get(
+                url=f"https://show.bilibili.com/api/ticket/linkgoods/list?project_id={project_id}&page_type=0"
+            )
+            good_list = good_list.json()
+            ids = [item["id"] for item in good_list["data"]["list"]]
+            for id in ids:
+                good_detail = util.main_request.get(
+                    url=f"https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={id}"
+                )
+                good_detail = good_detail.json()
+                for item in good_detail["data"]["specs_list"]:
+                    item["project_id"] = good_detail["data"]["item_id"]
+                    item["link_id"] = id
+                data["screen_list"] += good_detail["data"]["specs_list"]
+        except Exception as e:
+            logger.warning(f"获取场贩商品信息出错: {e}")
+
         for screen in data["screen_list"]:
+            if "name" not in screen:
+                #  TODO 应该是跳转到会员购了
+                continue
             screen_name = screen["name"]
             screen_id = screen["id"]
             project_id = screen["project_id"]
@@ -127,6 +139,7 @@ def on_submit_ticket_id(num):
                 ticket["price"] = ticket_price = ticket["price"] + express_fee
                 ticket["screen"] = screen_name
                 ticket["screen_id"] = screen_id
+                ticket["is_hot_project"] = is_hot_project
                 if "link_id" in screen:
                     ticket["link_id"] = screen["link_id"]
                 ticket_can_buy = sales_flag_number_map[ticket["sale_flag_number"]]
@@ -156,7 +169,6 @@ def on_submit_ticket_id(num):
         yield [
             gr.update(choices=ticket_str_list),
             gr.update(choices=buyer_str_list),
-            gr.update(choices=buyer_str_list),
             gr.update(choices=addr_str_list),
             gr.update(visible=True),
             gr.update(
@@ -184,7 +196,8 @@ def on_submit_all(
     ticket_id,
     ticket_info: int,
     people_indices,
-    people_buyer_index,
+    people_buyer_name,
+    people_buyer_phone,
     address_index,
 ):
     try:
@@ -196,14 +209,18 @@ def on_submit_all(
             raise gr.Error("没有填写地址", duration=5)
         if ticket_info is None:
             raise gr.Error("没有填写选票", duration=5)
-        if people_buyer_index is None:
-            raise gr.Error("没有填写联系人", duration=5)
+        if not people_buyer_name:
+            raise gr.Error("没有填写联系人姓名", duration=5)
+        if not people_buyer_phone:
+            raise gr.Error("没有填写联系人电话", duration=5)
         if address_index is None:
             raise gr.Error("没有填写地址", duration=5)
         ticket_cur: dict[str, Any] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
-        people_buyer_cur = buyer_value[people_buyer_index]
         ticket_id = extract_id_from_url(ticket_id)
+
+        ConfigDB.insert("people_buyer_name", people_buyer_name)
+        ConfigDB.insert("people_buyer_phone", people_buyer_phone)
 
         address_cur = addr_value[address_index]
         username = util.main_request.get_request_name()
@@ -216,12 +233,13 @@ def on_submit_all(
             "count": len(people_indices),
             "screen_id": ticket_cur["ticket"]["screen_id"],
             "project_id": ticket_cur["project_id"],
+            "is_hot_project": ticket_cur["ticket"]["is_hot_project"],
             "sku_id": ticket_cur["ticket"]["id"],
             "order_type": 1,
             "pay_money": ticket_cur["ticket"]["price"] * len(people_indices),
             "buyer_info": people_cur,
-            "buyer": people_buyer_cur["name"],
-            "tel": people_buyer_cur["tel"],
+            "buyer": people_buyer_name,
+            "tel": people_buyer_phone,
             "deliver_info": {
                 "name": address_cur["name"],
                 "tel": address_cur["phone"],
@@ -251,8 +269,7 @@ def on_submit_all(
 
 def upload_file(filepath):
     try:
-        ConfigDB.update("cookies_path", filepath)
-        set_main_request(BiliRequest(cookies_config_path=ConfigDB.get("cookies_path")))
+        set_main_request(BiliRequest(cookies_config_path=filepath))
         name = util.main_request.get_request_name()
         gr.Info("导入成功", duration=5)
         yield [
@@ -262,26 +279,6 @@ def upload_file(filepath):
     except Exception as e:
         name = util.main_request.get_request_name()
         logger.exception(e)
-        raise gr.Error("登录出现错误", duration=5)
-
-
-def add():
-    util.main_request.cookieManager.db.delete("cookie")
-    gr.Info("已经注销，将打开浏览器，请在浏览器里面重新登录", duration=5)
-    yield [
-        gr.update(value="未登录"),
-        gr.update(value=GLOBAL_COOKIE_PATH),
-    ]
-    try:
-        util.main_request.cookieManager.get_cookies_str_force()
-        name = util.main_request.get_request_name()
-        gr.Info("登录成功", duration=5)
-        yield [
-            gr.update(value=name),
-            gr.update(value=GLOBAL_COOKIE_PATH),
-        ]
-    except Exception:
-        name = util.main_request.get_request_name()
         raise gr.Error("登录出现错误", duration=5)
 
 
@@ -296,7 +293,7 @@ def setting_tab():
         - **购买人信息**：会员购中心 → 购买人信息
         > 即使暂时不需要，也请提前填写。否则生成表单时将没有任何选项。
         """,
-            elem_classes="!bg-yellow-200 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-yellow-400 dark:!border-gray-700 !shadow-sm "
+            elem_classes="!bg-yellow-200 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-yellow-400 dark:!border-gray-700 !shadow-sm ",
         )
 
         # 登录信息卡片
@@ -308,6 +305,8 @@ def setting_tab():
                 <span class="text-blue-700 dark:text-blue-200 font-medium">
                     如果遇到登录问题，请使用 
                     <a href="https://login.bilibili.bi/" class="underline text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100" target="_blank">备用登录入口</a>
+                    <br>
+                    注意，导入配置文件方式登录是临时登录。如果想长期使用一个账号，请使用扫码登录
                 </span>
                 """,
                 elem_classes="!text-sm",
@@ -315,27 +314,177 @@ def setting_tab():
 
             with gr.Row():
                 username_ui = gr.Text(
-                    util.main_request.get_request_name(),
+                    lambda: util.main_request.get_request_name(),
                     label="账号名称",
                     interactive=False,
                     info="输入配置文件使用的账号名称",
                     scale=5,
                 )
                 gr_file_ui = gr.File(
-                    label="当前登录信息文件", value=GLOBAL_COOKIE_PATH, scale=1
+                    label="当前登录信息文件", value=lambda: GLOBAL_COOKIE_PATH, scale=1
                 )
 
+            def generate_qrcode():
+                global session_cookies
+                headers = {
+                    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
+                }
+                max_retry = 10
+                for _ in range(max_retry):
+                    res = requests.request(
+                        "GET",
+                        "https://passport.bilibili.com/x/passport-login/web/qrcode/generate",
+                        headers=headers,
+                    )
+                    res_json = res.json()
+                    if res_json["code"] == 0:
+                        break
+                    time.sleep(1)
+                else:
+                    return None, "二维码生成失败"
+
+                url = res_json["data"]["url"]
+                qrcode_key = res_json["data"]["qrcode_key"]
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_H,  # type: ignore
+                    box_size=10,
+                    border=4,
+                )
+                qr.add_data(url)
+                qr.make(fit=True)
+                path = os.path.join(TEMP_PATH, "login_qrcode.png")
+
+                qr.make_image(fill_color="black", back_color="white").get_image().save(
+                    path
+                )
+                return path, qrcode_key
+
+            def poll_login(qrcode_key):
+                headers = {"User-Agent": "Mozilla/5.0"}
+                for _ in range(120):  # 轮询60秒，每0.5秒一次
+                    res = requests.request(
+                        "GET",
+                        "https://passport.bilibili.com/x/passport-login/web/qrcode/poll",
+                        params={"qrcode_key": qrcode_key},
+                        headers=headers,
+                        timeout=5,
+                    )
+                    poll_res = res.json()
+                    if poll_res.get("code") == 0:
+                        code = poll_res["data"]["code"]
+                        if code == 0:
+                            # 登录成功 requests.utils.dict_from_cookiejar(
+                            cookies = parse_cookie_list(res.headers["set-cookie"])
+                            return "登录成功！", cookies
+                        elif code in (86101, 86090):
+                            # 等待扫码或确认
+                            time.sleep(0.5)
+                            continue
+                        else:
+                            return f"扫码失败：{poll_res['data']['message']}", None
+                    else:
+                        time.sleep(0.5)
+                return "登录超时，请重试。", None
+
+            def start_login():
+                img_path, qrcode_key = generate_qrcode()
+                if not img_path:
+                    return None, "二维码生成失败"
+                return img_path, qrcode_key
+
+            qr_img = gr.Image(label="登录验证码", visible=False)
+            check_btn = gr.Button("扫码后点击此按钮", visible=False)
+
             with gr.Row():
+                login_btn = gr.Button(
+                    "注销并生成二维码登录",
+                    elem_classes="!bg-blue-500 dark:!bg-blue-600 !rounded-md !hover:bg-blue-600 dark:hover:!bg-blue-400 !transition",
+                )
+
+                qrcode_key_state = gr.State("")
+
+                def on_login_click():
+                    util.main_request.cookieManager.db.delete("cookie")
+                    gr.Info("已经注销，请重新登录", duration=5)
+                    img_path, msg_or_key = start_login()
+                    if img_path:
+                        gr.Info("已经生成二维码", duration=5)
+                        return [
+                            gr.update(value=img_path, visible=True),
+                            gr.update(value="未登录"),
+                            gr.update(value=GLOBAL_COOKIE_PATH),
+                            msg_or_key,
+                        ]
+
+                    else:
+                        gr.Warning("生成二维码异常", duration=5)
+                        return [
+                            gr.update(value="", visible=False),
+                            gr.update(value="未登录"),
+                            gr.update(value=GLOBAL_COOKIE_PATH),
+                            "",
+                        ]
+
+                def on_check_login(key):
+                    if not key:
+                        return [
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                            gr.update(),
+                        ]
+                    msg, cookies = poll_login(key)
+                    if cookies:
+                        try:
+                            # 扫码登录使用 GLOBAL_COOKIE_PATH
+                            set_main_request(
+                                BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH)
+                            )
+                            util.main_request.cookieManager.db.insert("cookie", cookies)
+                            name = util.main_request.get_request_name()
+                            if name:
+                                gr.Info("登录成功", duration=5)
+                            return [
+                                gr.update(value=name),
+                                gr.update(value=GLOBAL_COOKIE_PATH),
+                                gr.update(visible=False),
+                                gr.update(visible=False),
+                            ]
+                        except Exception:
+                            pass
+
+                    name = util.main_request.get_request_name()
+                    gr.Warning(f"登录出现错误 {msg}", duration=5)
+                    return [
+                        gr.update(value=name),
+                        gr.update(value=GLOBAL_COOKIE_PATH),
+                        gr.update(),
+                        gr.update(),
+                    ]
+
+                login_btn.click(
+                    on_login_click,
+                    outputs=[qr_img, username_ui, gr_file_ui, qrcode_key_state],
+                )
+
+                @gr.on(
+                    qrcode_key_state.change, inputs=qrcode_key_state, outputs=check_btn
+                )
+                def qrcode_key_state_change(key):
+                    if key:
+                        return gr.update(visible=True)
+
+                check_btn.click(
+                    on_check_login,
+                    inputs=[qrcode_key_state],
+                    outputs=[username_ui, gr_file_ui, qr_img, check_btn],
+                )
                 upload_ui = gr.UploadButton(
                     label="导入",
                     elem_classes="!bg-white dark:!bg-gray-700 !rounded-md !shadow-sm  dark:!text-white",
                 )
-                add_btn = gr.Button(
-                    "登录",
-                    elem_classes="!bg-blue-500 dark:!bg-blue-600 !rounded-md !hover:bg-blue-600 dark:hover:!bg-blue-400 !transition",
-                )
                 upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
-                add_btn.click(fn=add, inputs=None, outputs=[username_ui, gr_file_ui])
 
         # 手机号输入卡片
         with gr.Accordion(label="填写你的当前账号所绑定的手机号[可选]", open=False):
@@ -380,11 +529,19 @@ def setting_tab():
                     )
 
                 with gr.Row(elem_classes="!gap-2"):
-                    people_buyer_ui = gr.Dropdown(
-                        label="联系人",
+                    people_buyer_name = gr.Textbox(
+                        value=lambda: ConfigDB.get("people_buyer_name") or "",
+                        label="联系人姓名",
+                        placeholder="请输入姓名",
                         interactive=True,
-                        type="index",
-                        info="必填，如果候选项为空请到「购票人信息」添加",
+                        info="必填",
+                    )
+                    people_buyer_phone = gr.Textbox(
+                        value=lambda: ConfigDB.get("people_buyer_phone") or "",
+                        label="联系人电话",
+                        placeholder="请输入电话",
+                        interactive=True,
+                        info="必填",
                     )
                     address_ui = gr.Dropdown(
                         label="地址",
@@ -411,7 +568,8 @@ def setting_tab():
                         ticket_id_ui,
                         ticket_info_ui,
                         people_ui,
-                        people_buyer_ui,
+                        people_buyer_name,
+                        people_buyer_phone,
                         address_ui,
                     ],
                     outputs=[config_output_ui, config_file_ui],
@@ -423,7 +581,6 @@ def setting_tab():
                 outputs=[
                     ticket_info_ui,
                     people_ui,
-                    people_buyer_ui,
                     address_ui,
                     inner,
                     info_ui,

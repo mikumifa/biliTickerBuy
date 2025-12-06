@@ -17,3 +17,7 @@ __pycache__/
 *$py.class
 geetest/dataset
 geetest/debug
+test.py
+main.build
+main.dist
+.DS_Store

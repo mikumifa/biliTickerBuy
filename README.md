@@ -34,7 +34,9 @@
 
 ## 💻 快速安装
 
-[下载链接](https://github.com/mikumifa/biliTickerBuy/releases) 
+从github上[下载](https://github.com/mikumifa/biliTickerBuy/releases)
+
+如果没有您使用系统的已构建版本，请前往[指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
 
 ## 👀 使用说明书
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
@@ -73,4 +75,3 @@
 ## ⭐️ Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://www.star-history.com/#mikumifa/biliTickerBuy&Date)
-

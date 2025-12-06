@@ -1,6 +1,6 @@
 from argparse import Namespace
 
-from util import GlobalStatus
+from util import GlobalStatusInstance
 
 
 def buy_cmd(args: Namespace):
@@ -62,7 +62,7 @@ def buy_cmd(args: Namespace):
         )
         client = gradio_client.Client(args.endpoint_url)
         assert demo.local_url
-        GlobalStatus.nowTask = filename_only
+        GlobalStatusInstance.nowTask = filename_only
         start_heartbeat_thread(
             client,
             self_url=demo.local_url,

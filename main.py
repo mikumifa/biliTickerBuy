@@ -1,15 +1,6 @@
 import argparse
 import os
 
-# 清理系统代理变量以防止 httpx / requests 连接失败
-cleared_vars = []
-for proxy_var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
-    if proxy_var in os.environ:
-        del os.environ[proxy_var]
-        cleared_vars.append(proxy_var)
-
-if cleared_vars:
-    print(f"[WARN] 已清除以下代理环境变量，避免连接失败: {', '.join(cleared_vars)}")
 
 def get_env_default(key: str, default, cast_func):
     return cast_func(os.environ.get(f"BTB_{key}", default))
@@ -110,27 +101,6 @@ def main():
         action="store_true",
         help="hide random message when fail",
     )
-    # `--worker` 子命令
-    worker_parser = subparsers.add_parser(
-        "worker", help="Start the ticket worker ui"
-    )  # noqa: F841
-    worker_parser.add_argument(
-        "--master",
-        type=str,
-        default=os.environ.get("BTB_MASTER", ""),
-        help="master url, like http://127.0.0.1:7890",
-    )
-    worker_parser.add_argument(
-        "--self_ip",
-        type=str,
-        default=os.environ.get("BTB_SELF_IP", "127.0.0.1"),
-        help="the ip that master note can access, like 127.0.0.1",
-    )
-    worker_parser.add_argument(
-        "--https_proxys",
-        type=str,
-        default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
-    )
     parser.add_argument(
         "--port",
         type=int,
@@ -154,10 +124,6 @@ def main():
         from app_cmd.buy import buy_cmd
 
         buy_cmd(args=args)
-    elif args.command == "worker":
-        from app_cmd.worker import worker_cmd
-
-        worker_cmd(args=args)
     else:
         from app_cmd.ticker import ticker_cmd
 
