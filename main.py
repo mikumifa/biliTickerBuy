@@ -7,31 +7,19 @@ def get_env_default(key: str, default, cast_func):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ticket Purchase Tool or Gradio UI")
+    parser = argparse.ArgumentParser(description="BiliTickerBuy")
     subparsers = parser.add_subparsers(dest="command")
     buy_parser = subparsers.add_parser("buy", help="Start the ticket buying ui")
     buy_parser.add_argument(
-        "tickets_info_str",
+        "tickets_info",
         type=str,
         help="Ticket information in JSON format or a path to a JSON config file.",
     )
     buy_parser.add_argument(
         "--interval",
         type=int,
-        default=None,
-        help="Interval time (ms). Defaults to 300 if omitted.",
-    )
-    buy_parser.add_argument(
-        "--mode",
-        type=int,
-        default=None,
-        help="Mode of operation. Defaults to 0 if omitted.",
-    )
-    buy_parser.add_argument(
-        "--total_attempts",
-        type=int,
-        default=None,
-        help="Total number of attempts. Defaults to 100 if omitted.",
+        default=1000,
+        help="Interval time (ms). Defaults to 1000 if omitted.",
     )
     buy_parser.add_argument(
         "--endpoint_url",
@@ -94,16 +82,10 @@ def main():
         help="Ntfy password (optional). For authenticated ntfy servers.",
     )
     buy_parser.add_argument(
-        "--filename",
-        type=str,
-        default=os.environ.get("BTB_FILENAME"),
-        help="filename (optional). Defaults to the config file name when omitted.",
-    )
-    buy_parser.add_argument(
         "--https_proxys",
         type=str,
         default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
-        help="like none,http://127.0.0.1:8080",
+        help="(optional) like http://127.0.0.1:8080",
     )
     buy_parser.add_argument(
         "--web",
@@ -136,11 +118,9 @@ def main():
     args = parser.parse_args()
     if args.command == "buy":
         from app_cmd.buy import buy_cmd
-
         buy_cmd(args=args)
     else:
         from app_cmd.ticker import ticker_cmd
-
         ticker_cmd(args=args)
 
 
