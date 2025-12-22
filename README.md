@@ -24,40 +24,32 @@
 </p>
 <a href="https://trendshift.io/repositories/11145" target="_blank"><img src="https://trendshift.io/api/badge/repositories/11145" alt="mikumifa%2FbiliTickerBuy | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-这是一个开源免费，简单易用的B站会员购辅助工具
+这是一个开源免费，简单易用的 B 站会员购辅助工具
+
 </div>
-
-
-
-
-
 
 ## 💻 快速安装
 
-从github上[下载](https://github.com/mikumifa/biliTickerBuy/releases)
+方式一: 从 github 上[下载](https://github.com/mikumifa/biliTickerBuy/releases)
 
-如果没有您使用系统的已构建版本，请前往[指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
+方式二: Docker 安装[指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
 
-### 使用 pip 安装命令行工具
-
-仓库支持通过 `pip install .` 安装，安装后可以直接使用 `bilitickerbuy` 命令运行。示例：
+方式三: 仓库支持通过 `pip install .` 安装，安装后可以直接使用 `bilitickerbuy` 命令运行。示例：
 
 ```bash
 pip install .
-bilitickerbuy buy ./your_config.json 300 0 100 --terminal_ui 终端 --filename your_config.json
+bilitickerbuy buy ./your_config.json 300 0 100 --filename your_config.json
 ```
 
-其中 `buy` 子命令的第一个参数可以是 JSON 字符串，也可以是 JSON 配置文件的路径（推荐直接传入文件路径）。
-
 ## 👀 使用说明书
+
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
 
 ## ❗ 项目问题
 
-程序使用问题： [点此链接前往discussions](https://github.com/mikumifa/biliTickerBuy/discussions)
+程序使用问题： [点此链接前往 discussions](https://github.com/mikumifa/biliTickerBuy/discussions)
 
-反馈程序BUG或者提新功能建议： [点此链接向项目提出反馈BUG](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
-
+反馈程序 BUG 或者提新功能建议： [点此链接向项目提出反馈 BUG](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
 
 ## 📩 免责声明
 
@@ -66,9 +58,10 @@ bilitickerbuy buy ./your_config.json 300 0 100 --terminal_ui 终端 --filename y
 若您 fork 或使用本项目，请务必遵守相关法律法规与目标平台规则。
 
 ## 💡 关于访问频率与并发控制
+
 本项目在设计时严格遵循「非侵入式」原则，避免对目标服务器（如 Bilibili）造成任何干扰。
 
-所有网络请求的时间间隔均由用户自行配置，默认值模拟正常用户的手动操作速度。程序默认单线程运行，无并发任务。遇到请求失败时，程序会进行有限次数的重试，并在重试之间加入适当的延时，避免形成高频打点。项目完全依赖平台公开接口及网页结构，不含风控规避、API劫持等破坏性手段。
+所有网络请求的时间间隔均由用户自行配置，默认值模拟正常用户的手动操作速度。程序默认单线程运行，无并发任务。遇到请求失败时，程序会进行有限次数的重试，并在重试之间加入适当的延时，避免形成高频打点。项目完全依赖平台公开接口及网页结构，不含风控规避、API 劫持等破坏性手段。
 
 ## 🛡️ 平台尊重声明
 
