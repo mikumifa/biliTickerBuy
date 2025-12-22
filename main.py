@@ -29,9 +29,7 @@ def main():
     gradio_parent.add_argument(
         "--port",
         type=int,
-        default=int(
-            os.environ.get("BTB_PORT", os.environ.get("GRADIO_SERVER_PORT", 7860))
-        ),
+        default=os.environ.get("BTB_PORT", os.environ.get("GRADIO_SERVER_PORT", None)),
         help='Server port for Gradio. Defaults to env "BTB_PORT"/"GRADIO_SERVER_PORT" or 7860.',
     )
 
