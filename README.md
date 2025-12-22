@@ -44,13 +44,16 @@
 
 ```bash
 pip install .
-bilitickerbuy buy ./your_config.json --terminal_ui 终端 --filename your_config.json
-# 或使用缩写命令
-btb buy ./your_config.json --terminal_ui 终端 --filename your_config.json
+bilitickerbuy buy ./your_config.json
+# 或使用缩写命令（推荐）
+btb buy ./your_config.json
+# macOS 如需网页日志可加：
+btb buy ./your_config.json --web
 ```
 
 其中 `buy` 子命令的第一个参数可以是 JSON 字符串，也可以是 JSON 配置文件的路径（推荐直接传入文件路径）。
 默认参数：`interval=300`、`mode=0`、`total_attempts=100`，可通过 `--interval` / `--mode` / `--total_attempts` 单独指定。
+日志文件名默认取配置文件名，可用 `--filename` 覆盖。
 
 ## 👀 使用说明书
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd

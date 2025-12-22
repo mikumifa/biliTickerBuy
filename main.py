@@ -120,8 +120,8 @@ def main():
     buy_parser.add_argument(
         "--filename",
         type=str,
-        default=os.environ.get("BTB_FILENAME", "default"),
-        help="filename (optional).",
+        default=os.environ.get("BTB_FILENAME"),
+        help="filename (optional). Defaults to the config file name when omitted.",
     )
     buy_parser.add_argument(
         "--https_proxys",
@@ -130,10 +130,9 @@ def main():
         help="like none,http://127.0.0.1:8080",
     )
     buy_parser.add_argument(
-        "--terminal_ui",
-        type=str,
-        default="网页",
-        help="server name",
+        "--web",
+        action="store_true",
+        help="Run with web UI instead of terminal output (useful on macOS).",
     )
     buy_parser.add_argument(
         "--hide_random_message",
