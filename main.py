@@ -40,12 +40,12 @@ def main():
             "BiliTickerBuy\n\n"
             "Use `btb buy` to buy tickets directly in the command line."
             "Run `btb` without arguments to open the UI."
+            "Run `btb buy -h` for `btb buy` detailed options."
         ),
         epilog=(
             "Examples:\n"
             "  btb buy tickets.json\n"
             "  btb buy tickets.json --interval 500\n\n"
-            "Run `btb buy -h` for detailed options."
         ),
         formatter_class=argparse.RawTextHelpFormatter,
         parents=[gradio_parent],
