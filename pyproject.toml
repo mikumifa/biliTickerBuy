@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bilitickerbuy"
-version = "2.14.4"
+version = "2.14.5"
 description = "开源的 B 站会员购辅助工具，提供命令行和 Gradio 界面"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,11 +21,6 @@ classifiers = [
     "Environment :: Console",
     "Environment :: Web Environment",
 ]
-urls = {
-    "Homepage" = "https://github.com/mikumifa/biliTickerBuy",
-    "Source" = "https://github.com/mikumifa/biliTickerBuy",
-    "Issues" = "https://github.com/mikumifa/biliTickerBuy/issues",
-}
 dependencies = [
     "gradio~=4.44.1",
     "gradio-calendar~=0.0.6",
@@ -43,12 +38,13 @@ dependencies = [
     "tinydb~=4.8.0",
     "Pillow~=10.3.0",
 ]
+
 [project.urls]
 Homepage = "https://github.com/mikumifa/biliTickerBuy"
 Source = "https://github.com/mikumifa/biliTickerBuy"
+Issues = "https://github.com/mikumifa/biliTickerBuy/issues"
 
 [project.scripts]
-bilitickerbuy = "main:main"
 btb = "main:main"
 
 [tool.setuptools]
