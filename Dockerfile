@@ -16,7 +16,6 @@ ENV TZ=Asia/Shanghai
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt  -i https://pypi.tuna.tsinghua.edu.cn/simple
 COPY . .
-RUN playwright install chromium
 RUN apt-get update --allow-unauthenticated && \
     apt-get install -y --allow-unauthenticated --no-install-recommends \
     libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
