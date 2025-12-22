@@ -16,26 +16,10 @@ def buy_cmd(args: Namespace):
         interval_default = 300
         mode_default = 0
         total_attempts_default = 100
-        interval = (
-            args.interval_override
-            if args.interval_override is not None
-            else args.interval
-            if args.interval is not None
-            else interval_default
-        )
-        mode = (
-            args.mode_override
-            if args.mode_override is not None
-            else args.mode
-            if args.mode is not None
-            else mode_default
-        )
+        interval = args.interval if args.interval is not None else interval_default
+        mode = args.mode if args.mode is not None else mode_default
         total_attempts = (
-            args.total_attempts_override
-            if args.total_attempts_override is not None
-            else args.total_attempts
-            if args.total_attempts is not None
-            else total_attempts_default
+            args.total_attempts if args.total_attempts is not None else total_attempts_default
         )
         return interval, mode, total_attempts
 

@@ -275,15 +275,13 @@ def buy_new_terminal(
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
         command.extend(["main.py"])
-    command.extend(
-        [
-            "buy",
-            tickets_info_str,
-            str(interval),
-            str(mode),
-            str(total_attempts),
-        ]
-    )
+    command.extend(["buy", tickets_info_str])
+    if interval is not None:
+        command.extend(["--interval", str(interval)])
+    if mode is not None:
+        command.extend(["--mode", str(mode)])
+    if total_attempts is not None:
+        command.extend(["--total_attempts", str(total_attempts)])
     if time_start:
         command.extend(["--time_start", time_start])
     if audio_path:

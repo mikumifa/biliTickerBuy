@@ -16,46 +16,22 @@ def main():
         help="Ticket information in JSON format or a path to a JSON config file.",
     )
     buy_parser.add_argument(
-        "interval",
-        nargs="?",
+        "--interval",
         type=int,
         default=None,
         help="Interval time (ms). Defaults to 300 if omitted.",
     )
     buy_parser.add_argument(
-        "mode",
-        nargs="?",
+        "--mode",
         type=int,
         default=None,
         help="Mode of operation. Defaults to 0 if omitted.",
     )
     buy_parser.add_argument(
-        "total_attempts",
-        nargs="?",
+        "--total_attempts",
         type=int,
         default=None,
         help="Total number of attempts. Defaults to 100 if omitted.",
-    )
-    buy_parser.add_argument(
-        "-i",
-        "--interval",
-        dest="interval_override",
-        type=int,
-        help="Interval time (ms). Overrides positional argument or default.",
-    )
-    buy_parser.add_argument(
-        "-m",
-        "--mode",
-        dest="mode_override",
-        type=int,
-        help="Mode of operation. Overrides positional argument or default.",
-    )
-    buy_parser.add_argument(
-        "-t",
-        "--total_attempts",
-        dest="total_attempts_override",
-        type=int,
-        help="Total number of attempts. Overrides positional argument or default.",
     )
     buy_parser.add_argument(
         "--endpoint_url",
