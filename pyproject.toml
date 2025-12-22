@@ -5,9 +5,27 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bilitickerbuy"
 version = "2.14.4"
-description = "Add your description here"
+description = "开源的 B 站会员购辅助工具，提供命令行和 Gradio 界面"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "biliTickerBuy Maintainers" }]
+keywords = ["bilibili", "tickets", "cli", "gradio", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+]
+urls = {
+    "Homepage" = "https://github.com/mikumifa/biliTickerBuy",
+    "Source" = "https://github.com/mikumifa/biliTickerBuy",
+    "Issues" = "https://github.com/mikumifa/biliTickerBuy/issues",
+}
 dependencies = [
     "gradio~=4.44.1",
     "gradio-calendar~=0.0.6",
