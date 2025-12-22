@@ -1,4 +1,5 @@
 from argparse import Namespace
+import os
 
 from util import GlobalStatusInstance
 
@@ -8,9 +9,19 @@ def buy_cmd(args: Namespace):
     import uuid
 
     from util import LOG_DIR
-    import os
     from task.buy import buy
     from loguru import logger
+
+    def load_tickets_info(tickets_info_str: str) -> str:
+        config_path = os.path.expanduser(tickets_info_str)
+        if os.path.isfile(config_path):
+            logger.info(f"使用配置文件：{config_path}")
+            try:
+                with open(config_path, "r", encoding="utf-8") as config_file:
+                    return config_file.read()
+            except OSError as exc:
+                raise SystemExit(f"读取配置文件失败: {exc}") from exc
+        return tickets_info_str
 
     filename_only = os.path.basename(args.filename)
     logger.info(f"模式：{args.terminal_ui}")
@@ -72,8 +83,9 @@ def buy_cmd(args: Namespace):
         log_file = loguru_config(
             LOG_DIR, f"{uuid.uuid1()}.log", enable_console=True, file_colorize=True
         )
+    tickets_info_str = load_tickets_info(args.tickets_info_str)
     buy(
-        args.tickets_info_str,
+        tickets_info_str,
         args.time_start,
         args.interval,
         args.mode,

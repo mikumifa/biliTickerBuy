@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "bilitickerbuy"
 version = "0.1.0"
@@ -21,6 +25,16 @@ dependencies = [
     "tinydb~=4.8.0",
     "Pillow~=10.3.0",
 ]
+[project.scripts]
+bilitickerbuy = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+
 [tool.mypy]
 disable_error_code = ["import-untyped"]
 check_untyped_defs = true

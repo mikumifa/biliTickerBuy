@@ -11,7 +11,9 @@ def main():
     subparsers = parser.add_subparsers(dest="command")
     buy_parser = subparsers.add_parser("buy", help="Start the ticket buying ui")
     buy_parser.add_argument(
-        "tickets_info_str", type=str, help="Ticket information in string format."
+        "tickets_info_str",
+        type=str,
+        help="Ticket information in JSON format or a path to a JSON config file.",
     )
     buy_parser.add_argument("interval", type=int, help="Interval time.")
     buy_parser.add_argument("mode", type=int, help="Mode of operation.")
