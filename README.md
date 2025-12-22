@@ -38,6 +38,20 @@
 
 如果没有您使用系统的已构建版本，请前往[指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
 
+### 使用 pip 安装命令行工具
+
+仓库支持通过 `pip install .` 安装，安装后可以直接使用 `bilitickerbuy` 命令运行。示例：
+
+```bash
+pip install .
+bilitickerbuy buy ./your_config.json --terminal_ui 终端 --filename your_config.json
+# 或使用缩写命令
+btb buy ./your_config.json --terminal_ui 终端 --filename your_config.json
+```
+
+其中 `buy` 子命令的第一个参数可以是 JSON 字符串，也可以是 JSON 配置文件的路径（推荐直接传入文件路径）。
+默认参数：`interval=300`、`mode=0`、`total_attempts=100`，可通过 `--interval` / `--mode` / `--total_attempts` 单独指定。
+
 ## 👀 使用说明书
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
 

@@ -11,12 +11,51 @@ def main():
     subparsers = parser.add_subparsers(dest="command")
     buy_parser = subparsers.add_parser("buy", help="Start the ticket buying ui")
     buy_parser.add_argument(
-        "tickets_info_str", type=str, help="Ticket information in string format."
+        "tickets_info_str",
+        type=str,
+        help="Ticket information in JSON format or a path to a JSON config file.",
     )
-    buy_parser.add_argument("interval", type=int, help="Interval time.")
-    buy_parser.add_argument("mode", type=int, help="Mode of operation.")
     buy_parser.add_argument(
-        "total_attempts", type=int, help="Total number of attempts."
+        "interval",
+        nargs="?",
+        type=int,
+        default=None,
+        help="Interval time (ms). Defaults to 300 if omitted.",
+    )
+    buy_parser.add_argument(
+        "mode",
+        nargs="?",
+        type=int,
+        default=None,
+        help="Mode of operation. Defaults to 0 if omitted.",
+    )
+    buy_parser.add_argument(
+        "total_attempts",
+        nargs="?",
+        type=int,
+        default=None,
+        help="Total number of attempts. Defaults to 100 if omitted.",
+    )
+    buy_parser.add_argument(
+        "-i",
+        "--interval",
+        dest="interval_override",
+        type=int,
+        help="Interval time (ms). Overrides positional argument or default.",
+    )
+    buy_parser.add_argument(
+        "-m",
+        "--mode",
+        dest="mode_override",
+        type=int,
+        help="Mode of operation. Overrides positional argument or default.",
+    )
+    buy_parser.add_argument(
+        "-t",
+        "--total_attempts",
+        dest="total_attempts_override",
+        type=int,
+        help="Total number of attempts. Overrides positional argument or default.",
     )
     buy_parser.add_argument(
         "--endpoint_url",
