@@ -47,13 +47,14 @@ wheels = [
 
 [[package]]
 name = "bilitickerbuy"
-version = "2.14.5"
+version = "2.14.7"
 source = { editable = "." }
 dependencies = [
     { name = "gradio" },
     { name = "gradio-calendar" },
     { name = "gradio-log" },
     { name = "httpx", extra = ["socks"] },
+    { name = "huggingface-hub" },
     { name = "loguru" },
     { name = "ntplib" },
     { name = "numpy" },
@@ -73,6 +74,7 @@ requires-dist = [
     { name = "gradio-calendar", specifier = "~=0.0.6" },
     { name = "gradio-log", specifier = "~=0.0.4" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1" },
+    { name = "huggingface-hub", specifier = "==0.34.3" },
     { name = "loguru", specifier = "~=0.7.2" },
     { name = "ntplib", specifier = "~=0.4.0" },
     { name = "numpy", specifier = "~=1.26.4" },
@@ -448,7 +450,7 @@ socks = [
 
 [[package]]
 name = "huggingface-hub"
-version = "0.33.0"
+version = "0.34.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
@@ -460,9 +462,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/91/8a/1362d565fefabaa4185cf3ae842a98dbc5b35146f5694f7080f043a6952f/huggingface_hub-0.33.0.tar.gz", hash = "sha256:aa31f70d29439d00ff7a33837c03f1f9dd83971ce4e29ad664d63ffb17d3bb97", size = 426179, upload-time = "2025-06-11T17:08:07.913Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/b4/e6b465eca5386b52cf23cb6df8644ad318a6b0e12b4b96a7e0be09cbfbcc/huggingface_hub-0.34.3.tar.gz", hash = "sha256:d58130fd5aa7408480681475491c0abd7e835442082fbc3ef4d45b6c39f83853", size = 456800, upload-time = "2025-07-29T08:38:53.885Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/33/fb/53587a89fbc00799e4179796f51b3ad713c5de6bb680b2becb6d37c94649/huggingface_hub-0.33.0-py3-none-any.whl", hash = "sha256:e8668875b40c68f9929150d99727d39e5ebb8a05a98e4191b908dc7ded9074b3", size = 514799, upload-time = "2025-06-11T17:08:05.757Z" },
+    { url = "https://files.pythonhosted.org/packages/59/a8/4677014e771ed1591a87b63a2392ce6923baf807193deef302dcfde17542/huggingface_hub-0.34.3-py3-none-any.whl", hash = "sha256:5444550099e2d86e68b2898b09e85878fbd788fc2957b506c6a79ce060e39492", size = 558847, upload-time = "2025-07-29T08:38:51.904Z" },
 ]
 
 [[package]]

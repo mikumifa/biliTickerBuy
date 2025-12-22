@@ -37,6 +37,7 @@ dependencies = [
     "setuptools~=65.5.1",
     "tinydb~=4.8.0",
     "Pillow~=10.3.0",
+    "huggingface-hub==0.34.3",
 ]
 
 [project.urls]
