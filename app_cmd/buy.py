@@ -12,19 +12,8 @@ def buy_cmd(args: Namespace):
     from task.buy import buy
     from loguru import logger
 
-    def resolve_args(args: Namespace) -> tuple[int, int, int]:
-        interval_default = 300
-        mode_default = 0
-        total_attempts_default = 100
-        interval = args.interval if args.interval is not None else interval_default
-        mode = args.mode if args.mode is not None else mode_default
-        total_attempts = (
-            args.total_attempts if args.total_attempts is not None else total_attempts_default
-        )
-        return interval, mode, total_attempts
-
-    def load_tickets_info(tickets_info_str: str) -> tuple[str, str | None]:
-        config_path = os.path.expanduser(tickets_info_str)
+    def load_tickets_info(tickets_info: str) -> tuple[str, str | None]:
+        config_path = os.path.expanduser(tickets_info)
         if os.path.isfile(config_path):
             logger.info(f"使用配置文件：{config_path}")
             try:
@@ -32,14 +21,12 @@ def buy_cmd(args: Namespace):
                     return config_file.read(), config_path
             except OSError as exc:
                 raise SystemExit(f"读取配置文件失败: {exc}") from exc
-        return tickets_info_str, None
+        return tickets_info, None
 
-    tickets_info_str, config_path = load_tickets_info(args.tickets_info_str)
-    filename = args.filename or (os.path.basename(config_path) if config_path else "default")
+    tickets_info, config_path = load_tickets_info(args.tickets_info)
+    filename = os.path.basename(config_path) if config_path else "default"
     filename_only = os.path.basename(filename)
-    terminal_ui = "网页" if getattr(args, "web", False) else "终端"
-    logger.info(f"模式：{terminal_ui}")
-    if terminal_ui == "网页":
+    if getattr(args, "web", False):
         log_file = loguru_config(
             LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False, file_colorize=True
         )
@@ -97,13 +84,10 @@ def buy_cmd(args: Namespace):
         log_file = loguru_config(
             LOG_DIR, f"{uuid.uuid1()}.log", enable_console=True, file_colorize=True
         )
-    interval, mode, total_attempts = resolve_args(args)
     buy(
-        tickets_info_str,
+        tickets_info,
         args.time_start,
-        interval,
-        mode,
-        total_attempts,
+        args.interval,
         args.audio_path,
         args.pushplusToken,
         args.serverchanKey,

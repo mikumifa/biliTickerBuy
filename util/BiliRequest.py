@@ -104,5 +104,4 @@ class BiliRequest:
             result = self.get("https://api.bilibili.com/x/web-interface/nav").json()
             return result["data"]["uname"]
         except Exception as e:
-            loguru.logger.exception(e)
             return "未登录"

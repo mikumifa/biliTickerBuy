@@ -371,17 +371,9 @@ def go_tab(demo: gr.Blocks):
         with gr.Row():
             interval_ui = gr.Number(
                 label="抢票间隔",
-                value=300,
+                value=1000,
                 minimum=1,
                 info="设置抢票任务之间的时间间隔（单位：毫秒），建议不要设置太小",
-            )
-            mode_ui = gr.Radio(
-                label="抢票次数",
-                choices=["无限", "有限"],
-                value="无限",
-                info="选择抢票的次数",
-                type="index",
-                interactive=True,
             )
             choices = ["网页"]
             if platform.system() == "Windows":
@@ -393,13 +385,6 @@ def go_tab(demo: gr.Blocks):
                 info="日志显示的方式,非windows用戶只支持網頁",
                 type="value",
                 interactive=True,
-            )
-            total_attempts_ui = gr.Number(
-                label="总过次数",
-                value=100,
-                minimum=1,
-                info="设置抢票的总次数",
-                visible=False,
             )
 
     def try_assign_endpoint(endpoint_url, payload):
@@ -427,8 +412,6 @@ def go_tab(demo: gr.Blocks):
         files,
         time_start,
         interval,
-        mode,
-        total_attempts,
         audio_path,
         https_proxys,
         terminal_ui,
@@ -458,8 +441,6 @@ def go_tab(demo: gr.Blocks):
                         "train_info": content,
                         "time_start": time_start,
                         "interval": interval,
-                        "mode": mode,
-                        "total_attempts": total_attempts,
                         "audio_path": audio_path,
                         "pushplusToken": ConfigDB.get("pushplusToken"),
                         "serverchanKey": ConfigDB.get("serverchanKey"),
@@ -481,12 +462,9 @@ def go_tab(demo: gr.Blocks):
 
                 buy_new_terminal(
                     endpoint_url=demo.local_url,
-                    filename=filename,
-                    tickets_info_str=content,
+                    tickets_info=content,
                     time_start=time_start,
                     interval=interval,
-                    mode=mode,
-                    total_attempts=total_attempts,
                     audio_path=audio_path,
                     pushplusToken=ConfigDB.get("pushplusToken"),
                     serverchanKey=ConfigDB.get("serverchanKey"),
@@ -502,11 +480,6 @@ def go_tab(demo: gr.Blocks):
                 assigned_proxies_next_idx += 1
         gr.Info("正在启动，请等待抢票页面弹出。")
 
-    mode_ui.change(
-        fn=lambda x: gr.update(visible=True) if x == 1 else gr.update(visible=False),
-        inputs=[mode_ui],
-        outputs=total_attempts_ui,
-    )
 
     go_btn = gr.Button("开始抢票")
 
@@ -560,8 +533,6 @@ def go_tab(demo: gr.Blocks):
             upload_ui,
             _time_tmp,
             interval_ui,
-            mode_ui,
-            total_attempts_ui,
             audio_path_ui,
             https_proxy_ui,
             terminal_ui,

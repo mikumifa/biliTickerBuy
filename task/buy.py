@@ -31,18 +31,15 @@ def get_qrcode_url(_request, order_id) -> str:
 
 
 def buy_stream(
-    tickets_info_str,
+    tickets_info,
     time_start,
     interval,
-    mode,
-    total_attempts,
     notifier_config,
     https_proxys,
     show_random_message=True,
 ):
     isRunning = True
-    left_time = total_attempts
-    tickets_info = json.loads(tickets_info_str)
+    tickets_info = json.loads(tickets_info)
     detail = tickets_info["detail"]
     cookies = tickets_info["cookies"]
     phone = tickets_info.get("phone", None)
@@ -137,20 +134,18 @@ def buy_stream(
                         isJson=True,
                     ).json()
                     err = int(ret.get("errno", ret.get("code")))
-                    yield f"[尝试 {attempt}/60]  [{err}]({ERRNO_DICT.get(err, '未知错误码')}) | {ret}"
-
                     if err == 100034:
                         yield f"更新票价为：{ret['data']['pay_money'] / 100}"
                         tickets_info["pay_money"] = ret["data"]["pay_money"]
                         payload = tickets_info
-
                     if err in [0, 100048, 100079]:
                         yield "请求成功，停止重试"
                         result = (ret, err)
                         break
-
                     if err == 100051:
                         break
+                    yield f"[尝试 {attempt}/60]  [{err}]({ERRNO_DICT.get(err, '未知错误码')}) | {ret}"
+                    
 
                     time.sleep(interval / 1000)
 
@@ -163,12 +158,10 @@ def buy_stream(
                     time.sleep(interval / 1000)
             else:
                 if show_random_message:
-                    # 输出群友语录
                     yield f"群友说👴： {get_random_fail_message()}"
                 yield "重试次数过多，重新准备订单"
                 continue
             if result is None:
-                # if err == 100051:
                 yield "token过期，需要重新准备订单"
                 continue
 
@@ -196,10 +189,9 @@ def buy_stream(
                 qr_gen_image = qr_gen.make_image()
                 qr_gen_image.show()  # type: ignore
                 break
-            if mode == 1:
-                left_time -= 1
-                if left_time <= 0:
-                    break
+            if errno == 100079:
+                yield "有重复订单，停止重试"
+                break
         except JSONDecodeError as e:
             yield f"配置文件格式错误: {e}"
         except HTTPError as e:
@@ -211,11 +203,9 @@ def buy_stream(
 
 
 def buy(
-    tickets_info_str,
+    tickets_info,
     time_start,
     interval,
-    mode,
-    total_attempts,
     audio_path,
     pushplusToken,
     serverchanKey,
@@ -240,11 +230,9 @@ def buy(
     )
 
     for msg in buy_stream(
-        tickets_info_str,
+        tickets_info,
         time_start,
         interval,
-        mode,
-        total_attempts,
         notifier_config,
         https_proxys,
         show_random_message,
@@ -254,12 +242,9 @@ def buy(
 
 def buy_new_terminal(
     endpoint_url,
-    filename,
-    tickets_info_str,
+    tickets_info,
     time_start,
     interval,
-    mode,
-    total_attempts,
     audio_path,
     pushplusToken,
     serverchanKey,
@@ -275,13 +260,9 @@ def buy_new_terminal(
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
         command.extend(["main.py"])
-    command.extend(["buy", tickets_info_str])
+    command.extend(["buy", tickets_info])
     if interval is not None:
         command.extend(["--interval", str(interval)])
-    if mode is not None:
-        command.extend(["--mode", str(mode)])
-    if total_attempts is not None:
-        command.extend(["--total_attempts", str(total_attempts)])
     if time_start:
         command.extend(["--time_start", time_start])
     if audio_path:
@@ -306,7 +287,6 @@ def buy_new_terminal(
         command.extend(["--hide_random_message"])
     if terminal_ui == "网页":
         command.append("--web")
-    command.extend(["--filename", filename])
     command.extend(["--endpoint_url", endpoint_url])
     if terminal_ui == "网页":
         proc = subprocess.Popen(command)
