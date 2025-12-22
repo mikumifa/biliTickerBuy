@@ -1,3 +1,0 @@
-[console_scripts]
-bilitickerbuy = main:main
-btb = main:main

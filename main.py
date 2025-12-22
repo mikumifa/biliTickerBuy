@@ -6,20 +6,49 @@ def get_env_default(key: str, default, cast_func):
     return cast_func(os.environ.get(f"BTB_{key}", default))
 
 
+def str_to_bool(value):
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 def main():
+    gradio_parent = argparse.ArgumentParser(add_help=False)
+    gradio_parent.add_argument(
+        "--share",
+        action="store_true",
+        default=get_env_default("SHARE", False, str_to_bool),
+        help="Share Gradio app publicly (tunnel). Defaults to False.",
+    )
+    gradio_parent.add_argument(
+        "--server_name",
+        type=str,
+        default=os.environ.get("BTB_SERVER_NAME", "127.0.0.1"),
+        help='Server name for Gradio. Defaults to env "BTB_SERVER_NAME" or 127.0.0.1.',
+    )
+    gradio_parent.add_argument(
+        "--port",
+        type=int,
+        default=int(
+            os.environ.get("BTB_PORT", os.environ.get("GRADIO_SERVER_PORT", 7860))
+        ),
+        help='Server port for Gradio. Defaults to env "BTB_PORT"/"GRADIO_SERVER_PORT" or 7860.',
+    )
+
     parser = argparse.ArgumentParser(
         description=(
             "BiliTickerBuy\n\n"
             "Use `btb buy` to buy tickets directly in the command line."
             "Run `btb` without arguments to open the UI."
+            "Run `btb buy -h` for `btb buy` detailed options."
         ),
         epilog=(
             "Examples:\n"
             "  btb buy tickets.json\n"
             "  btb buy tickets.json --interval 500\n\n"
-            "Run `btb buy -h` for detailed options."
         ),
         formatter_class=argparse.RawTextHelpFormatter,
+        parents=[gradio_parent],
     )
     subparsers = parser.add_subparsers(
         dest="command",
@@ -30,6 +59,7 @@ def main():
     buy_parser = subparsers.add_parser(
         "buy",
         help="Buy tickets directly in the command line",
+        parents=[gradio_parent],
     )
     # ===== Buy Core =====
     buy_core = buy_parser.add_argument_group("Buy Core Options")
