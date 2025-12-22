@@ -25,6 +25,10 @@ dependencies = [
     "tinydb~=4.8.0",
     "Pillow~=10.3.0",
 ]
+[project.urls]
+Homepage = "https://github.com/mikumifa/biliTickerBuy"
+Source = "https://github.com/mikumifa/biliTickerBuy"
+
 [project.scripts]
 bilitickerbuy = "main:main"
 btb = "main:main"
