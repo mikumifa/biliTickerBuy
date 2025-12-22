@@ -7,120 +7,135 @@ def get_env_default(key: str, default, cast_func):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="BiliTickerBuy")
-    subparsers = parser.add_subparsers(dest="command")
-    buy_parser = subparsers.add_parser("buy", help="Start the ticket buying ui")
-    buy_parser.add_argument(
+    parser = argparse.ArgumentParser(
+        description=(
+            "BiliTickerBuy\n\n"
+            "Use `btb buy` to buy tickets directly in the command line."
+            "Run `btb` without arguments to open the UI."
+        ),
+        epilog=(
+            "Examples:\n"
+            "  btb buy tickets.json\n"
+            "  btb buy tickets.json --interval 500\n\n"
+            "Run `btb buy -h` for detailed options."
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    subparsers = parser.add_subparsers(
+        dest="command",
+        title="Available Commands",
+        metavar="{buy}",
+        description="Use one of the following commands",
+    )
+    buy_parser = subparsers.add_parser(
+        "buy",
+        help="Buy tickets directly in the command line",
+    )
+    # ===== Buy Core =====
+    buy_core = buy_parser.add_argument_group("Buy Core Options")
+    buy_core.add_argument(
         "tickets_info",
         type=str,
         help="Ticket information in JSON format or a path to a JSON config file.",
     )
-    buy_parser.add_argument(
+    buy_core.add_argument(
         "--interval",
         type=int,
         default=1000,
         help="Interval time (ms). Defaults to 1000 if omitted.",
     )
-    buy_parser.add_argument(
+    buy_core.add_argument(
         "--endpoint_url",
         type=str,
         default=os.environ.get("BTB_ENDPOINT_URL", ""),
-        help="endpoint_url.",
+        help="Endpoint URL.",
     )
-    buy_parser.add_argument(
+    buy_core.add_argument(
         "--time_start",
         type=str,
         default=os.environ.get("BTB_TIME_START", ""),
-        help="Start time (optional)",
+        help="Start time (optional).",
     )
-    buy_parser.add_argument(
+    buy_core.add_argument(
+        "--https_proxys",
+        type=str,
+        default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
+        help="HTTPS proxy, e.g. http://127.0.0.1:8080",
+    )
+
+    # ===== Notifications =====
+    notify = buy_parser.add_argument_group("Notification Options")
+
+    notify.add_argument(
         "--audio_path",
         type=str,
         default=os.environ.get("BTB_AUDIO_PATH", ""),
         help="Path to audio file (optional).",
     )
-    buy_parser.add_argument(
+    notify.add_argument(
         "--pushplusToken",
         type=str,
         default=os.environ.get("BTB_PUSHPLUSTOKEN", ""),
         help="PushPlus token (optional).",
     )
-    buy_parser.add_argument(
+    notify.add_argument(
         "--serverchanKey",
         type=str,
         default=os.environ.get("BTB_SERVERCHANKEY", ""),
         help="ServerChan key (optional).",
     )
-    buy_parser.add_argument(
+    notify.add_argument(
         "--serverchan3ApiUrl",
         type=str,
         default=os.environ.get("BTB_SERVERCHAN3APIURL", ""),
         help="ServerChan3 API URL (optional).",
     )
-    buy_parser.add_argument(
+    notify.add_argument(
         "--barkToken",
         type=str,
         default=os.environ.get("BTB_BARKTOKEN", ""),
         help="Bark token (optional).",
     )
-    buy_parser.add_argument(
+    notify.add_argument(
         "--ntfy_url",
         type=str,
         default=os.environ.get("BTB_NTFY_URL", ""),
-        help="Ntfy server URL (optional). e.g., https://ntfy.sh/topic",
+        help="Ntfy server URL, e.g. https://ntfy.sh/topic",
     )
-    buy_parser.add_argument(
+    notify.add_argument(
         "--ntfy_username",
         type=str,
         default=os.environ.get("BTB_NTFY_USERNAME", ""),
-        help="Ntfy username (optional). For authenticated ntfy servers.",
+        help="Ntfy username (optional).",
     )
-    buy_parser.add_argument(
+    notify.add_argument(
         "--ntfy_password",
         type=str,
         default=os.environ.get("BTB_NTFY_PASSWORD", ""),
-        help="Ntfy password (optional). For authenticated ntfy servers.",
+        help="Ntfy password (optional).",
     )
-    buy_parser.add_argument(
-        "--https_proxys",
-        type=str,
-        default=os.environ.get("BTB_HTTPS_PROXYS", "none"),
-        help="(optional) like http://127.0.0.1:8080",
-    )
-    buy_parser.add_argument(
+
+    # ===== Runtime / UI =====
+    runtime = buy_parser.add_argument_group("Runtime & UI Options")
+    runtime.add_argument(
         "--web",
         action="store_true",
         help="Run with web UI instead of terminal output (useful on macOS).",
     )
-    buy_parser.add_argument(
+    runtime.add_argument(
         "--hide_random_message",
         action="store_true",
-        help="hide random message when fail",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        help="server port",
-    )
-    parser.add_argument(
-        "--server_name",
-        type=str,
-        default=os.environ.get("BTB_SERVER_NAME", "127.0.0.1"),
-        help="server name",
-    )
-    parser.add_argument(
-        "--share",
-        action="store_true",
-        default=get_env_default("SHARE", False, lambda x: str(x).lower() == "true"),
-        help="create a public link",
+        help="Hide random message when fail.",
     )
 
     args = parser.parse_args()
     if args.command == "buy":
         from app_cmd.buy import buy_cmd
+
         buy_cmd(args=args)
     else:
         from app_cmd.ticker import ticker_cmd
+
         ticker_cmd(args=args)
 
 
