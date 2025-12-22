@@ -39,20 +39,23 @@ def buy_cmd(args: Namespace):
         )
         return interval, mode, total_attempts
 
-    def load_tickets_info(tickets_info_str: str) -> str:
+    def load_tickets_info(tickets_info_str: str) -> tuple[str, str | None]:
         config_path = os.path.expanduser(tickets_info_str)
         if os.path.isfile(config_path):
             logger.info(f"使用配置文件：{config_path}")
             try:
                 with open(config_path, "r", encoding="utf-8") as config_file:
-                    return config_file.read()
+                    return config_file.read(), config_path
             except OSError as exc:
                 raise SystemExit(f"读取配置文件失败: {exc}") from exc
-        return tickets_info_str
+        return tickets_info_str, None
 
-    filename_only = os.path.basename(args.filename)
-    logger.info(f"模式：{args.terminal_ui}")
-    if args.terminal_ui == "网页":
+    tickets_info_str, config_path = load_tickets_info(args.tickets_info_str)
+    filename = args.filename or (os.path.basename(config_path) if config_path else "default")
+    filename_only = os.path.basename(filename)
+    terminal_ui = "网页" if getattr(args, "web", False) else "终端"
+    logger.info(f"模式：{terminal_ui}")
+    if terminal_ui == "网页":
         log_file = loguru_config(
             LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False, file_colorize=True
         )
@@ -110,7 +113,6 @@ def buy_cmd(args: Namespace):
         log_file = loguru_config(
             LOG_DIR, f"{uuid.uuid1()}.log", enable_console=True, file_colorize=True
         )
-    tickets_info_str = load_tickets_info(args.tickets_info_str)
     interval, mode, total_attempts = resolve_args(args)
     buy(
         tickets_info_str,

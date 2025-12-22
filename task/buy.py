@@ -306,8 +306,8 @@ def buy_new_terminal(
         command.extend(["--https_proxys", https_proxys])
     if not show_random_message:
         command.extend(["--hide_random_message"])
-    if terminal_ui:
-        command.extend(["--terminal_ui", terminal_ui])
+    if terminal_ui == "网页":
+        command.append("--web")
     command.extend(["--filename", filename])
     command.extend(["--endpoint_url", endpoint_url])
     if terminal_ui == "网页":
