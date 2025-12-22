@@ -21,3 +21,4 @@ test.py
 main.build
 main.dist
 .DS_Store
+bilitickerbuy.egg-info
