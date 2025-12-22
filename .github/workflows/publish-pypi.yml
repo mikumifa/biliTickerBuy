@@ -4,7 +4,8 @@ on:
   push:
     tags:
       - "v*.*.*"
-
+permissions:
+  id-token: write
 jobs:
   publish:
     name: Build and publish
@@ -27,5 +28,4 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          attestations: true
