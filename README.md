@@ -34,7 +34,7 @@
 
 方法二: 如果没有您使用系统的已构建版本，请前往[指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
 
-方法三: 仓库支持通过 `pip install .` 安装，安装后可以直接使用 `btb` 命令运行。示例：
+方法三: 仓库支持通过 `pip install bilitickerbuy` 安装，安装后可以直接使用 `btb` 命令运行。示例：
 
 ```bash
 # 直接启动ui
