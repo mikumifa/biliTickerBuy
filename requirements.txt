@@ -12,3 +12,4 @@ pydantic~=2.8.2
 gradio_log~=0.0.4
 numpy~=1.26.4
 Pillow~=10.3.0
+huggingface-hub~=0.34.3
