@@ -32,7 +32,7 @@ jobs:
               name: macos-14
               filename: macos_arm64
           - os:
-              name: macos-13
+              name: macos-15-intel
               filename: macos_intel
           - os:
               name: windows-latest
