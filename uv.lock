@@ -47,7 +47,7 @@ wheels = [
 
 [[package]]
 name = "bilitickerbuy"
-version = "2.14.7"
+version = "2.14.8"
 source = { editable = "." }
 dependencies = [
     { name = "gradio" },
