@@ -1,12 +1,12 @@
 import json
+import os
 import subprocess
 import sys
 import time
 from random import randint
 from datetime import datetime
 from json import JSONDecodeError
-from urllib.parse import urlencode
-
+import shutil
 import qrcode
 from loguru import logger
 
@@ -145,7 +145,6 @@ def buy_stream(
                     if err == 100051:
                         break
                     yield f"[尝试 {attempt}/60]  [{err}]({ERRNO_DICT.get(err, '未知错误码')}) | {ret}"
-                    
 
                     time.sleep(interval / 1000)
 
@@ -257,9 +256,25 @@ def buy_new_terminal(
     show_random_message=True,
     terminal_ui="网页",
 ) -> subprocess.Popen:
-    command = [sys.executable]
-    if not getattr(sys, "frozen", False):
-        command.extend(["main.py"])
+    command = None
+
+    # 1️⃣ PyInstaller / frozen
+    if getattr(sys, "frozen", False):
+        command = [sys.executable]
+    else:
+        # 2️⃣ 源码模式：检查「当前脚本目录」是否有 main.py
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        main_py = os.path.join(script_dir, "main.py")
+
+        if os.path.exists(main_py):
+            command = [sys.executable, main_py]
+        # 3️⃣ 兜底：使用 btb（pip / pipx）
+        else:
+            btb_path = shutil.which("btb")
+            if not btb_path:
+                raise RuntimeError("Cannot find main.py or btb command")
+
+            command = [btb_path]
     command.extend(["buy", tickets_info])
     if interval is not None:
         command.extend(["--interval", str(interval)])
