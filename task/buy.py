@@ -120,14 +120,15 @@ def buy_stream(
                 try:
                     url = f"{base_url}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
                     if is_hot_project:
-                        payload["ctoken"] = ctoken_generator.generate_ctoken(
+                        payload["ctoken"] = ctoken_generator.generate_ctoken(  # type: ignore
                             is_create_v2=True
-                        )  # type: ignore
-                        payload["ptoken"] = request_result["data"]["ptoken"]
+                        )
+                        ptoken = request_result["data"]["ptoken"] or ""
+                        payload["ptoken"] = ptoken
                         payload["orderCreateUrl"] = (
                             "https://show.bilibili.com/api/ticket/order/createV2"
                         )
-                        url += "&ptoken=" + request_result["data"]["ptoken"]
+                        url += "&ptoken=" + ptoken
                     ret = _request.post(
                         url=url,
                         data=payload,
@@ -263,7 +264,7 @@ def buy_new_terminal(
         command = [sys.executable]
     else:
         # 2️⃣ 源码模式：检查「当前脚本目录」是否有 main.py
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         main_py = os.path.join(script_dir, "main.py")
 
         if os.path.exists(main_py):
