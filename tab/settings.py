@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 from typing import Any, Dict, List
 from urllib.parse import urlparse, parse_qs
@@ -25,6 +25,53 @@ ticket_str_list: List[str] = []
 sales_dates = []
 project_id = 0
 is_hot_project = False
+
+def _read_positive_int(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        num = int(value)
+    except (TypeError, ValueError):
+        return None
+    return num if num > 0 else None
+
+def _iter_project_dates(start_ts: int, end_ts: int):
+    start_day = datetime.fromtimestamp(start_ts).date()
+    end_day = datetime.fromtimestamp(end_ts).date()
+    cursor = start_day
+    while cursor <= end_day:
+        yield cursor.strftime("%Y-%m-%d")
+        cursor += timedelta(days=1)
+
+def _fetch_screens_by_date(request: BiliRequest, project_id: int, date_str: str) -> list[dict]:
+    response = request.get(
+        url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={date_str}"
+    )
+    payload = response.json()
+    errno = payload.get("errno", payload.get("code"))
+    if errno != 0:
+        raise RuntimeError(payload.get("msg", payload.get("message", "unknown error")))
+
+    data = payload.get("data") if isinstance(payload, dict) else None
+    screens = data.get("screen_list") if isinstance(data, dict) else None
+    return screens if isinstance(screens, list) else []
+
+def _merge_screens(base_screens: list[dict], extra_screens: list[dict]) -> list[dict]:
+    merged: list[dict] = []
+    seen_screen_ids: set[int] = set()
+
+    for screen in [*base_screens, *extra_screens]:
+        if not isinstance(screen, dict):
+            continue
+        sid = _read_positive_int(screen.get("id"))
+        if sid is None:
+            continue
+        if sid in seen_screen_ids:
+            continue
+        seen_screen_ids.add(sid)
+        merged.append(screen)
+
+    return merged
 
 sales_flag_number_map = {
     1: "不可售",
@@ -65,6 +112,8 @@ def on_submit_ticket_id(num):
         if "http" in num or "https" in num:
             num = extract_id_from_url(num)
             extracted_id_message = f"已提取URL票ID：{num}"
+        elif isinstance(num, str) and num.isdigit():
+            num = int(num)
         else:
             raise gr.Error("输入无效，请输入一个有效的网址。", duration=5)
         res = util.main_request.get(
@@ -101,6 +150,20 @@ def on_submit_ticket_id(num):
         sales_dates_show = len(data["sales_dates"]) != 0
         for item in data["screen_list"]:
             item["project_id"] = data["id"]
+
+        # Query infoByDate for each day in the activity date range to enrich screen/ticket enumeration.
+        daily_screens: list[dict] = []
+        for date_str in _iter_project_dates(data["start_time"], data["end_time"]):
+            try:
+                items = _fetch_screens_by_date(util.main_request, project_id, date_str)
+            except Exception:
+                continue
+            for item in items:
+                if isinstance(item, dict):
+                    item["project_id"] = data["id"]
+                    daily_screens.append(item)
+
+        data["screen_list"] = _merge_screens(data["screen_list"], daily_screens)
 
         try:
             good_list = util.main_request.get(
