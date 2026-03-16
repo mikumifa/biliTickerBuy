@@ -24,6 +24,7 @@ project_name: str = ""
 ticket_str_list: List[str] = []
 sales_dates = []
 project_id = 0
+is_hot_project = False
 
 sales_flag_number_map = {
     1: "不可售",
@@ -55,6 +56,7 @@ def on_submit_ticket_id(num):
     global ticket_str_list
     global sales_dates
     global project_id
+    global is_hot_project
     try:
         buyer_value = []
         addr_value = []
@@ -591,7 +593,7 @@ def setting_tab():
             def on_submit_data(_date):
                 global ticket_str_list
                 global ticket_value
-
+                global is_hot_project
                 try:
                     ticket_that_day = util.main_request.get(
                         url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={_date}"
@@ -609,6 +611,7 @@ def setting_tab():
                             ticket["price"] = ticket_price
                             ticket["screen"] = screen_name
                             ticket["screen_id"] = screen_id
+                            ticket["is_hot_project"] = is_hot_project
                             ticket_can_buy = (
                                 "可购买" if ticket["clickable"] else "不可购买"
                             )
