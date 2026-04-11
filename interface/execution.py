@@ -43,6 +43,14 @@ def _load_json(path: Path) -> dict[str, Any]:
         return json.load(handle)
 
 
+def _read_text_tail(path: Path, *, max_lines: int = 20) -> str:
+    if not path.exists():
+        return ""
+    with open(path, "r", encoding="utf-8", errors="replace") as handle:
+        lines = handle.readlines()
+    return "".join(lines[-max_lines:]).strip()
+
+
 def _update_managed_status(
     run_dir: Path,
     **fields: Any,
@@ -75,6 +83,85 @@ def _terminate_pid(pid: int) -> None:
         )
         return
     os.kill(pid, signal.SIGTERM)
+
+
+def _build_managed_failure_result(
+    run_dir: Path,
+    run_id: str,
+    *,
+    error: str,
+    status: dict[str, Any],
+) -> dict[str, Any]:
+    stdout_tail = _read_text_tail(run_dir / "stdout.log")
+    stderr_tail = _read_text_tail(run_dir / "stderr.log")
+    result = {
+        "ok": False,
+        "run_id": run_id,
+        "status": "failed",
+        "error": error,
+        "payment_qr_url": status.get("payment_qr_url"),
+        "logs_path": status.get("logs_path"),
+        "last_message": status.get("last_message"),
+    }
+    if stdout_tail:
+        result["stdout_tail"] = stdout_tail
+    if stderr_tail:
+        result["stderr_tail"] = stderr_tail
+    return result
+
+
+def _mark_managed_run_failed(
+    run_dir: Path,
+    *,
+    run_id: str,
+    error: str,
+) -> dict[str, Any]:
+    status = _update_managed_status(
+        run_dir,
+        status="failed",
+        finished_at=time.time(),
+        error=error,
+        last_message=error,
+    )
+    result = _build_managed_failure_result(run_dir, run_id, error=error, status=status)
+    _dump_json(run_dir / "result.json", result)
+    return status
+
+
+def _reconcile_managed_run(run_dir: Path, status: dict[str, Any]) -> dict[str, Any]:
+    current_status = status.get("status")
+    if current_status in {"succeeded", "completed", "duplicate_order", "failed", "cancelled"}:
+        return status
+
+    pid = status.get("pid")
+    if _pid_is_running(pid):
+        return status
+
+    result_path = run_dir / "result.json"
+    if result_path.exists():
+        result = _load_json(result_path)
+        terminal_status = result.get("status")
+        if terminal_status in {"succeeded", "completed", "duplicate_order", "failed", "cancelled"}:
+            fields: dict[str, Any] = {
+                "status": terminal_status,
+                "finished_at": status.get("finished_at") or time.time(),
+            }
+            if result.get("payment_qr_url"):
+                fields["payment_qr_url"] = result["payment_qr_url"]
+            if result.get("last_message"):
+                fields["last_message"] = result["last_message"]
+            if terminal_status == "failed" and result.get("error"):
+                fields["error"] = result["error"]
+            return _update_managed_status(run_dir, **fields)
+
+    error = "managed runner exited before writing final status"
+    stderr_tail = _read_text_tail(run_dir / "stderr.log")
+    stdout_tail = _read_text_tail(run_dir / "stdout.log")
+    if stderr_tail:
+        error = "{0}; stderr: {1}".format(error, stderr_tail)
+    elif stdout_tail:
+        error = "{0}; stdout: {1}".format(error, stdout_tail)
+    return _mark_managed_run_failed(run_dir, run_id=status["run_id"], error=error)
 
 
 def _append_log(task_id: str, message: str) -> None:
@@ -337,6 +424,21 @@ def start_managed_buy(
     status["updated_at"] = time.time()
     _dump_json(run_dir / "status.json", status)
 
+    time.sleep(0.2)
+    returncode = process.poll()
+    if returncode is not None:
+        failed_status = _mark_managed_run_failed(
+            run_dir,
+            run_id=assigned_run_id,
+            error="managed runner exited immediately with code {0}".format(returncode),
+        )
+        return {
+            "ok": False,
+            "validation": validation.to_dict(),
+            "run": failed_status,
+            "error": failed_status.get("error"),
+        }
+
     return {
         "ok": True,
         "validation": validation.to_dict(),
@@ -360,7 +462,7 @@ def managed_task_status(
     status_path = run_dir / "status.json"
     if not status_path.exists():
         return {"ok": False, "error": "managed run not found", "run_id": run_id}
-    status = _load_json(status_path)
+    status = _reconcile_managed_run(run_dir, _load_json(status_path))
     result_path = run_dir / "result.json"
     if result_path.exists():
         status["result"] = _load_json(result_path)
