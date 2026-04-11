@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import ctypes
 import json
 import os
 import shutil
@@ -51,6 +52,13 @@ def _read_text_tail(path: Path, *, max_lines: int = 20) -> str:
     return "".join(lines[-max_lines:]).strip()
 
 
+def _heartbeat_timeout_seconds(status: dict[str, Any]) -> float:
+    value = status.get("heartbeat_timeout_seconds")
+    if isinstance(value, (int, float)) and value > 0:
+        return float(value)
+    return 30.0
+
+
 def _update_managed_status(
     run_dir: Path,
     **fields: Any,
@@ -66,9 +74,31 @@ def _update_managed_status(
 def _pid_is_running(pid: int | None) -> bool:
     if not isinstance(pid, int) or pid <= 0:
         return False
+    if os.name == "nt":
+        process_query_limited_information = 0x1000
+        synchronize = 0x00100000
+        still_active = 259
+
+        handle = ctypes.windll.kernel32.OpenProcess(
+            process_query_limited_information | synchronize,
+            False,
+            pid,
+        )
+        if not handle:
+            return False
+        try:
+            exit_code = ctypes.c_ulong()
+            if not ctypes.windll.kernel32.GetExitCodeProcess(
+                handle,
+                ctypes.byref(exit_code),
+            ):
+                return False
+            return exit_code.value == still_active
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
-    except OSError:
+    except (OSError, SystemError):
         return False
     return True
 
@@ -135,6 +165,16 @@ def _reconcile_managed_run(run_dir: Path, status: dict[str, Any]) -> dict[str, A
 
     pid = status.get("pid")
     if _pid_is_running(pid):
+        updated_at = status.get("updated_at")
+        heartbeat_timeout = _heartbeat_timeout_seconds(status)
+        if isinstance(updated_at, (int, float)) and time.time() - float(updated_at) > heartbeat_timeout:
+            return _mark_managed_run_failed(
+                run_dir,
+                run_id=status["run_id"],
+                error="managed runner heartbeat timed out after {0:.1f}s".format(
+                    heartbeat_timeout
+                ),
+            )
         return status
 
     result_path = run_dir / "result.json"
@@ -387,6 +427,7 @@ def start_managed_buy(
         "payment_qr_url": None,
         "error": None,
         "last_message": None,
+        "heartbeat_timeout_seconds": max(float(runtime.get("interval", 1000)) / 1000.0 * 20.0, 30.0),
         "logs_path": str(run_dir / "events.log"),
         "result_path": str(run_dir / "result.json"),
         "config_path": str(run_dir / "config.json"),
@@ -400,10 +441,16 @@ def start_managed_buy(
     env.setdefault("BTB_APP_LOG_NAME", "app-{0}.log".format(assigned_run_id))
 
     creationflags = 0
+    startupinfo = None
     if os.name == "nt":
-        creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(
-            subprocess, "CREATE_NEW_PROCESS_GROUP", 0
+        creationflags = (
+            getattr(subprocess, "DETACHED_PROCESS", 0)
+            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            | getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
+        startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
 
     stdout_handle = open(run_dir / "stdout.log", "a", encoding="utf-8")
     stderr_handle = open(run_dir / "stderr.log", "a", encoding="utf-8")
@@ -415,6 +462,7 @@ def start_managed_buy(
             stderr=stderr_handle,
             env=env,
             creationflags=creationflags,
+            startupinfo=startupinfo,
         )
     finally:
         stdout_handle.close()
