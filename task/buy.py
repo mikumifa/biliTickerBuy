@@ -313,5 +313,8 @@ def buy_new_terminal(
     if terminal_ui == "网页":
         proc = subprocess.Popen(command)
     else:
-        proc = subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        kwargs = {}
+        if os.name == "nt":
+            kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
+        proc = subprocess.Popen(command, **kwargs)
     return proc

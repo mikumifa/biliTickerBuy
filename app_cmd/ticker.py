@@ -43,9 +43,10 @@ def ticker_cmd(args: Namespace):
         with gr.Tab("日志查看"):
             log_tab()
 
+    is_docker = os.path.exists("/.dockerenv") or os.environ.get("BTB_DOCKER") == "1"
     demo.launch(
-        share=args.share,
-        inbrowser=True,
+        share=args.share or is_docker,
+        inbrowser=not is_docker,
         server_name=args.server_name,
         server_port=args.port,
     )

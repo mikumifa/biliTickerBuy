@@ -14,7 +14,10 @@ RUN curl -sSf https://sh.rustup.rs  | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 ENV TZ=Asia/Shanghai
 COPY requirements.txt .
-RUN python -m pip install --no-cache-dir -r requirements.txt  -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN python -m pip install --no-cache-dir -r requirements.txt  -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+    python -m pip uninstall -y jinja2 && \
+    python -m pip install --no-cache-dir "jinja2==3.1.2" "fastapi==0.112.2" "starlette==0.38.6" -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+    python -c "import jinja2, fastapi, starlette; assert jinja2.__version__ == '3.1.2', jinja2.__version__; assert fastapi.__version__ == '0.112.2', fastapi.__version__; assert starlette.__version__ == '0.38.6', starlette.__version__"
 COPY . .
 RUN apt-get update --allow-unauthenticated && \
     apt-get install -y --allow-unauthenticated --no-install-recommends \
@@ -25,6 +28,7 @@ RUN apt-get update --allow-unauthenticated && \
 
 ENV BTB_SERVER_NAME="0.0.0.0"
 ENV GRADIO_SERVER_PORT=7860
+ENV BTB_DOCKER=1
 ENV DISPLAY=:99
 RUN mkdir -p /etc/supervisor/conf.d
 COPY <<EOF /etc/supervisor/conf.d/supervisord.conf
@@ -53,8 +57,16 @@ startsecs=5
 command=python main.py
 directory=/app
 environment=DISPLAY=":99"
-autorestart=true
+autorestart=unexpected
+stopasgroup=true
+killasgroup=true
+startsecs=5
+startretries=3
+stdout_logfile=/dev/fd/1
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/fd/2
+stderr_logfile_maxbytes=0
 priority=400
 EOF
-EXPOSE 5900
+EXPOSE 5900 7860
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
