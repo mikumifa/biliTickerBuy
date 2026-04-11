@@ -12,6 +12,8 @@ from .config import (
     validate_config,
 )
 from .execution import (
+    cancel_managed_buy,
+    delete_managed_buy,
     managed_task_status,
     run_buy_sync,
     start_buy,
@@ -33,6 +35,8 @@ __all__ = [
     "ValidationResult",
     "build_runtime_options",
     "build_ticket_config_from_selection",
+    "cancel_managed_buy",
+    "delete_managed_buy",
     "fetch_addresses",
     "fetch_buyers",
     "fetch_project_detail",
