@@ -22,7 +22,7 @@ def get_login_state(
     cookie_list = _resolve_cookie_list(cookies, cookies_path=cookies_path)
     has_cookies = bool(cookie_list)
     username = _fetch_username_silently(cookie_list)
-    logged_in = has_cookies and username != "未登录"
+    logged_in = has_cookies and username != "Not login"
     return {
         "ok": True,
         "logged_in": logged_in,
@@ -155,7 +155,7 @@ def login_with_cookies(
     username = _fetch_username_silently(cookie_list)
     return {
         "ok": True,
-        "logged_in": username != "未登录",
+        "logged_in": username != "Not login",
         "username": username,
         "cookies": cookie_list,
         "cookies_path": _cookie_store_path(cookies_path),
