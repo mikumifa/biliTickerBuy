@@ -9,7 +9,7 @@ import tempfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 REQUIRED_FIELDS = (
     "detail",
@@ -100,9 +100,15 @@ def save_ticket_config(
 
 
 def _cookie_store_path(cookies_path: str | Path | None) -> str | None:
-    if cookies_path is None:
-        return None
-    return str(Path(cookies_path))
+    if cookies_path is not None:
+        return str(Path(cookies_path))
+
+    from util import ConfigDB, GLOBAL_COOKIE_PATH
+
+    configured = ConfigDB.get("cookies_path")
+    if configured:
+        return str(Path(configured))
+    return str(Path(GLOBAL_COOKIE_PATH))
 
 
 def _deepcopy_dict(data: Any) -> dict[str, Any]:
@@ -252,7 +258,10 @@ def _make_request(
 ) -> Any:
     from util.BiliRequest import BiliRequest
 
-    return BiliRequest(cookies=cookies, cookies_config_path=cookies_path)
+    return BiliRequest(
+        cookies=cookies,
+        cookies_config_path=_cookie_store_path(cookies_path),
+    )
 
 
 def get_login_state(
@@ -269,6 +278,7 @@ def get_login_state(
         "logged_in": logged_in,
         "username": username,
         "has_cookies": has_cookies,
+        "cookies_path": _cookie_store_path(cookies_path),
         "next_action": "continue" if logged_in else "prompt_qr_login",
     }
 
@@ -429,6 +439,86 @@ def fetch_project_detail(
         "https://show.bilibili.com/platform/detail.html?id={0}".format(payload["id"])
     )
     return payload
+
+
+def search_tickets(
+    keyword: str,
+    *,
+    page: int = 1,
+    pagesize: int = 16,
+    platform: str = "web",
+    cookies: list[dict[str, Any]] | dict[str, Any] | None = None,
+    cookies_path: str | Path | None = None,
+) -> dict[str, Any]:
+    if not keyword or not keyword.strip():
+        raise ValueError("keyword is required")
+
+    request = _make_request(cookies=cookies, cookies_path=cookies_path)
+    params = urlencode(
+        {
+            "version": 134,
+            "keyword": keyword.strip(),
+            "pagesize": pagesize,
+            "page": page,
+            "platform": platform,
+        }
+    )
+    response = request.get(
+        url="https://show.bilibili.com/api/ticket/search/list?{0}".format(params)
+    ).json()
+    errno = response.get("errno", response.get("code"))
+    if errno != 0:
+        raise RuntimeError(
+            response.get("msg", response.get("message", "failed to search tickets"))
+        )
+
+    data = response.get("data") or {}
+    results = data.get("result") or []
+    return {
+        "keyword": keyword.strip(),
+        "page": page,
+        "pagesize": pagesize,
+        "total": data.get("total", len(results)),
+        "results": results,
+    }
+
+
+def format_ticket_search_results_text(
+    search_result: dict[str, Any],
+    *,
+    limit: int = 10,
+) -> str:
+    keyword = search_result.get("keyword", "")
+    results = list(search_result.get("results") or [])[:limit]
+    if not results:
+        return "没有找到和“{0}”相关的票务结果。".format(keyword)
+
+    lines = ["搜索结果：{0}".format(keyword), ""]
+    for idx, item in enumerate(results, start=1):
+        price_low = item.get("price_low")
+        price_high = item.get("price_high")
+        if isinstance(price_low, int) and isinstance(price_high, int):
+            if price_low == price_high:
+                price_text = "￥{0}".format(price_low / 100)
+            else:
+                price_text = "￥{0} - ￥{1}".format(price_low / 100, price_high / 100)
+        else:
+            price_text = "价格未知"
+
+        lines.extend(
+            [
+                "{0}. {1}".format(idx, item.get("title") or item.get("project_name") or "未知活动"),
+                "   城市：{0}  场地：{1}".format(
+                    item.get("city", "未知城市"),
+                    item.get("venue_name", "未知场地"),
+                ),
+                "   时间：{0}".format(item.get("tlabel") or item.get("start_time", "未知时间")),
+                "   价格：{0}  状态：{1}".format(price_text, item.get("sale_flag", "未知状态")),
+                "   链接：{0}".format(item.get("url", "")),
+                "",
+            ]
+        )
+    return "\n".join(lines).rstrip()
 
 
 def _fetch_project_payload(
@@ -1027,6 +1117,7 @@ __all__ = [
     "build_ticket_config_from_selection",
     "fetch_addresses",
     "fetch_buyers",
+    "format_ticket_search_results_text",
     "fetch_purchase_context",
     "fetch_project_detail",
     "fetch_ticket_options",
@@ -1037,6 +1128,7 @@ __all__ = [
     "poll_qr_login",
     "run_buy_sync",
     "save_ticket_config",
+    "search_tickets",
     "start_qr_login",
     "start_buy",
     "task_status",
