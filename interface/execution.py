@@ -3,6 +3,8 @@ from __future__ import annotations
 import copy
 import json
 import os
+import shutil
+import signal
 import threading
 import time
 import uuid
@@ -39,6 +41,40 @@ def _dump_json(path: Path, payload: dict[str, Any]) -> None:
 def _load_json(path: Path) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def _update_managed_status(
+    run_dir: Path,
+    **fields: Any,
+) -> dict[str, Any]:
+    status_path = run_dir / "status.json"
+    status = _load_json(status_path)
+    status.update(fields)
+    status["updated_at"] = time.time()
+    _dump_json(status_path, status)
+    return status
+
+
+def _pid_is_running(pid: int | None) -> bool:
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _terminate_pid(pid: int) -> None:
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return
+    os.kill(pid, signal.SIGTERM)
 
 
 def _append_log(task_id: str, message: str) -> None:
@@ -329,3 +365,99 @@ def managed_task_status(
     if result_path.exists():
         status["result"] = _load_json(result_path)
     return {"ok": True, "run": status}
+
+
+def cancel_managed_buy(
+    run_id: str,
+    *,
+    runs_root: str | Path | None = None,
+) -> dict[str, Any]:
+    run_dir = _managed_runs_root(runs_root) / run_id
+    status_path = run_dir / "status.json"
+    if not status_path.exists():
+        return {"ok": False, "error": "managed run not found", "run_id": run_id}
+
+    status = _load_json(status_path)
+    current_status = status.get("status")
+    if current_status in {"succeeded", "completed", "duplicate_order", "failed", "cancelled"}:
+        return {
+            "ok": True,
+            "run": status,
+            "cancelled": current_status == "cancelled",
+            "message": "run already finished",
+        }
+
+    pid = status.get("pid")
+    process_was_running = _pid_is_running(pid)
+    if process_was_running:
+        _terminate_pid(pid)
+
+    updated_status = _update_managed_status(
+        run_dir,
+        status="cancelled",
+        finished_at=time.time(),
+        error=None,
+        last_message="cancelled by API",
+    )
+
+    result_path = run_dir / "result.json"
+    _dump_json(
+        result_path,
+        {
+            "ok": False,
+            "run_id": run_id,
+            "status": "cancelled",
+            "payment_qr_url": updated_status.get("payment_qr_url"),
+            "logs_path": updated_status.get("logs_path"),
+            "last_message": "cancelled by API",
+        },
+    )
+    return {
+        "ok": True,
+        "run": updated_status,
+        "cancelled": True,
+        "process_was_running": process_was_running,
+    }
+
+
+def delete_managed_buy(
+    run_id: str,
+    *,
+    runs_root: str | Path | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    managed_root = _managed_runs_root(runs_root)
+    run_dir = managed_root / run_id
+    if not run_dir.exists():
+        return {"ok": False, "error": "managed run not found", "run_id": run_id}
+
+    try:
+        run_dir.relative_to(managed_root)
+    except ValueError:
+        return {"ok": False, "error": "run dir escapes managed root", "run_id": run_id}
+
+    status_path = run_dir / "status.json"
+    status = _load_json(status_path) if status_path.exists() else {}
+    pid = status.get("pid")
+    process_is_running = _pid_is_running(pid)
+
+    if process_is_running and not force:
+        return {
+            "ok": False,
+            "error": "managed run is still running; cancel it first or pass force=True",
+            "run_id": run_id,
+            "run": status,
+        }
+
+    cancelled = None
+    if process_is_running and force:
+        cancelled = cancel_managed_buy(run_id, runs_root=runs_root)
+
+    shutil.rmtree(run_dir)
+    return {
+        "ok": True,
+        "run_id": run_id,
+        "deleted": True,
+        "force": force,
+        "cancelled": cancelled,
+    }
