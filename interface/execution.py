@@ -2,17 +2,43 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import threading
 import time
 import uuid
 from pathlib import Path
 from typing import Any
+import subprocess
+import sys
 
 from .config import build_runtime_options, validate_config
 from .types import BuyTaskRecord
 
 _TASKS: dict[str, BuyTaskRecord] = {}
 _TASKS_LOCK = threading.Lock()
+
+
+def _package_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _managed_runs_root(root: str | Path | None = None) -> Path:
+    target = Path(root) if root is not None else _package_root() / "btb_runs"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _dump_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, path)
+
+
+def _load_json(path: Path) -> dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 def _append_log(task_id: str, message: str) -> None:
@@ -186,3 +212,120 @@ def run_buy_sync(
         "logs": logs,
         "payment_qr_url": payment_qr_url,
     }
+
+
+def start_managed_buy(
+    config_or_path: str | Path | dict[str, Any],
+    *,
+    runtime_options: dict[str, Any] | None = None,
+    run_id: str | None = None,
+    runs_root: str | Path | None = None,
+) -> dict[str, Any]:
+    validation = validate_config(config_or_path)
+    if not validation.ok:
+        return {"ok": False, "validation": validation.to_dict(), "run": None}
+
+    assert validation.normalized_config is not None
+    runtime = build_runtime_options(show_qrcode=False)
+    if runtime_options:
+        runtime.update(build_runtime_options(**runtime_options))
+
+    managed_root = _managed_runs_root(runs_root)
+    assigned_run_id = run_id or uuid.uuid4().hex
+    run_dir = managed_root / assigned_run_id
+    if run_dir.exists():
+        return {
+            "ok": False,
+            "validation": validation.to_dict(),
+            "run": None,
+            "error": "run_id already exists",
+            "run_id": assigned_run_id,
+        }
+    run_dir.mkdir(parents=True, exist_ok=False)
+
+    run_metadata = {
+        "run_id": assigned_run_id,
+        "created_at": time.time(),
+    }
+    _dump_json(run_dir / "run.json", run_metadata)
+    _dump_json(run_dir / "config.json", validation.normalized_config)
+    _dump_json(run_dir / "runtime.json", runtime)
+
+    status = {
+        "ok": True,
+        "run_id": assigned_run_id,
+        "status": "pending",
+        "detail": validation.normalized_config.get("detail", assigned_run_id),
+        "pid": None,
+        "created_at": run_metadata["created_at"],
+        "started_at": None,
+        "updated_at": run_metadata["created_at"],
+        "finished_at": None,
+        "payment_qr_url": None,
+        "error": None,
+        "last_message": None,
+        "logs_path": str(run_dir / "events.log"),
+        "result_path": str(run_dir / "result.json"),
+        "config_path": str(run_dir / "config.json"),
+        "runtime_path": str(run_dir / "runtime.json"),
+    }
+    _dump_json(run_dir / "status.json", status)
+
+    runner_path = _package_root() / "interface" / "managed_runner.py"
+    command = [sys.executable, str(runner_path), str(run_dir)]
+    env = os.environ.copy()
+    env.setdefault("BTB_APP_LOG_NAME", "app-{0}.log".format(assigned_run_id))
+
+    creationflags = 0
+    if os.name == "nt":
+        creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(
+            subprocess, "CREATE_NEW_PROCESS_GROUP", 0
+        )
+
+    stdout_handle = open(run_dir / "stdout.log", "a", encoding="utf-8")
+    stderr_handle = open(run_dir / "stderr.log", "a", encoding="utf-8")
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=str(_package_root()),
+            stdout=stdout_handle,
+            stderr=stderr_handle,
+            env=env,
+            creationflags=creationflags,
+        )
+    finally:
+        stdout_handle.close()
+        stderr_handle.close()
+
+    status["pid"] = process.pid
+    status["updated_at"] = time.time()
+    _dump_json(run_dir / "status.json", status)
+
+    return {
+        "ok": True,
+        "validation": validation.to_dict(),
+        "run": {
+            "run_id": assigned_run_id,
+            "run_dir": str(run_dir),
+            "status_path": str(run_dir / "status.json"),
+            "result_path": str(run_dir / "result.json"),
+            "logs_path": str(run_dir / "events.log"),
+            "pid": process.pid,
+        },
+    }
+
+
+def managed_task_status(
+    run_id: str,
+    *,
+    runs_root: str | Path | None = None,
+) -> dict[str, Any]:
+    run_dir = _managed_runs_root(runs_root) / run_id
+    status_path = run_dir / "status.json"
+    if not status_path.exists():
+        return {"ok": False, "error": "managed run not found", "run_id": run_id}
+    status = _load_json(status_path)
+    result_path = run_dir / "result.json"
+    if result_path.exists():
+        status["result"] = _load_json(result_path)
+    return {"ok": True, "run": status}
