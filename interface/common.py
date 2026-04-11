@@ -134,7 +134,7 @@ def _fetch_username_silently(
     timeout: float = 10.0,
 ) -> str:
     if not cookies:
-        return "未登录"
+        return "Not login"
     headers = {
         "accept": "*/*",
         "accept-language": "zh-CN,zh;q=0.9",
@@ -159,8 +159,8 @@ def _fetch_username_silently(
         if isinstance(username, str) and username.strip():
             return username.strip()
     except Exception:
-        return "未登录"
-    return "未登录"
+        return "Not login"
+    return "Not login"
 
 
 def _deepcopy_dict(data: Any) -> dict[str, Any]:
