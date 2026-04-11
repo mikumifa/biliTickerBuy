@@ -6,10 +6,18 @@ from .config import (
     build_ticket_config_from_selection,
     generate_ticket_config,
     load_ticket_config,
+    normalize_interval,
+    normalize_time_start,
     save_ticket_config,
     validate_config,
 )
-from .execution import run_buy_sync, start_buy, task_status
+from .execution import (
+    managed_task_status,
+    run_buy_sync,
+    start_buy,
+    start_managed_buy,
+    task_status,
+)
 from .project import (
     fetch_addresses,
     fetch_buyers,
@@ -35,12 +43,16 @@ __all__ = [
     "get_login_state",
     "load_ticket_config",
     "login_with_cookies",
+    "managed_task_status",
+    "normalize_interval",
+    "normalize_time_start",
     "poll_qr_login",
     "run_buy_sync",
     "save_ticket_config",
     "search_tickets",
     "start_qr_login",
     "start_buy",
+    "start_managed_buy",
     "task_status",
     "validate_config",
 ]

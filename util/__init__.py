@@ -1,6 +1,7 @@
 from collections import namedtuple
 from dataclasses import dataclass, field
 import os
+import re
 import sys
 import time
 import loguru
@@ -44,8 +45,11 @@ def get_application_tmp_path() -> str:
 
 TEMP_PATH: str = get_application_tmp_path()  # 临时目录
 os.environ["GRADIO_TEMP_DIR"] = TEMP_PATH
-LOG_DIR: str = os.path.join(EXE_PATH, "btb_logs")
-loguru_config(LOG_DIR, "app.log", enable_console=True, file_colorize=False)
+LOG_DIR: str = os.environ.get("BTB_LOG_DIR", os.path.join(EXE_PATH, "btb_logs"))
+os.makedirs(LOG_DIR, exist_ok=True)
+log_file_name = os.environ.get("BTB_APP_LOG_NAME", "app.log")
+log_file_name = re.sub(r"[^\w.\-]", "_", log_file_name) or "app.log"
+loguru_config(LOG_DIR, log_file_name, enable_console=True, file_colorize=False)
 ERRNO_DICT = {
     0: "成功",
     3: "抢票CD中",
@@ -76,8 +80,11 @@ __all__ = [
     "GlobalStatusInstance",
 ]
 loguru.logger.debug(f"设置路径EXE_PATH={EXE_PATH}")
-ConfigDB = KVDatabase(os.path.join(EXE_PATH, "config.json"))
-GLOBAL_COOKIE_PATH = os.path.join(EXE_PATH, "cookies.json")
+CONFIG_DB_PATH = os.environ.get("BTB_CONFIG_PATH", os.path.join(EXE_PATH, "config.json"))
+GLOBAL_COOKIE_PATH = os.environ.get(
+    "BTB_COOKIES_PATH", os.path.join(EXE_PATH, "cookies.json")
+)
+ConfigDB = KVDatabase(CONFIG_DB_PATH)
 if ConfigDB.get("cookies_path") is None:
     ConfigDB.insert("cookies_path", GLOBAL_COOKIE_PATH)
 main_request = BiliRequest(cookies_config_path=ConfigDB.get("cookies_path"))

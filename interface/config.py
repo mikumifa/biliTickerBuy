@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import copy
 import json
+import math
+import re
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +18,93 @@ from .common import (
     _load_json_file,
 )
 from .types import ValidationResult
+
+
+def normalize_time_start(value: Any) -> str:
+    if value in (None, ""):
+        return ""
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%dT%H:%M:%S")
+
+    text = str(value).strip()
+    if not text:
+        return ""
+
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+    ):
+        try:
+            parsed = datetime.strptime(text, fmt)
+            return parsed.strftime("%Y-%m-%dT%H:%M:%S" if "%S" in fmt else "%Y-%m-%dT%H:%M")
+        except ValueError:
+            continue
+
+    match = re.fullmatch(r"(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?", text)
+    if not match:
+        raise ValueError(
+            "time_start must be ISO-like datetime or HH:MM[:SS], for example 2026-04-12T00:36 or 00:36"
+        )
+
+    hour = int(match.group(1))
+    minute = int(match.group(2))
+    second = int(match.group(3) or 0)
+    if hour > 23 or minute > 59 or second > 59:
+        raise ValueError("time_start clock value is out of range")
+
+    now = datetime.now()
+    parsed = now.replace(hour=hour, minute=minute, second=second, microsecond=0)
+    if parsed <= now:
+        parsed += timedelta(days=1)
+    if match.group(3) is None:
+        return parsed.strftime("%Y-%m-%dT%H:%M")
+    return parsed.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def normalize_interval(value: Any) -> int:
+    if value in (None, ""):
+        return 1000
+    if isinstance(value, bool):
+        raise ValueError("interval must be a positive duration")
+    if isinstance(value, int):
+        if value <= 0:
+            raise ValueError("interval must be greater than 0")
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("interval must be greater than 0")
+        return int(round(value))
+
+    text = str(value).strip().lower()
+    if not text:
+        return 1000
+    if text.isdigit():
+        parsed = int(text)
+        if parsed <= 0:
+            raise ValueError("interval must be greater than 0")
+        return parsed
+
+    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)\s*(ms|s|sec|secs|m|min|mins)?", text)
+    if not match:
+        raise ValueError(
+            "interval must be milliseconds or a duration like 500, 500ms, 0.5s, 0.36m"
+        )
+    amount = float(match.group(1))
+    unit = match.group(2) or "ms"
+    if amount <= 0:
+        raise ValueError("interval must be greater than 0")
+    multiplier = {
+        "ms": 1,
+        "s": 1000,
+        "sec": 1000,
+        "secs": 1000,
+        "m": 60000,
+        "min": 60000,
+        "mins": 60000,
+    }[unit]
+    return max(1, int(round(amount * multiplier)))
 
 
 def load_ticket_config(path: str | Path) -> dict[str, Any]:
@@ -103,8 +193,8 @@ def build_runtime_options(
     show_qrcode: bool = False,
 ) -> dict[str, Any]:
     return {
-        "interval": interval,
-        "time_start": time_start,
+        "interval": normalize_interval(interval),
+        "time_start": normalize_time_start(time_start),
         "audio_path": audio_path,
         "pushplusToken": pushplusToken,
         "serverchanKey": serverchanKey,

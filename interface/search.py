@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import requests
 
@@ -51,7 +51,7 @@ def search_tickets(
         "accept": "*/*",
         "accept-language": "zh-CN,zh;q=0.9",
         "referer": "https://show.bilibili.com/platform/search.html?searchValue={0}".format(
-            keyword.strip()
+            quote(keyword.strip(), safe="")
         ),
         "user-agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
