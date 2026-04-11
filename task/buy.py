@@ -37,6 +37,7 @@ def buy_stream(
     notifier_config,
     https_proxys,
     show_random_message=True,
+    show_qrcode=True,
 ):
     isRunning = True
     tickets_info = json.loads(tickets_info)
@@ -183,11 +184,14 @@ def buy_stream(
                     _request,
                     request_result["data"]["orderId"],
                 )
-                qr_gen = qrcode.QRCode()
-                qr_gen.add_data(qrcode_url)
-                qr_gen.make(fit=True)
-                qr_gen_image = qr_gen.make_image()
-                qr_gen_image.show()  # type: ignore
+                if show_qrcode:
+                    qr_gen = qrcode.QRCode()
+                    qr_gen.add_data(qrcode_url)
+                    qr_gen.make(fit=True)
+                    qr_gen_image = qr_gen.make_image()
+                    qr_gen_image.show()  # type: ignore
+                else:
+                    yield "PAYMENT_QR_URL={0}".format(qrcode_url)
                 break
             if errno == 100079:
                 yield "有重复订单，停止重试"
@@ -216,6 +220,7 @@ def buy(
     ntfy_username=None,
     ntfy_password=None,
     show_random_message=True,
+    show_qrcode=True,
 ):
     # 创建NotifierConfig对象
     notifier_config = NotifierConfig(
@@ -236,6 +241,7 @@ def buy(
         notifier_config,
         https_proxys,
         show_random_message,
+        show_qrcode,
     ):
         logger.info(msg)
 
