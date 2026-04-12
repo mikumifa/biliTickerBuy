@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bilitickerbuy"
-version = "2.14.13"
+version = "2.14.14"
 description = "开源的 B 站会员购辅助工具，提供命令行和 Gradio 界面"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -38,6 +38,9 @@ dependencies = [
     "tinydb~=4.8.0",
     "Pillow~=10.3.0",
     "huggingface-hub==0.34.3",
+    "fastapi==0.112.2",
+    "starlette==0.38.6",
+    "jinja2==3.1.2",
 ]
 
 [project.urls]
