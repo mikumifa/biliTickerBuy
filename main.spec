@@ -2,13 +2,21 @@
 
 import os
 import sys
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 datas = []
 datas += collect_data_files("gradio_client")
 datas += collect_data_files("gradio")
 datas += collect_data_files("gradio_calendar")
 datas += collect_data_files("gradio_log")
+
+project_root = os.path.abspath(".")
+hiddenimports = []
+hiddenimports += collect_submodules("app_cmd")
+hiddenimports += collect_submodules("task")
+hiddenimports += collect_submodules("tab")
+hiddenimports += collect_submodules("util")
+hiddenimports += collect_submodules("interface")
 
 # 自动选择图标
 if sys.platform == "darwin":
@@ -26,9 +34,10 @@ else:
 
 a = Analysis(
     ["main.py"],
-    pathex=[],
+    pathex=[project_root],
     binaries=[],
     datas=datas,
+    hiddenimports=hiddenimports,
     module_collection_mode={
         "gradio": "py",  # Collect gradio package as source .py files
         "gradio_calendar": "py",  # Collect'
