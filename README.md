@@ -53,6 +53,12 @@ btb buy ./your_config.json
 
 反馈程序 BUG 或者提新功能建议： [点此链接向项目提出反馈 BUG](https://github.com/mikumifa/biliTickerBuy/issues/new/choose)
 
+## Related Work
+
+Skill版本：https://github.com/mikumifa/biliTickerSkill
+
+分布式版本：https://github.com/mikumifa/biliTickerStorm
+
 ## 📩 免责声明
 
 本项目遵循 MIT License 许可协议，仅供个人学习与研究使用。请勿将本项目用于任何商业牟利行为，亦严禁用于任何形式的代抢、违法行为或违反相关平台规则的用途。由此产生的一切后果均由使用者自行承担，与本人无关。
