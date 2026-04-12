@@ -2,12 +2,8 @@ name: Python Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*.*.*"
-  pull_request:
-    types: [opened, reopened, synchronize]
   workflow_dispatch:
 
 permissions:

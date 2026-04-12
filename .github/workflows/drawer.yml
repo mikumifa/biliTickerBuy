@@ -18,6 +18,8 @@ permissions:
 
 jobs:
   update_release_draft:
+    outputs:
+      tag_name: ${{ steps.drafter.outputs.tag_name }}
     permissions:
       # write permission is required to create a github release
       contents: write
@@ -32,7 +34,8 @@ jobs:
       #    echo "GHE_HOST=${GITHUB_SERVER_URL##https:\/\/}" >> $GITHUB_ENV
 
       # Drafts your next Release notes as Pull Requests are merged into "master"
-      - uses: release-drafter/release-drafter@v5
+      - id: drafter
+        uses: release-drafter/release-drafter@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
         # (Optional) specify config name to use, relative to .github/. Default: release-drafter.yml
@@ -44,3 +47,65 @@ jobs:
       - uses: akhilmhdh/contributors-readme-action@v2.3.10
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
+  build_and_upload_draft_assets:
+    name: Build Draft Assets
+    needs: update_release_draft
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.update_release_draft.outputs.tag_name != ''
+    permissions:
+      contents: write
+    runs-on: ${{ matrix.config.os.name }}
+    strategy:
+      matrix:
+        config:
+          - os:
+              name: ubuntu-22.04
+              filename: linux_amd64
+          - os:
+              name: ubuntu-22.04-arm
+              filename: linux_arm64
+          - os:
+              name: macos-14
+              filename: macos_arm64
+          - os:
+              name: macos-15-intel
+              filename: macos_intel
+          - os:
+              name: windows-latest
+              filename: windows_amd64
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+          cache: "pip"
+
+      - name: Upgrade setuptools, wheel, and install requirements
+        run: |
+          pip install --upgrade setuptools wheel pyinstaller~=5.13.2 && pip install -r requirements.txt
+
+      - name: Build Pyinstaller
+        shell: bash
+        run: |
+          pyinstaller main.spec
+
+      - name: Zip the Build-windows
+        if: matrix.config.os.filename == 'windows_amd64'
+        run: Compress-Archive -Path ./dist/biliTicKerBuy.exe -DestinationPath tmp.zip
+
+      - name: Zip the Build-linux
+        if: matrix.config.os.filename != 'windows_amd64'
+        run: |
+          cd ./dist
+          zip -r ../tmp.zip biliTickerBuy
+
+      - name: Upload binaries to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRAFT_TAG: ${{ needs.update_release_draft.outputs.tag_name }}
+        run: |
+          gh release upload "$DRAFT_TAG" tmp.zip#${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${DRAFT_TAG}.zip --clobber
