@@ -81,3 +81,16 @@ btb buy ./your_config.json
 ## ⭐️ Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://www.star-history.com/#mikumifa/biliTickerBuy&Date)
+
+## 📦 PyPI 发版最佳实践
+
+为避免 `pyproject.toml` 的 `project.version` 与 git tag 不一致导致发版失败，建议使用以下流程：
+
+1. 先修改 `pyproject.toml` 中的版本号（例如 `2.14.11`）。
+2. 提交版本变更：`git commit -am "chore: bump version to 2.14.11"`。
+3. 打并推送同名标签：`git tag v2.14.11 && git push origin main --tags`。
+4. 由 CI 自动构建并发布到 PyPI。
+
+仓库中的 `scripts/check_version_tag.py` 会在 `publish-pypi` 工作流中强制校验 tag 与 `pyproject.toml` 版本是否一致，不一致会直接失败并提示修复。
+
+如果 PyPI 返回 `HTTP 400 Bad Request`，也请确认该版本是否已经上传过：PyPI 不允许覆盖同版本文件。
