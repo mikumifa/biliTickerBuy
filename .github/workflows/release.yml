@@ -2,8 +2,13 @@ name: Python Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*.*.*"
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -67,6 +72,7 @@ jobs:
           zip -r  ../tmp.zip biliTickerBuy
 
       - name: Upload binaries to release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: svenstaro/upload-release-action@v2
         with:
           file: tmp.zip
@@ -78,6 +84,7 @@ jobs:
     name: Upload to WebDAV
     runs-on: ubuntu-latest
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
