@@ -6,13 +6,14 @@ from loguru import logger
 def loguru_config(
     log_dir: str,
     log_file_name: str,
-    file_colorize=True,
+    file_colorize: bool = False,
     enable_console: bool = True,
 ) -> str:
     """
     配置 Loguru 日志系统。
 
     :param log_file_path: 日志文件的名称，会存储到 LOG_DIR 目录下"
+    :param file_colorize: 是否为文件日志写入颜色控制符，默认关闭
     :param enable_console: 是否启用终端输出
     """
     logger.remove()

@@ -30,6 +30,56 @@ def get_qrcode_url(_request, order_id) -> str:
     raise ValueError("获取二维码失败")
 
 
+def _wait_until_start(time_start: str):
+    if not time_start:
+        return
+
+    timeoffset = time_service.get_timeoffset()
+    yield "0) 等待开始时间"
+    yield f"时间偏差已被设置为: {timeoffset}s"
+
+    try:
+        target_time = datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        target_time = datetime.strptime(time_start, "%Y-%m-%dT%H:%M")
+
+    time_difference = target_time.timestamp() - time.time() + timeoffset
+    end_time = time.perf_counter() + time_difference
+    while True:
+        remaining = end_time - time.perf_counter()
+        if remaining <= 0:
+            return
+        time.sleep(min(0.5, remaining))
+
+
+def _build_token_payload(tickets_info: dict) -> dict:
+    return {
+        "count": tickets_info["count"],
+        "screen_id": tickets_info["screen_id"],
+        "order_type": 1,
+        "project_id": tickets_info["project_id"],
+        "sku_id": tickets_info["sku_id"],
+        "token": "",
+        "newRisk": True,
+    }
+
+
+def _build_order_payload(tickets_info: dict, token: str) -> dict:
+    payload = dict(tickets_info)
+    payload["again"] = 1
+    payload["token"] = token
+    payload["timestamp"] = int(time.time()) * 1000
+    payload.pop("detail", None)
+    return payload
+
+
+def _is_create_success(ret: dict, err: int) -> bool:
+    if err in {100048, 100079}:
+        return True
+    resp_message = str(ret.get("msg", ret.get("message", "")) or "")
+    return err == 0 and "defaultBBR" not in resp_message
+
+
 def buy_stream(
     tickets_info,
     time_start,
@@ -43,52 +93,16 @@ def buy_stream(
     tickets_info = json.loads(tickets_info)
     detail = tickets_info["detail"]
     cookies = tickets_info["cookies"]
-    phone = tickets_info.get("phone", None)
     tickets_info.pop("cookies", None)
     tickets_info["buyer_info"] = json.dumps(tickets_info["buyer_info"])
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
     logger.info(f"使用代理：{https_proxys}")
     _request = BiliRequest(cookies=cookies, proxy=https_proxys)
 
-    if "is_hot_project" in tickets_info:
-        is_hot_project = tickets_info["is_hot_project"]
-    else:
-        is_hot_project = False
+    is_hot_project = bool(tickets_info.get("is_hot_project", False))
+    token_payload = _build_token_payload(tickets_info)
 
-    token_payload = {
-        "count": tickets_info["count"],
-        "screen_id": tickets_info["screen_id"],
-        "order_type": 1,
-        "project_id": tickets_info["project_id"],
-        "sku_id": tickets_info["sku_id"],
-        "token": "",
-        "newRisk": True,
-    }
-
-    if time_start != "":
-        timeoffset = time_service.get_timeoffset()
-        yield "0) 等待开始时间"
-        yield f"时间偏差已被设置为: {timeoffset}s"
-        try:
-            time_difference = (
-                datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S").timestamp()
-                - time.time()
-                + timeoffset
-            )
-        except ValueError:
-            time_difference = (
-                datetime.strptime(time_start, "%Y-%m-%dT%H:%M").timestamp()
-                - time.time()
-                + timeoffset
-            )
-        start_time = time.perf_counter()
-        end_time = start_time + time_difference
-        while True:
-            now = time.perf_counter()
-            if now >= end_time:
-                break
-            remaining = end_time - now
-            time.sleep(min(0.5, remaining))
+    yield from _wait_until_start(time_start)
 
     while isRunning:
         try:
@@ -105,13 +119,10 @@ def buy_stream(
             )
             request_result = request_result_normal.json()
             yield f"请求头: {request_result_normal.headers} // 请求体: {request_result}"
-            tickets_info["again"] = 1
-            tickets_info["token"] = request_result["data"]["token"]
             yield "2）创建订单"
-            tickets_info["timestamp"] = int(time.time()) * 1000
-            payload = tickets_info
-            if "detail" in payload:
-                del payload["detail"]
+            payload = _build_order_payload(
+                tickets_info, request_result["data"]["token"]
+            )
 
             result = None
             for attempt in range(1, 61):
@@ -138,9 +149,8 @@ def buy_stream(
                     err = int(ret.get("errno", ret.get("code")))
                     if err == 100034:
                         yield f"更新票价为：{ret['data']['pay_money'] / 100}"
-                        tickets_info["pay_money"] = ret["data"]["pay_money"]
-                        payload = tickets_info
-                    if err in [0, 100048, 100079]:
+                        payload["pay_money"] = ret["data"]["pay_money"]
+                    if _is_create_success(ret, err):
                         yield "请求成功，停止重试"
                         result = (ret, err)
                         break
@@ -168,15 +178,12 @@ def buy_stream(
 
             request_result, errno = result
             if errno == 0:
-                # 使用统一的工厂方法创建NotifierManager
-                # 不传递interval_seconds和duration_minutes，让每个推送渠道使用自己的默认值
                 notifierManager = NotifierManager.create_from_config(
                     config=notifier_config,
                     title="抢票成功",
                     content=f"bilibili会员购，请尽快前往订单中心付款: {detail}",
                 )
 
-                # 启动所有已配置的推送渠道
                 notifierManager.start_all()
 
                 yield "3）抢票成功，弹出付款二维码"
