@@ -27,9 +27,7 @@ def buy_cmd(args: Namespace):
     filename = os.path.basename(config_path) if config_path else "default"
     filename_only = os.path.basename(filename)
     if getattr(args, "web", False):
-        log_file = loguru_config(
-            LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False, file_colorize=True
-        )
+        log_file = loguru_config(LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False)
         from task.endpoint import start_heartbeat_thread
         import gradio_client
         import gradio as gr
@@ -82,9 +80,7 @@ def buy_cmd(args: Namespace):
             to_url=args.endpoint_url,
         )
     else:
-        log_file = loguru_config(
-            LOG_DIR, f"{uuid.uuid1()}.log", enable_console=True, file_colorize=True
-        )
+        log_file = loguru_config(LOG_DIR, f"{uuid.uuid1()}.log", enable_console=True)
     buy(
         tickets_info,
         args.time_start,
