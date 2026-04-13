@@ -30,6 +30,13 @@ def get_qrcode_url(_request, order_id) -> str:
     raise ValueError("获取二维码失败")
 
 
+def _format_countdown(seconds: float) -> str:
+    total_seconds = max(0, int(seconds))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours}小时{minutes}分{secs}秒"
+
+
 def _wait_until_start(time_start: str):
     if not time_start:
         return
@@ -43,12 +50,18 @@ def _wait_until_start(time_start: str):
     except ValueError:
         target_time = datetime.strptime(time_start, "%Y-%m-%dT%H:%M")
 
+    yield f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"
+
     time_difference = target_time.timestamp() - time.time() + timeoffset
     end_time = time.perf_counter() + time_difference
+    next_report_at = float("inf")
     while True:
         remaining = end_time - time.perf_counter()
         if remaining <= 0:
             return
+        if remaining <= next_report_at:
+            yield f"距离开始抢票还有: {_format_countdown(remaining)}"
+            next_report_at = max(0.0, remaining - 5)
         time.sleep(min(0.5, remaining))
 
 
