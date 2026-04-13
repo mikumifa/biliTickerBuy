@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import html
 from datetime import datetime, timedelta
 import time
 from typing import Any, Dict, List
@@ -26,6 +27,7 @@ sales_dates = []
 project_id = 0
 is_hot_project = False
 
+
 def _read_positive_int(value) -> int | None:
     if value is None:
         return None
@@ -35,6 +37,7 @@ def _read_positive_int(value) -> int | None:
         return None
     return num if num > 0 else None
 
+
 def _iter_project_dates(start_ts: int, end_ts: int):
     start_day = datetime.fromtimestamp(start_ts).date()
     end_day = datetime.fromtimestamp(end_ts).date()
@@ -43,7 +46,10 @@ def _iter_project_dates(start_ts: int, end_ts: int):
         yield cursor.strftime("%Y-%m-%d")
         cursor += timedelta(days=1)
 
-def _fetch_screens_by_date(request: BiliRequest, project_id: int, date_str: str) -> list[dict]:
+
+def _fetch_screens_by_date(
+    request: BiliRequest, project_id: int, date_str: str
+) -> list[dict]:
     response = request.get(
         url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={date_str}"
     )
@@ -55,6 +61,7 @@ def _fetch_screens_by_date(request: BiliRequest, project_id: int, date_str: str)
     data = payload.get("data") if isinstance(payload, dict) else None
     screens = data.get("screen_list") if isinstance(data, dict) else None
     return screens if isinstance(screens, list) else []
+
 
 def _merge_screens(base_screens: list[dict], extra_screens: list[dict]) -> list[dict]:
     merged: list[dict] = []
@@ -72,6 +79,7 @@ def _merge_screens(base_screens: list[dict], extra_screens: list[dict]) -> list[
         merged.append(screen)
 
     return merged
+
 
 sales_flag_number_map = {
     1: "不可售",
@@ -95,6 +103,59 @@ def filename_filter(filename):
     return filename
 
 
+def _render_ticket_info_html(
+    title: str,
+    lines: list[tuple[str, str]],
+    badge: str | None = None,
+    hint: str | None = None,
+) -> str:
+    chinese_font = "'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif"
+    badge_html = (
+        f'<span style="font-family: {chinese_font};" class="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-medium text-sky-700">{html.escape(badge)}</span>'
+        if badge
+        else ""
+    )
+    items_html = "".join(
+        (
+            f'<div style="font-family: {chinese_font};" class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">'
+            f'<p class="text-xs font-medium tracking-wide text-slate-500">{html.escape(label)}</p>'
+            f'<p class="mt-1 text-sm text-slate-800 break-all">{html.escape(value)}</p>'
+            "</div>"
+        )
+        for label, value in lines
+    )
+    hint_html = (
+        f'<p style="font-family: {chinese_font};" class="mt-3 text-xs leading-5 text-slate-400">{html.escape(hint)}</p>'
+        if hint
+        else ""
+    )
+    return f"""
+    <div style="font-family: {chinese_font};" class="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-sky-50 p-4 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <p class="text-sm font-semibold text-slate-900">{html.escape(title)}</p>
+            </div>
+            {badge_html}
+        </div>
+        <div class="mt-3 grid gap-3 md:grid-cols-2">
+            {items_html}
+        </div>
+        {hint_html}
+    </div>
+    """
+
+
+def _empty_ticket_info_updates():
+    return [
+        gr.update(choices=[], value=None),
+        gr.update(choices=[], value=[]),
+        gr.update(choices=[], value=None),
+        gr.update(visible=False),
+        gr.update(value="", visible=False),
+        gr.update(visible=False, value=None),
+    ]
+
+
 def on_submit_ticket_id(num):
     global buyer_value
     global addr_value
@@ -109,13 +170,21 @@ def on_submit_ticket_id(num):
         addr_value = []
         ticket_value = []
         extracted_id_message = ""
-        if "http" in num or "https" in num:
+        if isinstance(num, str) and ("http" in num or "https" in num):
             num = extract_id_from_url(num)
+            if num is None:
+                raise gr.Error(
+                    "无法从这个链接里识别票务 ID。请确认它是会员购活动详情页链接，格式类似：https://show.bilibili.com/platform/detail.html?id=84096",
+                    duration=6,
+                )
             extracted_id_message = f"已提取URL票ID：{num}"
         elif isinstance(num, str) and num.isdigit():
             num = int(num)
         else:
-            raise gr.Error("输入无效，请输入一个有效的网址。", duration=5)
+            raise gr.Error(
+                "输入无效，请输入会员购活动详情页链接，或直接输入纯数字票务 ID。",
+                duration=5,
+            )
         res = util.main_request.get(
             url=f"https://show.bilibili.com/api/ticket/project/getV2?version=134&id={num}&project_id={num}"
         )
@@ -124,12 +193,20 @@ def on_submit_ticket_id(num):
 
         # 检查 errno
         if ret.get("errno", ret.get("code")) == 100001:
-            raise gr.Error("输入无效，请输入一个有效的网址。", duration=5)
+            raise gr.Error(
+                "没有找到对应票务。请检查链接或票务 ID 是否正确。",
+                duration=5,
+            )
         elif ret.get("errno", ret.get("code")) != 0:
             raise gr.Error(
                 ret.get("msg", ret.get("message", "未知错误")) + "。", duration=5
             )
-        data = ret["data"]
+        data = ret.get("data")
+        if not isinstance(data, dict):
+            raise gr.Error(
+                "票务信息返回异常，可能这个链接不是标准会员购活动页，或者页面暂时不可用。",
+                duration=6,
+            )
         ticket_str_list = []
 
         project_id = data["id"]
@@ -237,8 +314,18 @@ def on_submit_ticket_id(num):
             gr.update(choices=addr_str_list),
             gr.update(visible=True),
             gr.update(
-                value=f"{extracted_id_message}\n获取票信息成功:\n展会名称：{project_name}\n"
-                f"开展时间：{project_start_time} - {project_end_time}\n场馆地址：{venue_name} {venue_address}",
+                value=_render_ticket_info_html(
+                    title="票务信息",
+                    badge="已获取",
+                    lines=[
+                        ("票务 ID", str(num)),
+                        ("展会名称", project_name),
+                        ("开展时间", f"{project_start_time} - {project_end_time}"),
+                        ("场馆地址", f"{venue_name} {venue_address}"),
+                    ],
+                    hint=extracted_id_message
+                    or "票务信息获取成功，请继续选择票档和购票人。",
+                ),
                 visible=True,
             ),
             gr.update(visible=True, value=sales_dates[0])
@@ -247,14 +334,22 @@ def on_submit_ticket_id(num):
         ]
     except gr.Error as e:
         gr.Warning(e.message)
+        yield _empty_ticket_info_updates()
     except Exception as e:
         logger.exception(e)
+        gr.Warning(
+            "获取票务信息失败。请确认你输入的是会员购活动详情页链接，或稍后重试。"
+        )
+        yield _empty_ticket_info_updates()
 
 
 def extract_id_from_url(url):
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
-    return query_params.get("id", [None])[0]
+    ticket_id = query_params.get("id", [None])[0]
+    if isinstance(ticket_id, str) and ticket_id.isdigit():
+        return ticket_id
+    return None
 
 
 def on_submit_all(
@@ -283,6 +378,11 @@ def on_submit_all(
         ticket_cur: dict[str, Any] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
         ticket_id = extract_id_from_url(ticket_id)
+        if ticket_id is None:
+            raise gr.Error(
+                "当前填写的链接里没有识别到票务 ID，请重新获取票务信息后再生成配置。",
+                duration=5,
+            )
 
         ConfigDB.insert("people_buyer_name", people_buyer_name)
         ConfigDB.insert("people_buyer_phone", people_buyer_phone)
@@ -348,36 +448,64 @@ def upload_file(filepath):
 
 
 def setting_tab():
-    with gr.Column():
+    with gr.Column(elem_classes="!gap-5"):
         # 顶部提示卡片
         gr.Markdown(
             """
-        ### ⚠️ 使用前必读
-        请确保在抢票前已完成以下配置：
-        - **收货地址**：会员购中心 → 地址管理
-        - **购买人信息**：会员购中心 → 购买人信息
-        > 即使暂时不需要，也请提前填写。否则生成表单时将没有任何选项。
+        <div class="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-5 shadow-sm">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p class="text-lg font-semibold text-slate-900">使用前必读</p>
+                    <p class="mt-2 text-sm leading-6 text-slate-600">
+                        请确保在抢票前已完成基础资料填写，否则后续生成配置时可能没有可选项。
+                    </p>
+                </div>
+                <span class="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-medium text-amber-700">
+                    准备检查
+                </span>
+            </div>
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <p class="text-sm font-semibold text-slate-800">收货地址</p>
+                    <p class="mt-1 text-sm text-slate-600">会员购中心 → 地址管理</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <p class="text-sm font-semibold text-slate-800">购买人信息</p>
+                    <p class="mt-1 text-sm text-slate-600">会员购中心 → 购买人信息</p>
+                </div>
+            </div>
+            <p class="mt-4 text-xs leading-5 text-slate-500">
+                即使暂时不需要，也建议提前填写完整，避免生成表单时没有任何候选项。
+            </p>
+        </div>
         """,
-            elem_classes="!bg-yellow-200 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-yellow-400 dark:!border-gray-700 !shadow-sm ",
+            elem_classes="!p-0",
         )
 
         # 登录信息卡片
         with gr.Column(
-            elem_classes="!bg-red-50 dark:!bg-gray-800 !p-4 !rounded-xl !border !border-red-200 dark:!border-gray-700 !shadow-sm !gap-3"
+            elem_classes="!gap-4 !rounded-2xl !border !border-slate-200 !bg-gradient-to-br !from-rose-50 !via-white !to-sky-50 !p-5 !shadow-sm"
         ):
             gr.Markdown(
                 """
-                <span class="text-blue-700 dark:text-blue-200 font-medium">
-                    如果遇到登录问题，请使用 
-                    <a href="https://login.bilibili.bi/" class="underline text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100" target="_blank">备用登录入口</a>
-                    <br>
-                    注意，导入配置文件方式登录是临时登录。如果想长期使用一个账号，请使用扫码登录
-                </span>
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <p class="text-lg font-semibold text-slate-900">账号登录</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">
+                            如果遇到登录问题，可使用
+                            <a href="https://login.bilibili.bi/" class="font-medium text-sky-700 underline decoration-sky-300 underline-offset-4 hover:text-sky-900" target="_blank">备用登录入口</a>。
+                            导入配置文件属于临时登录；想长期使用同一账号，建议使用扫码登录。
+                        </p>
+                    </div>
+                    <span class="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-medium text-rose-700">
+                        登录配置
+                    </span>
+                </div>
                 """,
-                elem_classes="!text-sm",
+                elem_classes="!p-0",
             )
 
-            with gr.Row():
+            with gr.Row(elem_classes="!items-end !gap-3"):
                 username_ui = gr.Text(
                     lambda: util.main_request.get_request_name(),
                     label="账号名称",
@@ -461,10 +589,10 @@ def setting_tab():
             qr_img = gr.Image(label="登录验证码", visible=False)
             check_btn = gr.Button("扫码后点击此按钮", visible=False)
 
-            with gr.Row():
+            with gr.Row(elem_classes="!items-center !gap-3 !flex-wrap"):
                 login_btn = gr.Button(
                     "注销并生成二维码登录",
-                    elem_classes="!bg-blue-500 dark:!bg-blue-600 !rounded-md !hover:bg-blue-600 dark:hover:!bg-blue-400 !transition",
+                    elem_classes="!rounded-xl !border !border-slate-300 !bg-white !px-4 !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
                 )
 
                 qrcode_key_state = gr.State("")
@@ -547,12 +675,16 @@ def setting_tab():
                 )
                 upload_ui = gr.UploadButton(
                     label="导入",
-                    elem_classes="!bg-white dark:!bg-gray-700 !rounded-md !shadow-sm  dark:!text-white",
+                    elem_classes="!rounded-xl !border !border-slate-200 !bg-white !shadow-sm hover:!bg-slate-50",
                 )
                 upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
 
         # 手机号输入卡片
-        with gr.Accordion(label="填写你的当前账号所绑定的手机号[可选]", open=False):
+        with gr.Accordion(
+            label="填写你的当前账号所绑定的手机号[可选]",
+            open=False,
+            elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+        ):
             phone_gate_ui = gr.Textbox(
                 label="填写你的当前账号所绑定的手机号",
                 info="手机号验证出现概率极低，可不填",
@@ -566,20 +698,47 @@ def setting_tab():
 
         # 抢票信息卡片
         with gr.Column(
-            elem_classes="!bg-sky-200 dark:!bg-gray-800  !p-4 !rounded-xl !shadow-md !gap-2"
+            elem_classes="!gap-4 !rounded-2xl !border !border-slate-200 !bg-gradient-to-br !from-sky-50 !via-white !to-cyan-50 !p-5 !shadow-sm"
         ):
-            info_ui = gr.TextArea(
-                info="票务信息", label="配置票的信息", interactive=False, visible=False
+            gr.Markdown(
+                """
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <p class="text-lg font-semibold text-slate-900">票务配置</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">
+                            输入活动链接后获取票档信息，再完成购票人、地址和联系人配置。
+                        </p>
+                    </div>
+                    <span style="font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;" class="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-medium text-sky-700">
+                        生成配置
+                    </span>
+                </div>
+                """,
+                elem_classes="!p-0",
             )
-            ticket_id_ui = gr.Textbox(
-                label="想要抢票的网址",
-                interactive=True,
-                info="形如 https://show.bilibili.com/platform/detail.html?id=84096",
+            info_ui = gr.HTML(
+                label="配置票的信息",
+                visible=False,
             )
-            ticket_id_btn = gr.Button("获取票信息")
+            with gr.Row(elem_classes="!items-end !gap-3"):
+                ticket_id_ui = gr.Textbox(
+                    label="想要抢票的网址",
+                    interactive=True,
+                    info="形如 https://show.bilibili.com/platform/detail.html?id=84096",
+                    scale=5,
+                )
+                ticket_id_btn = gr.Button(
+                    "获取票信息",
+                    elem_classes="!rounded-xl !border !border-sky-200 !bg-sky-100 !px-4 !text-sky-950 !shadow-sm hover:!bg-sky-200 !transition",
+                    scale=1,
+                )
 
-            with gr.Column(visible=False, elem_id="ticket-detail") as inner:
-                with gr.Row():
+            with gr.Column(
+                visible=False,
+                elem_id="ticket-detail",
+                elem_classes="!gap-4 !rounded-2xl !border !border-slate-200 !bg-white/80 !p-4",
+            ) as inner:
+                with gr.Row(elem_classes="!gap-3 !items-end"):
                     ticket_info_ui = gr.Dropdown(
                         label="选票",
                         interactive=True,
@@ -593,7 +752,7 @@ def setting_tab():
                         interactive=True,
                     )
 
-                with gr.Row(elem_classes="!gap-2"):
+                with gr.Row(elem_classes="!gap-3 !items-end"):
                     people_buyer_name = gr.Textbox(
                         value=lambda: ConfigDB.get("people_buyer_name") or "",
                         label="联系人姓名",
@@ -621,7 +780,10 @@ def setting_tab():
                     info="必填，选几个就代表买几个人的票，在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
                 )
 
-                config_btn = gr.Button("生成配置")
+                config_btn = gr.Button(
+                    "生成配置",
+                    elem_classes="!rounded-xl !border !border-emerald-200 !bg-emerald-100 !px-4 !text-emerald-950 !shadow-sm hover:!bg-emerald-200 !transition",
+                )
                 config_file_ui = gr.File(visible=False)
                 config_output_ui = gr.JSON(
                     label="生成配置文件（右上角复制）", visible=False
@@ -687,10 +849,29 @@ def setting_tab():
                     return [
                         gr.update(value=_date, visible=True),
                         gr.update(choices=ticket_str_list),
-                        gr.update(value=f"当前票日期更新为: {_date}"),
+                        gr.update(
+                            value=_render_ticket_info_html(
+                                title="票务信息",
+                                badge="日期已更新",
+                                lines=[
+                                    ("当前票日期", _date),
+                                    ("票档数量", str(len(ticket_str_list))),
+                                    ("展会名称", project_name),
+                                    ("项目 ID", str(project_id)),
+                                ],
+                                hint="票档列表已按所选日期刷新，请重新核对起售时间。",
+                            ),
+                            visible=True,
+                        ),
                     ]
                 except Exception as e:
-                    return [gr.update(), gr.update(), gr.update(value=e, visible=True)]
+                    logger.exception(e)
+                    gr.Warning("切换日期失败，未能获取对应日期的票务信息。")
+                    return [
+                        gr.update(),
+                        gr.update(),
+                        gr.update(value="", visible=False),
+                    ]
 
             data_ui.change(
                 fn=on_submit_data,

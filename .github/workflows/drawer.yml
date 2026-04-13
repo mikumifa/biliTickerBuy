@@ -108,4 +108,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRAFT_TAG: ${{ needs.update_release_draft.outputs.tag_name }}
         run: |
-          gh release upload "$DRAFT_TAG" tmp.zip#${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${DRAFT_TAG}.zip --clobber
+          gh release upload "$DRAFT_TAG" tmp.zip#${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${DRAFT_TAG}.zip
