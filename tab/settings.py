@@ -109,31 +109,30 @@ def _render_ticket_info_html(
     badge: str | None = None,
     hint: str | None = None,
 ) -> str:
-    chinese_font = "'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif"
     badge_html = (
-        f'<span style="font-family: {chinese_font};" class="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-medium text-sky-700">{html.escape(badge)}</span>'
+        f'<span class="btb-badge-blue">{html.escape(badge)}</span>'
         if badge
         else ""
     )
     items_html = "".join(
         (
-            f'<div style="font-family: {chinese_font};" class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">'
-            f'<p class="text-xs font-medium tracking-wide text-slate-500">{html.escape(label)}</p>'
-            f'<p class="mt-1 text-sm text-slate-800 break-all">{html.escape(value)}</p>'
+            f'<div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 shadow-sm">'
+            f'<p class="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">{html.escape(label)}</p>'
+            f'<p class="mt-1 text-sm text-slate-800 dark:text-slate-200 break-all">{html.escape(value)}</p>'
             "</div>"
         )
         for label, value in lines
     )
     hint_html = (
-        f'<p style="font-family: {chinese_font};" class="mt-3 text-xs leading-5 text-slate-400">{html.escape(hint)}</p>'
+        f'<p class="mt-3 text-xs leading-5 text-slate-400 dark:text-slate-500">{html.escape(hint)}</p>'
         if hint
         else ""
     )
     return f"""
-    <div style="font-family: {chinese_font};" class="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-sky-50 p-4 shadow-sm">
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 via-white to-sky-50 dark:from-slate-900 dark:via-slate-900 dark:to-sky-900/20 p-4 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-                <p class="text-sm font-semibold text-slate-900">{html.escape(title)}</p>
+                <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{html.escape(title)}</p>
             </div>
             {badge_html}
         </div>
@@ -452,29 +451,29 @@ def setting_tab():
         # 顶部提示卡片
         gr.Markdown(
             """
-        <div class="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-5 shadow-sm">
+        <div class="btb-card btb-card-amber">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p class="text-lg font-semibold text-slate-900">使用前必读</p>
-                    <p class="mt-2 text-sm leading-6 text-slate-600">
+                    <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">使用前必读</p>
+                    <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
                         请确保在抢票前已完成基础资料填写，否则后续生成配置时可能没有可选项。
                     </p>
                 </div>
-                <span class="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-medium text-amber-700">
+                <span class="btb-badge-amber">
                     准备检查
                 </span>
             </div>
             <div class="mt-4 grid gap-3 md:grid-cols-2">
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                    <p class="text-sm font-semibold text-slate-800">收货地址</p>
-                    <p class="mt-1 text-sm text-slate-600">会员购中心 → 地址管理</p>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
+                    <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">收货地址</p>
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">会员购中心 → 地址管理</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                    <p class="text-sm font-semibold text-slate-800">购买人信息</p>
-                    <p class="mt-1 text-sm text-slate-600">会员购中心 → 购买人信息</p>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
+                    <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">购买人信息</p>
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">会员购中心 → 购买人信息</p>
                 </div>
             </div>
-            <p class="mt-4 text-xs leading-5 text-slate-500">
+            <p class="mt-4 text-xs leading-5 text-slate-500 dark:text-slate-500">
                 即使暂时不需要，也建议提前填写完整，避免生成表单时没有任何候选项。
             </p>
         </div>
@@ -483,21 +482,19 @@ def setting_tab():
         )
 
         # 登录信息卡片
-        with gr.Column(
-            elem_classes="!gap-4 !rounded-2xl !border !border-slate-200 !bg-gradient-to-br !from-rose-50 !via-white !to-sky-50 !p-5 !shadow-sm"
-        ):
+        with gr.Column(elem_classes="btb-card btb-card-rose"):
             gr.Markdown(
                 """
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <p class="text-lg font-semibold text-slate-900">账号登录</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-600">
+                        <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">账号登录</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
                             如果遇到登录问题，可使用
-                            <a href="https://login.bilibili.bi/" class="font-medium text-sky-700 underline decoration-sky-300 underline-offset-4 hover:text-sky-900" target="_blank">备用登录入口</a>。
+                            <a href="https://login.bilibili.bi/" class="font-medium text-sky-700 dark:text-sky-400 underline decoration-sky-300 dark:decoration-sky-500 underline-offset-4 hover:text-sky-900 dark:hover:text-sky-300" target="_blank">备用登录入口</a>。
                             导入配置文件属于临时登录；想长期使用同一账号，建议使用扫码登录。
                         </p>
                     </div>
-                    <span class="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-medium text-rose-700">
+                    <span class="btb-badge-pink">
                         登录配置
                     </span>
                 </div>
@@ -592,7 +589,7 @@ def setting_tab():
             with gr.Row(elem_classes="!items-center !gap-3 !flex-wrap"):
                 login_btn = gr.Button(
                     "注销并生成二维码登录",
-                    elem_classes="!rounded-xl !border !border-slate-300 !bg-white !px-4 !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
+                    elem_classes="!rounded-xl !border !border-slate-300 dark:border-slate-600 !px-4 !shadow-sm transition",
                 )
 
                 qrcode_key_state = gr.State("")
@@ -675,7 +672,7 @@ def setting_tab():
                 )
                 upload_ui = gr.UploadButton(
                     label="导入",
-                    elem_classes="!rounded-xl !border !border-slate-200 !bg-white !shadow-sm hover:!bg-slate-50",
+                    elem_classes="!rounded-xl !border !border-slate-200 dark:border-slate-700 !shadow-sm",
                 )
                 upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
 
@@ -683,7 +680,7 @@ def setting_tab():
         with gr.Accordion(
             label="填写你的当前账号所绑定的手机号[可选]",
             open=False,
-            elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+            elem_classes="btb-card",
         ):
             phone_gate_ui = gr.Textbox(
                 label="填写你的当前账号所绑定的手机号",
@@ -697,19 +694,17 @@ def setting_tab():
             phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
 
         # 抢票信息卡片
-        with gr.Column(
-            elem_classes="!gap-4 !rounded-2xl !border !border-slate-200 !bg-gradient-to-br !from-sky-50 !via-white !to-cyan-50 !p-5 !shadow-sm"
-        ):
+        with gr.Column(elem_classes="btb-card btb-card-sky"):
             gr.Markdown(
                 """
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <p class="text-lg font-semibold text-slate-900">票务配置</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-600">
+                        <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">票务配置</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
                             输入活动链接后获取票档信息，再完成购票人、地址和联系人配置。
                         </p>
                     </div>
-                    <span style="font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;" class="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-medium text-sky-700">
+                    <span class="btb-badge-blue">
                         生成配置
                     </span>
                 </div>
@@ -736,7 +731,7 @@ def setting_tab():
             with gr.Column(
                 visible=False,
                 elem_id="ticket-detail",
-                elem_classes="!gap-4 !rounded-2xl !border !border-slate-200 !bg-white/80 !p-4",
+                elem_classes="!gap-4 !rounded-2xl !border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 !p-4",
             ) as inner:
                 with gr.Row(elem_classes="!gap-3 !items-end"):
                     ticket_info_ui = gr.Dropdown(
