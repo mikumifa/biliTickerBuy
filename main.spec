@@ -5,6 +5,7 @@ import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 datas = []
+datas.append(("assets/*", "assets"))
 datas += collect_data_files("gradio_client")
 datas += collect_data_files("gradio")
 datas += collect_data_files("gradio_calendar")

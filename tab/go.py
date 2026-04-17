@@ -64,19 +64,17 @@ def _resolve_sale_start(project_detail: dict, sku_id: int) -> datetime.datetime 
 
 def go_tab(demo: gr.Blocks):
     with gr.Column(elem_classes="!gap-5"):
-        with gr.Column(
-            elem_classes="!gap-4 !rounded-2xl !border !border-slate-200 !bg-gradient-to-br !from-sky-50 !via-white !to-cyan-50 !p-5 !shadow-sm"
-        ):
+        with gr.Column(elem_classes="btb-card btb-card-sky"):
             gr.Markdown(
                 """
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <p class="text-lg font-semibold text-slate-900">启动抢票</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-600">
+                        <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">启动抢票</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
                             上传一个或多个配置文件，设置抢票时间后即可批量启动任务。
                         </p>
                     </div>
-                    <span class="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-medium text-sky-700">
+                    <span class="btb-badge-blue">
                         抢票入口
                     </span>
                 </div>
@@ -99,23 +97,23 @@ def go_tab(demo: gr.Blocks):
             with gr.Row(variant="compact"):
                 gr.HTML(
                     """
-                <div class="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 via-white to-orange-50 p-5 shadow-sm">
+                <div class="btb-card btb-card-rose">
                     <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p class="text-base font-semibold text-slate-900">
+                            <p class="text-base font-semibold text-slate-900 dark:text-slate-100">
                                 选择抢票时间
                             </p>
-                            <p class="mt-1 text-sm leading-6 text-slate-600">
-                                程序已经提前帮你校准时间，请设置成<strong class="text-rose-600">开票时间</strong>。
-                                切勿设置为开票前时间，否则<strong class="text-rose-600">有封号风险</strong>。
+                            <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
+                                程序已经提前帮你校准时间，请设置成<strong class="text-rose-600 dark:text-rose-400">开票时间</strong>。
+                                切勿设置为开票前时间，否则<strong class="text-rose-600 dark:text-rose-400">有封号风险</strong>。
                             </p>
                         </div>
-                        <span class="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-medium text-rose-600">
+                        <span class="btb-badge-pink">
                             精确到秒
                         </span>
                     </div>
                     <label class="block">
-                        <span for="datetime" class="mb-2 block text-sm font-medium text-slate-700">
+                        <span for="datetime" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                             抢票开始时间
                         </span>
                         <input 
@@ -123,11 +121,11 @@ def go_tab(demo: gr.Blocks):
                             id="datetime" 
                             name="datetime" 
                             step="1"
-                            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base shadow-sm transition-all
-                                focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                            class="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 text-base shadow-sm transition-all
+                                focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/30"
                         >
                     </label>
-                    <p class="mt-3 text-xs text-slate-500">
+                    <p class="mt-3 text-xs text-slate-500 dark:text-slate-500">
                         会根据已上传配置自动检查每个票档的起售时间，并回填可安全开抢的时间点。
                     </p>
                 </div>
@@ -137,7 +135,7 @@ def go_tab(demo: gr.Blocks):
             with gr.Row(elem_classes="!justify-end"):
                 auto_fill_time_btn = gr.Button(
                     "自动填写抢票时间",
-                    elem_classes="!rounded-xl !border !border-slate-300 !bg-white !px-4 !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
+                    elem_classes="!rounded-xl !border border-slate-300 dark:border-slate-600 !px-4 !shadow-sm transition",
                     scale=0,
                     min_width=220,
                 )
@@ -235,18 +233,18 @@ def go_tab(demo: gr.Blocks):
         with gr.Accordion(
             label="高级设置",
             open=False,
-            elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+            elem_classes="btb-card",
         ):
             gr.Markdown(
                 """
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <p class="text-base font-semibold text-slate-900">高级设置</p>
-                        <p class="mt-1 text-sm leading-6 text-slate-600">
+                        <p class="text-base font-semibold text-slate-900 dark:text-slate-100">高级设置</p>
+                        <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
                             这里包含代理、成功提醒、提示音和杂项选项。大多数情况下不需要展开修改。
                         </p>
                     </div>
-                    <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+                    <span class="btb-badge-amber">
                         可选配置
                     </span>
                 </div>
@@ -257,7 +255,7 @@ def go_tab(demo: gr.Blocks):
             with gr.Accordion(
                 label="填写你的代理服务器[可选]",
                 open=False,
-                elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+                elem_classes="btb-card",
             ):
                 gr.Markdown("""
                         > **注意**：
@@ -289,7 +287,7 @@ def go_tab(demo: gr.Blocks):
 
                 test_proxy_btn = gr.Button(
                     "🔍 测试代理连通性",
-                    elem_classes="!rounded-xl !border !border-sky-200 !bg-sky-100 !text-sky-950 !shadow-sm hover:!bg-sky-200 !transition",
+                    elem_classes="!rounded-xl !border border-sky-200 dark:border-sky-900 !transition",
                 )
                 test_timeout_ui = gr.Number(
                     label="测试代理超时时间(秒)",
@@ -328,7 +326,7 @@ def go_tab(demo: gr.Blocks):
             with gr.Accordion(
                 label="配置抢票成功后播放音乐[可选]",
                 open=False,
-                elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+                elem_classes="btb-card",
             ):
                 with gr.Row():
                     audio_path_ui = gr.Audio(
@@ -341,7 +339,7 @@ def go_tab(demo: gr.Blocks):
             with gr.Accordion(
                 label="配置抢票推送消息[可选]",
                 open=False,
-                elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+                elem_classes="btb-card",
             ):
                 gr.Markdown(
                     """
@@ -398,7 +396,7 @@ def go_tab(demo: gr.Blocks):
             with gr.Accordion(
                 label="Ntfy配置",
                 open=False,
-                elem_classes="!rounded-2xl !border !border-slate-200 !bg-slate-50 !shadow-sm",
+                elem_classes="btb-card",
             ):
                 ntfy_ui = gr.Textbox(
                     value=(ConfigDB.get("ntfyUrl") or ""),
@@ -410,7 +408,7 @@ def go_tab(demo: gr.Blocks):
                 with gr.Accordion(
                     label="Ntfy认证配置[可选]",
                     open=False,
-                    elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+                    elem_classes="btb-card",
                 ):
                     with gr.Row():
                         ntfy_username_ui = gr.Textbox(
@@ -448,7 +446,7 @@ def go_tab(demo: gr.Blocks):
 
                     test_ntfy_button = gr.Button(
                         "测试Ntfy连接",
-                        elem_classes="!rounded-xl !border !border-sky-200 !bg-sky-100 !text-sky-950 !shadow-sm hover:!bg-sky-200 !transition",
+                        elem_classes="!rounded-xl !border border-sky-200 dark:border-sky-900 !transition",
                     )
                     test_ntfy_result = gr.Textbox(label="测试结果", interactive=False)
                     test_ntfy_button.click(
@@ -459,7 +457,7 @@ def go_tab(demo: gr.Blocks):
             with gr.Column():
                 test_all_push_button = gr.Button(
                     "🧪 测试所有推送",
-                    elem_classes="!rounded-xl !border !border-slate-300 !bg-white !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
+                    elem_classes="!rounded-xl !border border-slate-300 dark:border-slate-600 !transition",
                 )
                 test_push_result = gr.Textbox(label="推送测试结果", interactive=False)
 
@@ -545,7 +543,7 @@ def go_tab(demo: gr.Blocks):
             with gr.Accordion(
                 label="杂项配置",
                 open=False,
-                elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+                elem_classes="btb-card",
             ):
                 show_random_message_ui = gr.Checkbox(
                     label="关闭群友语录",
@@ -554,7 +552,7 @@ def go_tab(demo: gr.Blocks):
                 )
 
         with gr.Row(
-            elem_classes="!items-end !gap-3 !rounded-2xl !border !border-slate-200 !bg-white !p-4 !shadow-sm"
+            elem_classes="btb-card !items-end !gap-3"
         ):
             interval_ui = gr.Number(
                 label="抢票间隔",
@@ -669,7 +667,7 @@ def go_tab(demo: gr.Blocks):
 
     go_btn = gr.Button(
         "开始抢票",
-        elem_classes="!rounded-xl !border !border-emerald-200 !bg-emerald-100 !px-5 !text-emerald-950 !shadow-sm hover:!bg-emerald-200 !transition",
+        elem_classes="!rounded-xl !border border-emerald-300 dark:border-emerald-600 !px-5 !transition",
     )
 
     _time_tmp = gr.Textbox(visible=False)

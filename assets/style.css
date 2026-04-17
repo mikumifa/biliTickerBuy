@@ -1,0 +1,88 @@
+/* Bilibili Inspired Design System - Pure CSS (Compatible with Gradio Dark Mode) */
+:root {
+  --bili-pink: #FB7299;
+  --bili-blue: #00A1D6;
+}
+
+/* Card Base */
+.btb-card {
+  border-radius: 1rem !important;
+  border: 1px solid #e2e8f0 !important;
+  padding: 1.25rem !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.3s ease !important;
+}
+
+.dark .btb-card {
+  border-color: #334155 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Amber Card */
+.btb-card-amber {
+  background: linear-gradient(to right, #fffdfa, #ffffff, #fffaf5) !important;
+}
+.dark .btb-card-amber {
+  background: linear-gradient(to bottom right, #1e150a, #0f172a) !important;
+  border-color: #78350f !important;
+}
+
+/* Rose Card */
+.btb-card-rose {
+  background: linear-gradient(to bottom right, #fff5f5, #ffffff, #f0f9ff) !important;
+}
+.dark .btb-card-rose {
+  background: linear-gradient(to bottom right, #1a0a0c, #0f172a) !important;
+  border-color: #9f1239 !important;
+}
+
+/* Sky Card */
+.btb-card-sky {
+  background: linear-gradient(to bottom right, #f0f9ff, #ffffff, #ecfeff) !important;
+}
+.dark .btb-card-sky {
+  background: linear-gradient(to bottom right, #082f49, #0f172a) !important;
+  border-color: #0c4a6e !important;
+}
+
+/* Badges */
+.btb-badge-pink, .btb-badge-blue, .btb-badge-amber {
+  border-radius: 9999px !important;
+  border-width: 1px !important;
+  padding: 0.25rem 0.75rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+}
+
+.btb-badge-pink { border-color: #fbcfe8 !important; background-color: #fdf2f8 !important; color: #db2777 !important; }
+.dark .btb-badge-pink { border-color: #831843 !important; background-color: rgba(131, 24, 67, 0.2) !important; color: #f472b6 !important; }
+
+.btb-badge-blue { border-color: #bae6fd !important; background-color: #f0f9ff !important; color: #0284c7 !important; }
+.dark .btb-badge-blue { border-color: #0c4a6e !important; background-color: rgba(12, 74, 110, 0.2) !important; color: #38bdf8 !important; }
+
+.btb-badge-amber { border-color: #fde68a !important; background-color: #fffbeb !important; color: #d97706 !important; }
+.dark .btb-badge-amber { border-color: #78350f !important; background-color: rgba(120, 53, 15, 0.2) !important; color: #fbbf24 !important; }
+
+/* Force correct colors for common elements */
+.dark .text-slate-900 { color: #f1f5f9 !important; }
+.dark .text-slate-800 { color: #e2e8f0 !important; }
+.dark .text-slate-700 { color: #cbd5e1 !important; }
+.dark .text-slate-600 { color: #94a3b8 !important; }
+.dark .bg-white { background-color: #1e293b !important; }
+
+/* DateTime Input Styling */
+input[type="datetime-local"] {
+  color-scheme: light;
+}
+.dark input[type="datetime-local"] {
+  color-scheme: dark;
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+/* Gradio Accordion & Container Fixes */
+.dark .gr-accordion {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
