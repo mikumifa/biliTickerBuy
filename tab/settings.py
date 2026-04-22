@@ -1,21 +1,27 @@
+import html
 import json
 import os
 import re
-import html
-from datetime import datetime, timedelta
 import time
-from typing import Any, Dict, List
-from urllib.parse import urlparse, parse_qs
+from datetime import datetime, timedelta
+from typing import Any
+from typing import Dict
+from typing import List
+from urllib.parse import parse_qs
+from urllib.parse import urlparse
 
 import gradio as gr
-from gradio_calendar import Calendar
-from loguru import logger
 import qrcode
 import requests
-
-from util.BiliRequest import BiliRequest
-from util import TEMP_PATH, GLOBAL_COOKIE_PATH, set_main_request, ConfigDB
 import util
+from gradio_calendar import Calendar
+from loguru import logger
+
+from util import ConfigDB
+from util import GLOBAL_COOKIE_PATH
+from util import TEMP_PATH
+from util import set_main_request
+from util.BiliRequest import BiliRequest
 from util.CookieManager import parse_cookie_list
 
 buyer_value: List[Dict[str, Any]] = []
@@ -23,7 +29,7 @@ addr_value: List[Dict[str, Any]] = []
 ticket_value: List[Dict[str, Any]] = []
 project_name: str = ""
 ticket_str_list: List[str] = []
-sales_dates = []
+sales_dates: list[str] = []
 project_id = 0
 is_hot_project = False
 
@@ -71,9 +77,7 @@ def _merge_screens(base_screens: list[dict], extra_screens: list[dict]) -> list[
         if not isinstance(screen, dict):
             continue
         sid = _read_positive_int(screen.get("id"))
-        if sid is None:
-            continue
-        if sid in seen_screen_ids:
+        if sid is None or sid in seen_screen_ids:
             continue
         seen_screen_ids.add(sid)
         merged.append(screen)
@@ -93,14 +97,17 @@ sales_flag_number_map = {
     101: "未开始",
     102: "已结束",
     103: "未完成",
-    105: "下架",
+    105: "已下架",
     106: "已取消",
 }
 
 
 def filename_filter(filename):
-    filename = re.sub('[/:*?"<>|]', "", filename)
-    return filename
+    return re.sub(r'[/:*?"<>|]', "", filename)
+
+
+def _format_price(price: int | float) -> str:
+    return f"￥{price / 100:.2f}".rstrip("0").rstrip(".")
 
 
 def _render_ticket_info_html(
@@ -110,36 +117,60 @@ def _render_ticket_info_html(
     hint: str | None = None,
 ) -> str:
     badge_html = (
-        f'<span class="btb-badge-blue">{html.escape(badge)}</span>'
-        if badge
-        else ""
+        f'<span class="btb-badge-blue">{html.escape(badge)}</span>' if badge else ""
     )
     items_html = "".join(
         (
-            f'<div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 shadow-sm">'
-            f'<p class="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">{html.escape(label)}</p>'
-            f'<p class="mt-1 text-sm text-slate-800 dark:text-slate-200 break-all">{html.escape(value)}</p>'
+            '<div class="btb-mini-card">'
+            f"<strong>{html.escape(label)}</strong>"
+            f"<span>{html.escape(value)}</span>"
             "</div>"
         )
         for label, value in lines
     )
     hint_html = (
-        f'<p class="mt-3 text-xs leading-5 text-slate-400 dark:text-slate-500">{html.escape(hint)}</p>'
+        f'<p class="btb-card-note">{html.escape(hint)}</p>'
         if hint
         else ""
     )
     return f"""
-    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 via-white to-sky-50 dark:from-slate-900 dark:via-slate-900 dark:to-sky-900/20 p-4 shadow-sm">
-        <div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="btb-ticket-panel">
+        <div class="btb-ticket-panel__head">
             <div>
-                <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{html.escape(title)}</p>
+                <div class="btb-card-head__eyebrow">Ticket Snapshot</div>
+                <h4>{html.escape(title)}</h4>
             </div>
             {badge_html}
         </div>
-        <div class="mt-3 grid gap-3 md:grid-cols-2">
-            {items_html}
-        </div>
+        <div class="btb-mini-grid">{items_html}</div>
         {hint_html}
+    </div>
+    """
+
+
+def _render_setting_steps(current: str, *, logged_in: bool = False, configured: bool = False) -> str:
+    login_done = logged_in
+    config_done = configured
+    export_done = configured
+
+    def step(label: str, number: int, key: str, done: bool) -> str:
+        classes = ["btb-step-strip__item"]
+        if key == current and not done:
+            classes.append("is-active")
+        if done:
+            classes.append("is-done")
+        return (
+            f'<div class="{" ".join(classes)}">'
+            f"<span>{number}</span>"
+            f"<strong>{label}</strong>"
+            "</div>"
+        )
+
+    return f"""
+    <div class="btb-step-strip">
+        {step("登录", 1, "login", login_done)}
+        {step("票务配置", 2, "ticket", config_done)}
+        {step("导出配置", 3, "export", export_done)}
     </div>
     """
 
@@ -152,7 +183,19 @@ def _empty_ticket_info_updates():
         gr.update(visible=False),
         gr.update(value="", visible=False),
         gr.update(visible=False, value=None),
+        gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
     ]
+
+
+def _format_ticket_option(screen_name: str, ticket: dict, express_fee: int) -> str:
+    ticket_desc = ticket.get("desc", "")
+    sale_start = str(ticket.get("sale_start", "未知"))
+    ticket_price = int(ticket.get("price", 0)) + express_fee
+    ticket_can_buy = sales_flag_number_map.get(ticket.get("sale_flag_number"), "未知")
+    return (
+        f"{screen_name} - {ticket_desc} - {_format_price(ticket_price)} - "
+        f"{ticket_can_buy} - 【起售时间：{sale_start}】"
+    )
 
 
 def on_submit_ticket_id(num):
@@ -169,45 +212,34 @@ def on_submit_ticket_id(num):
         addr_value = []
         ticket_value = []
         extracted_id_message = ""
+
         if isinstance(num, str) and ("http" in num or "https" in num):
             num = extract_id_from_url(num)
             if num is None:
                 raise gr.Error(
-                    "无法从这个链接里识别票务 ID。请确认它是会员购活动详情页链接，格式类似：https://show.bilibili.com/platform/detail.html?id=84096",
-                    duration=6,
+                    "无法从链接中识别票务 ID，请确认链接是会员购活动详情页。"
                 )
-            extracted_id_message = f"已提取URL票ID：{num}"
+            extracted_id_message = f"已从链接中提取项目 ID：{num}"
         elif isinstance(num, str) and num.isdigit():
             num = int(num)
         else:
-            raise gr.Error(
-                "输入无效，请输入会员购活动详情页链接，或直接输入纯数字票务 ID。",
-                duration=5,
-            )
+            raise gr.Error("请输入活动详情页链接，或直接输入纯数字票务 ID。")
+
         res = util.main_request.get(
             url=f"https://show.bilibili.com/api/ticket/project/getV2?version=134&id={num}&project_id={num}"
         )
         ret = res.json()
-        # logger.debug(ret)
 
-        # 检查 errno
         if ret.get("errno", ret.get("code")) == 100001:
-            raise gr.Error(
-                "没有找到对应票务。请检查链接或票务 ID 是否正确。",
-                duration=5,
-            )
-        elif ret.get("errno", ret.get("code")) != 0:
-            raise gr.Error(
-                ret.get("msg", ret.get("message", "未知错误")) + "。", duration=5
-            )
+            raise gr.Error("没有找到对应票务，请检查链接或票务 ID 是否正确。")
+        if ret.get("errno", ret.get("code")) != 0:
+            raise gr.Error(ret.get("msg", ret.get("message", "未知错误")))
+
         data = ret.get("data")
         if not isinstance(data, dict):
-            raise gr.Error(
-                "票务信息返回异常，可能这个链接不是标准会员购活动页，或者页面暂时不可用。",
-                duration=6,
-            )
-        ticket_str_list = []
+            raise gr.Error("票务信息返回异常，当前活动页暂时不可用。")
 
+        ticket_str_list = []
         project_id = data["id"]
         project_name = data["name"]
         is_hot_project = data["hotProject"]
@@ -227,7 +259,6 @@ def on_submit_ticket_id(num):
         for item in data["screen_list"]:
             item["project_id"] = data["id"]
 
-        # Query infoByDate for each day in the activity date range to enrich screen/ticket enumeration.
         daily_screens: list[dict] = []
         for date_str in _iter_project_dates(data["start_time"], data["end_time"]):
             try:
@@ -244,64 +275,47 @@ def on_submit_ticket_id(num):
         try:
             good_list = util.main_request.get(
                 url=f"https://show.bilibili.com/api/ticket/linkgoods/list?project_id={project_id}&page_type=0"
-            )
-            good_list = good_list.json()
+            ).json()
             ids = [item["id"] for item in good_list["data"]["list"]]
-            for id in ids:
+            for item_id in ids:
                 good_detail = util.main_request.get(
-                    url=f"https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={id}"
-                )
-                good_detail = good_detail.json()
+                    url=f"https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={item_id}"
+                ).json()
                 for item in good_detail["data"]["specs_list"]:
                     item["project_id"] = good_detail["data"]["item_id"]
-                    item["link_id"] = id
+                    item["link_id"] = item_id
                 data["screen_list"] += good_detail["data"]["specs_list"]
-        except Exception as e:
-            logger.warning(f"获取场贩商品信息出错: {e}")
+        except Exception as exc:
+            logger.warning(f"获取周边商品信息失败: {exc}")
 
         for screen in data["screen_list"]:
             if "name" not in screen:
-                #  TODO 应该是跳转到会员购了
                 continue
             screen_name = screen["name"]
             screen_id = screen["id"]
-            project_id = screen["project_id"]
-            express_fee = 0
-            if data["has_eticket"]:
-                express_fee = 0  # 电子票免费
-            else:
-                if screen["express_fee"] >= 0:
-                    # -2 === t ? "快递到付" : -1 === t ? "快递包邮" : "快递配送"
-                    express_fee = screen["express_fee"]
+            current_project_id = screen["project_id"]
+            express_fee = 0 if data["has_eticket"] else max(screen.get("express_fee", 0), 0)
 
             for ticket in screen["ticket_list"]:
-                ticket_desc = ticket["desc"]
-                sale_start = ticket["sale_start"]
-                ticket["price"] = ticket_price = ticket["price"] + express_fee
+                ticket["price"] = int(ticket.get("price", 0)) + express_fee
                 ticket["screen"] = screen_name
                 ticket["screen_id"] = screen_id
                 ticket["is_hot_project"] = is_hot_project
                 if "link_id" in screen:
                     ticket["link_id"] = screen["link_id"]
-                ticket_can_buy = sales_flag_number_map[ticket["sale_flag_number"]]
-                ticket_str = f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy} - 【起售时间：{sale_start}】"
-                ticket_str_list.append(ticket_str)
+                ticket_str_list.append(_format_ticket_option(screen_name, ticket, express_fee))
                 ticket_value.append(
-                    {"project_id": screen["project_id"], "ticket": ticket}
+                    {"project_id": current_project_id, "ticket": ticket}
                 )
 
         buyer_json = util.main_request.get(
             url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={project_id}"
         ).json()
-        logger.debug(buyer_json)
         addr_json = util.main_request.get(
             url="https://show.bilibili.com/api/ticket/addr/list"
         ).json()
-        logger.debug(addr_json)
         buyer_value = buyer_json["data"]["list"]
-        buyer_str_list = [
-            f"{item['name']}-{item['personal_id']}" for item in buyer_value
-        ]
+        buyer_str_list = [f"{item['name']}-{item['personal_id']}" for item in buyer_value]
         addr_value = addr_json["data"]["addr_list"]
         addr_str_list = [
             f"{item['addr']}-{item['name']}-{item['phone']}" for item in addr_value
@@ -319,26 +333,24 @@ def on_submit_ticket_id(num):
                     lines=[
                         ("票务 ID", str(num)),
                         ("展会名称", project_name),
-                        ("开展时间", f"{project_start_time} - {project_end_time}"),
+                        ("活动时间", f"{project_start_time} - {project_end_time}"),
                         ("场馆地址", f"{venue_name} {venue_address}"),
                     ],
-                    hint=extracted_id_message
-                    or "票务信息获取成功，请继续选择票档和购票人。",
+                    hint=extracted_id_message or "请继续选择票档、购票人和地址。",
                 ),
                 visible=True,
             ),
             gr.update(visible=True, value=sales_dates[0])
             if sales_dates_show
             else gr.update(visible=False),
+            gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
         ]
-    except gr.Error as e:
-        gr.Warning(e.message)
+    except gr.Error as exc:
+        gr.Warning(exc.message)
         yield _empty_ticket_info_updates()
-    except Exception as e:
-        logger.exception(e)
-        gr.Warning(
-            "获取票务信息失败。请确认你输入的是会员购活动详情页链接，或稍后重试。"
-        )
+    except Exception as exc:
+        logger.exception(exc)
+        gr.Warning("获取票务信息失败，请确认活动链接是否正确，或稍后重试。")
         yield _empty_ticket_info_updates()
 
 
@@ -361,27 +373,25 @@ def on_submit_all(
 ):
     try:
         if ticket_id is None:
-            raise gr.Error("你所填不是网址，或者网址是错的", duration=5)
+            raise gr.Error("请输入正确的活动链接。")
         if len(people_indices) == 0:
-            raise gr.Error("至少选一个实名人", duration=5)
+            raise gr.Error("请至少选择一位实名购票人。")
         if addr_value is None:
-            raise gr.Error("没有填写地址", duration=5)
+            raise gr.Error("没有可用的收货地址。")
         if ticket_info is None:
-            raise gr.Error("没有填写选票", duration=5)
+            raise gr.Error("请先选择票档。")
         if not people_buyer_name:
-            raise gr.Error("没有填写联系人姓名", duration=5)
+            raise gr.Error("请填写联系人姓名。")
         if not people_buyer_phone:
-            raise gr.Error("没有填写联系人电话", duration=5)
+            raise gr.Error("请填写联系人电话。")
         if address_index is None:
-            raise gr.Error("没有填写地址", duration=5)
+            raise gr.Error("请先选择收货地址。")
+
         ticket_cur: dict[str, Any] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
         ticket_id = extract_id_from_url(ticket_id)
         if ticket_id is None:
-            raise gr.Error(
-                "当前填写的链接里没有识别到票务 ID，请重新获取票务信息后再生成配置。",
-                duration=5,
-            )
+            raise gr.Error("未能从当前链接中解析出票务 ID，请重新获取票务信息。")
 
         ConfigDB.insert("people_buyer_name", people_buyer_name)
         ConfigDB.insert("people_buyer_phone", people_buyer_phone)
@@ -389,8 +399,9 @@ def on_submit_all(
         address_cur = addr_value[address_index]
         username = util.main_request.get_request_name()
         detail = f"{username}-{project_name}-{ticket_str_list[ticket_info]}"
-        for p in people_cur:
-            detail += f"-{p['name']}"
+        for person in people_cur:
+            detail += f"-{person['name']}"
+
         config_dir = {
             "username": username,
             "detail": detail,
@@ -418,17 +429,20 @@ def on_submit_all(
         }
         if "link_id" in ticket_cur["ticket"]:
             config_dir["link_id"] = ticket_cur["ticket"]["link_id"]
+
         filename = os.path.join(TEMP_PATH, filename_filter(detail) + ".json")
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(config_dir, f, ensure_ascii=False, indent=4)
+        with open(filename, "w", encoding="utf-8") as handle:
+            json.dump(config_dir, handle, ensure_ascii=False, indent=4)
+
         yield [
             gr.update(value=config_dir, visible=True),
             gr.update(value=filename, visible=True),
+            gr.update(value=_render_setting_steps("export", logged_in=True, configured=True)),
         ]
-    except gr.Error as e:
-        gr.Warning(e.message)
+    except gr.Error as exc:
+        gr.Warning(exc.message)
     except Exception:
-        raise gr.Error("生成错误，仔细看看你可能有哪里漏填的", duration=5)
+        raise gr.Error("生成配置失败，请检查是否有遗漏的必填项。")
 
 
 def upload_file(filepath):
@@ -439,252 +453,267 @@ def upload_file(filepath):
         yield [
             gr.update(value=name),
             gr.update(value=ConfigDB.get("cookies_path")),
+            gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
         ]
-    except Exception as e:
+    except Exception as exc:
         name = util.main_request.get_request_name()
-        logger.exception(e)
-        raise gr.Error("登录出现错误", duration=5)
+        logger.exception(exc)
+        raise gr.Error("登录信息导入失败，请检查文件格式。")
 
 
 def setting_tab():
-    with gr.Column(elem_classes="!gap-5"):
-        # 顶部提示卡片
-        gr.Markdown(
+    with gr.Column(elem_classes="btb-page-section"):
+        gr.HTML(
             """
-        <div class="btb-card btb-card-amber">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+            <section class="btb-section-head">
                 <div>
-                    <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">使用前必读</p>
-                    <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-                        请确保在抢票前已完成基础资料填写，否则后续生成配置时可能没有可选项。
-                    </p>
+                    <div class="btb-section-head__eyebrow">STEP 01</div>
+                    <h2>生成抢票配置</h2>
+                    <p>先完成账号授权，再补齐联系人、票务和配送信息，最后导出配置文件。</p>
                 </div>
-                <span class="btb-badge-amber">
-                    准备检查
-                </span>
-            </div>
-            <div class="mt-4 grid gap-3 md:grid-cols-2">
-                <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
-                    <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">收货地址</p>
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">会员购中心 → 地址管理</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
-                    <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">购买人信息</p>
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">会员购中心 → 购买人信息</p>
-                </div>
-            </div>
-            <p class="mt-4 text-xs leading-5 text-slate-500 dark:text-slate-500">
-                即使暂时不需要，也建议提前填写完整，避免生成表单时没有任何候选项。
-            </p>
-        </div>
-        """,
-            elem_classes="!p-0",
+            </section>
+            """
+        )
+        step_status_ui = gr.HTML(
+            value=_render_setting_steps("login", logged_in=False, configured=False)
         )
 
-        # 登录信息卡片
-        with gr.Column(elem_classes="btb-card btb-card-rose"):
-            gr.Markdown(
-                """
-                <div class="flex flex-wrap items-start justify-between gap-3">
+        gr.HTML(
+            """
+            <div class="btb-card btb-card-amber">
+                <div class="btb-card-head">
                     <div>
-                        <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">账号登录</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-                            如果遇到登录问题，可使用
-                            <a href="https://login.bilibili.bi/" class="font-medium text-sky-700 dark:text-sky-400 underline decoration-sky-300 dark:decoration-sky-500 underline-offset-4 hover:text-sky-900 dark:hover:text-sky-300" target="_blank">备用登录入口</a>。
-                            导入配置文件属于临时登录；想长期使用同一账号，建议使用扫码登录。
-                        </p>
+                        <div class="btb-card-head__eyebrow">Before You Start</div>
+                        <h3>使用前必读</h3>
+                        <p>请先在会员购中心补齐基础资料，否则生成配置时可能没有可选项。</p>
                     </div>
-                    <span class="btb-badge-pink">
-                        登录配置
-                    </span>
+                    <span class="btb-badge-amber">准备检查</span>
                 </div>
-                """,
-                elem_classes="!p-0",
+                <div class="btb-mini-grid">
+                    <div class="btb-mini-card">
+                        <strong>收货地址</strong>
+                        <span>会员购中心 → 地址管理</span>
+                    </div>
+                    <div class="btb-mini-card">
+                        <strong>购票人信息</strong>
+                        <span>会员购中心 → 购票人信息</span>
+                    </div>
+                </div>
+                <p class="btb-card-note">建议提前补齐资料，避免开抢前还要回到会员购手动修改。</p>
+            </div>
+            """
+        )
+
+        def generate_qrcode():
+            headers = {
+                "user-agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0"
+                ),
+            }
+            for _ in range(10):
+                res = requests.get(
+                    "https://passport.bilibili.com/x/passport-login/web/qrcode/generate",
+                    headers=headers,
+                    timeout=10,
+                )
+                res_json = res.json()
+                if res_json["code"] == 0:
+                    url = res_json["data"]["url"]
+                    qrcode_key = res_json["data"]["qrcode_key"]
+                    qr = qrcode.QRCode(
+                        version=1,
+                        error_correction=qrcode.constants.ERROR_CORRECT_H,  # type: ignore
+                        box_size=10,
+                        border=4,
+                    )
+                    qr.add_data(url)
+                    qr.make(fit=True)
+                    path = os.path.join(TEMP_PATH, "login_qrcode.png")
+                    qr.make_image(fill_color="black", back_color="white").get_image().save(path)
+                    return path, qrcode_key
+                time.sleep(1)
+            return None, "二维码生成失败"
+
+        def poll_login(qrcode_key):
+            headers = {"User-Agent": "Mozilla/5.0"}
+            for _ in range(120):
+                res = requests.get(
+                    "https://passport.bilibili.com/x/passport-login/web/qrcode/poll",
+                    params={"qrcode_key": qrcode_key},
+                    headers=headers,
+                    timeout=5,
+                )
+                poll_res = res.json()
+                if poll_res.get("code") != 0:
+                    time.sleep(0.5)
+                    continue
+
+                code = poll_res["data"]["code"]
+                if code == 0:
+                    cookies = parse_cookie_list(res.headers["set-cookie"])
+                    return "登录成功", cookies
+                if code in (86101, 86090):
+                    time.sleep(0.5)
+                    continue
+                return f"扫码失败：{poll_res['data']['message']}", None
+
+            return "登录超时，请重试。", None
+
+        def start_login():
+            img_path, qrcode_key = generate_qrcode()
+            if not img_path:
+                return None, "二维码生成失败"
+            return img_path, qrcode_key
+
+        qrcode_key_state = gr.State("")
+
+        with gr.Column(elem_classes="btb-card btb-card-rose btb-layout-card"):
+            gr.HTML(
+                """
+                <div class="btb-card-head">
+                    <div>
+                        <div class="btb-card-head__eyebrow">Auth</div>
+                        <h3>账号登录</h3>
+                        <p>推荐扫码登录；也支持导入已有 cookie 配置文件继续使用。</p>
+                    </div>
+                    <span class="btb-badge-pink">登录配置</span>
+                </div>
+                """
             )
 
-            with gr.Row(elem_classes="!items-end !gap-3"):
-                username_ui = gr.Text(
-                    lambda: util.main_request.get_request_name(),
-                    label="账号名称",
-                    interactive=False,
-                    info="输入配置文件使用的账号名称",
-                    scale=5,
-                )
-                gr_file_ui = gr.File(
-                    label="当前登录信息文件", value=lambda: GLOBAL_COOKIE_PATH, scale=1
-                )
-
-            def generate_qrcode():
-                global session_cookies
-                headers = {
-                    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
-                }
-                max_retry = 10
-                for _ in range(max_retry):
-                    res = requests.request(
-                        "GET",
-                        "https://passport.bilibili.com/x/passport-login/web/qrcode/generate",
-                        headers=headers,
+            with gr.Row(elem_classes="btb-split-grid !items-stretch"):
+                with gr.Column(elem_classes="btb-subcard", scale=4):
+                    gr.HTML(
+                        """
+                        <div class="btb-inline-panel">
+                            <div class="btb-inline-panel__eyebrow">Scan Login</div>
+                            <h4>扫码授权</h4>
+                            <p>先生成二维码，再用手机客户端完成扫码确认。</p>
+                        </div>
+                        """
                     )
-                    res_json = res.json()
-                    if res_json["code"] == 0:
-                        break
-                    time.sleep(1)
-                else:
-                    return None, "二维码生成失败"
-
-                url = res_json["data"]["url"]
-                qrcode_key = res_json["data"]["qrcode_key"]
-                qr = qrcode.QRCode(
-                    version=1,
-                    error_correction=qrcode.constants.ERROR_CORRECT_H,  # type: ignore
-                    box_size=10,
-                    border=4,
-                )
-                qr.add_data(url)
-                qr.make(fit=True)
-                path = os.path.join(TEMP_PATH, "login_qrcode.png")
-
-                qr.make_image(fill_color="black", back_color="white").get_image().save(
-                    path
-                )
-                return path, qrcode_key
-
-            def poll_login(qrcode_key):
-                headers = {"User-Agent": "Mozilla/5.0"}
-                for _ in range(120):  # 轮询60秒，每0.5秒一次
-                    res = requests.request(
-                        "GET",
-                        "https://passport.bilibili.com/x/passport-login/web/qrcode/poll",
-                        params={"qrcode_key": qrcode_key},
-                        headers=headers,
-                        timeout=5,
+                    qr_img = gr.Image(
+                        label="登录二维码",
+                        visible=False,
+                        elem_classes="btb-qr-preview",
                     )
-                    poll_res = res.json()
-                    if poll_res.get("code") == 0:
-                        code = poll_res["data"]["code"]
-                        if code == 0:
-                            # 登录成功 requests.utils.dict_from_cookiejar(
-                            cookies = parse_cookie_list(res.headers["set-cookie"])
-                            return "登录成功！", cookies
-                        elif code in (86101, 86090):
-                            # 等待扫码或确认
-                            time.sleep(0.5)
-                            continue
-                        else:
-                            return f"扫码失败：{poll_res['data']['message']}", None
-                    else:
-                        time.sleep(0.5)
-                return "登录超时，请重试。", None
+                    login_btn = gr.Button(
+                        "注销并生成二维码登录",
+                        elem_classes="btb-strong-button",
+                    )
+                    check_btn = gr.Button(
+                        "扫码后点击确认登录",
+                        visible=False,
+                        elem_classes="btb-soft-button",
+                    )
 
-            def start_login():
-                img_path, qrcode_key = generate_qrcode()
-                if not img_path:
-                    return None, "二维码生成失败"
-                return img_path, qrcode_key
+                with gr.Column(elem_classes="btb-subcard", scale=6):
+                    gr.HTML(
+                        """
+                        <div class="btb-inline-panel">
+                            <div class="btb-inline-panel__eyebrow">Current Session</div>
+                            <h4>当前账号状态</h4>
+                            <p>你可以查看当前登录账号，也可以导入已有登录文件。</p>
+                        </div>
+                        """
+                    )
+                    username_ui = gr.Textbox(
+                        value=lambda: util.main_request.get_request_name(),
+                        label="账号名称",
+                        interactive=False,
+                        info="导入配置文件后会自动读取账号名称",
+                    )
+                    gr_file_ui = gr.File(
+                        label="当前登录信息文件",
+                        value=lambda: GLOBAL_COOKIE_PATH,
+                    )
+                    upload_ui = gr.UploadButton(
+                        label="导入现有登录文件",
+                        elem_classes="btb-soft-button",
+                    )
 
-            qr_img = gr.Image(label="登录验证码", visible=False)
-            check_btn = gr.Button("扫码后点击此按钮", visible=False)
-
-            with gr.Row(elem_classes="!items-center !gap-3 !flex-wrap"):
-                login_btn = gr.Button(
-                    "注销并生成二维码登录",
-                    elem_classes="!rounded-xl !border !border-slate-300 dark:border-slate-600 !px-4 !shadow-sm transition",
-                )
-
-                qrcode_key_state = gr.State("")
-
-                def on_login_click():
-                    util.main_request.cookieManager.db.delete("cookie")
-                    gr.Info("已经注销，请重新登录", duration=5)
-                    img_path, msg_or_key = start_login()
-                    if img_path:
-                        gr.Info("已经生成二维码", duration=5)
-                        return [
-                            gr.update(value=img_path, visible=True),
-                            gr.update(value="未登录"),
-                            gr.update(value=GLOBAL_COOKIE_PATH),
-                            msg_or_key,
-                        ]
-
-                    else:
-                        gr.Warning("生成二维码异常", duration=5)
-                        return [
-                            gr.update(value="", visible=False),
-                            gr.update(value="未登录"),
-                            gr.update(value=GLOBAL_COOKIE_PATH),
-                            "",
-                        ]
-
-                def on_check_login(key):
-                    if not key:
-                        return [
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                        ]
-                    msg, cookies = poll_login(key)
-                    if cookies:
-                        try:
-                            # 扫码登录使用 GLOBAL_COOKIE_PATH
-                            set_main_request(
-                                BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH)
-                            )
-                            util.main_request.cookieManager.db.insert("cookie", cookies)
-                            name = util.main_request.get_request_name()
-                            if name:
-                                gr.Info("登录成功", duration=5)
-                            return [
-                                gr.update(value=name),
-                                gr.update(value=GLOBAL_COOKIE_PATH),
-                                gr.update(visible=False),
-                                gr.update(visible=False),
-                            ]
-                        except Exception:
-                            pass
-
-                    name = util.main_request.get_request_name()
-                    gr.Warning(f"登录出现错误 {msg}", duration=5)
+            def on_login_click():
+                util.main_request.cookieManager.db.delete("cookie")
+                gr.Info("已经注销，请重新扫码登录", duration=5)
+                img_path, msg_or_key = start_login()
+                if img_path:
                     return [
-                        gr.update(value=name),
+                        gr.update(value=img_path, visible=True),
+                        gr.update(value="未登录"),
                         gr.update(value=GLOBAL_COOKIE_PATH),
+                        msg_or_key,
+                    ]
+                gr.Warning("生成二维码失败", duration=5)
+                return [
+                    gr.update(value="", visible=False),
+                    gr.update(value="未登录"),
+                    gr.update(value=GLOBAL_COOKIE_PATH),
+                    "",
+                ]
+
+            def on_check_login(key):
+                if not key:
+                    return [
+                        gr.update(),
+                        gr.update(),
+                        gr.update(),
                         gr.update(),
                         gr.update(),
                     ]
 
-                login_btn.click(
-                    on_login_click,
-                    outputs=[qr_img, username_ui, gr_file_ui, qrcode_key_state],
-                )
+                msg, cookies = poll_login(key)
+                if cookies:
+                    try:
+                        set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
+                        util.main_request.cookieManager.db.insert("cookie", cookies)
+                        name = util.main_request.get_request_name()
+                        gr.Info("登录成功", duration=5)
+                        return [
+                            gr.update(value=name),
+                            gr.update(value=GLOBAL_COOKIE_PATH),
+                            gr.update(visible=False),
+                            gr.update(visible=False),
+                            gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
+                        ]
+                    except Exception:
+                        pass
 
-                @gr.on(
-                    qrcode_key_state.change, inputs=qrcode_key_state, outputs=check_btn
-                )
-                def qrcode_key_state_change(key):
-                    if key:
-                        return gr.update(visible=True)
+                name = util.main_request.get_request_name()
+                gr.Warning(msg, duration=5)
+                return [
+                    gr.update(value=name),
+                    gr.update(value=GLOBAL_COOKIE_PATH),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                ]
 
-                check_btn.click(
-                    on_check_login,
-                    inputs=[qrcode_key_state],
-                    outputs=[username_ui, gr_file_ui, qr_img, check_btn],
-                )
-                upload_ui = gr.UploadButton(
-                    label="导入",
-                    elem_classes="!rounded-xl !border !border-slate-200 dark:border-slate-700 !shadow-sm",
-                )
-                upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
+            login_btn.click(
+                on_login_click,
+                outputs=[qr_img, username_ui, gr_file_ui, qrcode_key_state],
+            )
 
-        # 手机号输入卡片
+            @gr.on(qrcode_key_state.change, inputs=qrcode_key_state, outputs=check_btn)
+            def qrcode_key_state_change(key):
+                return gr.update(visible=bool(key))
+
+            check_btn.click(
+                on_check_login,
+                inputs=[qrcode_key_state],
+                outputs=[username_ui, gr_file_ui, qr_img, check_btn, step_status_ui],
+            )
+            upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui, step_status_ui])
+
         with gr.Accordion(
-            label="填写你的当前账号所绑定的手机号[可选]",
+            label="填写当前账号绑定的手机号（可选）",
             open=False,
-            elem_classes="btb-card",
+            elem_classes="btb-card btb-soft-accordion",
         ):
             phone_gate_ui = gr.Textbox(
-                label="填写你的当前账号所绑定的手机号",
-                info="手机号验证出现概率极低，可不填",
+                label="手机号",
+                info="手机验证出现概率较低，可以留空",
                 value=util.main_request.cookieManager.get_config_value("phone", ""),
             )
 
@@ -693,61 +722,51 @@ def setting_tab():
 
             phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
 
-        # 抢票信息卡片
-        with gr.Column(elem_classes="btb-card btb-card-sky"):
-            gr.Markdown(
+        with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
+            gr.HTML(
                 """
-                <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="btb-card-head">
                     <div>
-                        <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">票务配置</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-                            输入活动链接后获取票档信息，再完成购票人、地址和联系人配置。
-                        </p>
+                        <div class="btb-card-head__eyebrow">Ticket Config</div>
+                        <h3>票务配置</h3>
+                        <p>输入活动链接获取票档，然后依次完成联系人、地址和实名购票人配置。</p>
                     </div>
-                    <span class="btb-badge-blue">
-                        生成配置
-                    </span>
+                    <span class="btb-badge-blue">生成配置</span>
                 </div>
-                """,
-                elem_classes="!p-0",
+                """
             )
-            info_ui = gr.HTML(
-                label="配置票的信息",
-                visible=False,
-            )
-            with gr.Row(elem_classes="!items-end !gap-3"):
+
+            with gr.Row(elem_classes="btb-action-band !items-end"):
                 ticket_id_ui = gr.Textbox(
-                    label="想要抢票的网址",
+                    label="想抢票的活动链接",
                     interactive=True,
-                    info="形如 https://show.bilibili.com/platform/detail.html?id=84096",
+                    info="例如 https://show.bilibili.com/platform/detail.html?id=84096",
                     scale=5,
                 )
                 ticket_id_btn = gr.Button(
-                    "获取票信息",
-                    elem_classes="!rounded-xl !border !border-sky-200 !bg-sky-100 !px-4 !text-sky-950 !shadow-sm hover:!bg-sky-200 !transition",
+                    "获取票务信息",
+                    elem_classes="btb-strong-button",
                     scale=1,
                 )
 
-            with gr.Column(
-                visible=False,
-                elem_id="ticket-detail",
-                elem_classes="!gap-4 !rounded-2xl !border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 !p-4",
-            ) as inner:
-                with gr.Row(elem_classes="!gap-3 !items-end"):
+            info_ui = gr.HTML(visible=False, elem_classes="btb-ticket-summary")
+
+            with gr.Column(visible=False, elem_id="ticket-detail", elem_classes="btb-detail-shell") as inner:
+                with gr.Row(elem_classes="btb-split-grid !items-end"):
                     ticket_info_ui = gr.Dropdown(
-                        label="选票",
+                        label="选择票档",
                         interactive=True,
                         type="index",
-                        info="必填，请仔细核对起售时间，千万别选错其他时间点的票",
+                        info="请仔细确认票档和起售时间",
                     )
                     data_ui = Calendar(
                         type="string",
                         label="选择日期",
-                        info="此票需要你选择的时间,时间是否有效请自行判断",
+                        info="若活动有多日期场次，请先切换日期",
                         interactive=True,
                     )
 
-                with gr.Row(elem_classes="!gap-3 !items-end"):
+                with gr.Row(elem_classes="btb-split-grid !items-end"):
                     people_buyer_name = gr.Textbox(
                         value=lambda: ConfigDB.get("people_buyer_name") or "",
                         label="联系人姓名",
@@ -763,26 +782,29 @@ def setting_tab():
                         info="必填",
                     )
                     address_ui = gr.Dropdown(
-                        label="地址",
+                        label="收货地址",
                         interactive=True,
                         type="index",
-                        info="必填，如果候选项为空请到「地址管理」添加",
+                        info="如果为空，请先在会员购补充地址",
                     )
+
                 people_ui = gr.CheckboxGroup(
-                    label="身份证实名认证",
+                    label="实名购票人",
                     interactive=True,
                     type="index",
-                    info="必填，选几个就代表买几个人的票，在哔哩哔哩客户端-会员购-个人中心-购票人信息中添加",
+                    info="勾选几位，就会生成几张票的配置",
+                    elem_classes="btb-people-grid",
                 )
 
-                config_btn = gr.Button(
-                    "生成配置",
-                    elem_classes="!rounded-xl !border !border-emerald-200 !bg-emerald-100 !px-4 !text-emerald-950 !shadow-sm hover:!bg-emerald-200 !transition",
-                )
-                config_file_ui = gr.File(visible=False)
-                config_output_ui = gr.JSON(
-                    label="生成配置文件（右上角复制）", visible=False
-                )
+                with gr.Row(elem_classes="btb-output-band !items-start"):
+                    config_btn = gr.Button(
+                        "生成配置",
+                        elem_classes="btb-strong-button",
+                        scale=0,
+                    )
+                    config_file_ui = gr.File(visible=False, scale=1)
+
+                config_output_ui = gr.JSON(label="生成结果", visible=False)
 
                 config_btn.click(
                     fn=on_submit_all,
@@ -794,7 +816,7 @@ def setting_tab():
                         people_buyer_phone,
                         address_ui,
                     ],
-                    outputs=[config_output_ui, config_file_ui],
+                    outputs=[config_output_ui, config_file_ui, step_status_ui],
                 )
 
             ticket_id_btn.click(
@@ -807,6 +829,7 @@ def setting_tab():
                     inner,
                     info_ui,
                     data_ui,
+                    step_status_ui,
                 ],
             )
 
@@ -820,22 +843,23 @@ def setting_tab():
                     ).json()["data"]
                     ticket_str_list = []
                     ticket_value = []
+
                     for screen in ticket_that_day["screen_list"]:
                         screen_name = screen["name"]
                         screen_id = screen["id"]
-                        express_fee = screen["express_fee"]
+                        express_fee = int(screen.get("express_fee", 0))
                         for ticket in screen["ticket_list"]:
-                            ticket_desc = ticket["desc"]
                             sale_start = ticket["sale_start"]
-                            ticket_price = ticket["price"] + express_fee
+                            ticket_price = int(ticket["price"]) + express_fee
                             ticket["price"] = ticket_price
                             ticket["screen"] = screen_name
                             ticket["screen_id"] = screen_id
                             ticket["is_hot_project"] = is_hot_project
-                            ticket_can_buy = (
-                                "可购买" if ticket["clickable"] else "不可购买"
+                            ticket_can_buy = "可购买" if ticket.get("clickable") else "不可购买"
+                            ticket_str = (
+                                f"{screen_name} - {ticket['desc']} - {_format_price(ticket_price)} - "
+                                f"{ticket_can_buy} - 【起售时间：{sale_start}】"
                             )
-                            ticket_str = f"{screen_name} - {ticket_desc} - ￥{ticket_price / 100}- {ticket_can_buy} - 【起售时间：{sale_start}】"
                             ticket_str_list.append(ticket_str)
                             ticket_value.append(
                                 {"project_id": project_id, "ticket": ticket}
@@ -849,18 +873,18 @@ def setting_tab():
                                 title="票务信息",
                                 badge="日期已更新",
                                 lines=[
-                                    ("当前票日期", _date),
+                                    ("当前票务日期", _date),
                                     ("票档数量", str(len(ticket_str_list))),
                                     ("展会名称", project_name),
                                     ("项目 ID", str(project_id)),
                                 ],
-                                hint="票档列表已按所选日期刷新，请重新核对起售时间。",
+                                hint="票档列表已按当前日期刷新，请重新确认起售时间。",
                             ),
                             visible=True,
                         ),
                     ]
-                except Exception as e:
-                    logger.exception(e)
+                except Exception as exc:
+                    logger.exception(exc)
                     gr.Warning("切换日期失败，未能获取对应日期的票务信息。")
                     return [
                         gr.update(),
