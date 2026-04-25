@@ -1,4 +1,4 @@
-import datetime
+﻿import datetime
 import json
 import os
 import platform
@@ -135,27 +135,7 @@ def go_tab(demo: gr.Blocks):
             value=_render_go_steps("upload", uploaded=False, scheduled=False, launched=False)
         )
 
-        gr.HTML(
-            """
-            <div class="btb-flow-cards">
-                <div class="btb-flow-card">
-                    <div class="btb-flow-card__num">01</div>
-                    <strong>上传配置</strong>
-                    <span>支持单个或多个配置文件，右侧可即时预览内容。</span>
-                </div>
-                <div class="btb-flow-card">
-                    <div class="btb-flow-card__num">02</div>
-                    <strong>校准时间</strong>
-                    <span>优先用自动填充，避免手动输入和票档起售时间不一致。</span>
-                </div>
-                <div class="btb-flow-card">
-                    <div class="btb-flow-card__num">03</div>
-                    <strong>启动任务</strong>
-                    <span>确认日志显示方式、代理和通知策略后，再正式开抢。</span>
-                </div>
-            </div>
-            """
-        )
+
 
         with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
             gr.HTML(
@@ -187,22 +167,58 @@ def go_tab(demo: gr.Blocks):
                     elem_classes="btb-preview-panel",
                 )
 
-            gr.HTML(
-                """
-                <div class="btb-subcard">
-                    <div class="btb-inline-panel">
-                        <div class="btb-inline-panel__eyebrow">Timing</div>
-                        <h4>设置起抢时间</h4>
-                        <p>建议使用“自动填充抢票时间”，系统会根据票档起售时间自动校准。</p>
-                    </div>
-                </div>
-                """
-            )
             time_start_ui = gr.Textbox(
                 label="抢票开始时间",
-                placeholder="例如 2026-05-01 10:00:00",
-                info="支持 YYYY-MM-DD HH:MM:SS，建议优先使用自动填充。",
-                elem_classes="btb-time-input",
+                placeholder="2026-05-01 10:00:00",
+                info="直接输入或点击右侧日历图标选择 · 格式 YYYY-MM-DD HH:MM:SS",
+                elem_classes="btb-time-input btb-has-picker",
+                elem_id="btb-time-start",
+            )
+            gr.HTML(
+                """
+                <script>
+                (function(){
+                    function enhance(){
+                        var root=document.getElementById('btb-time-start');
+                        if(!root){setTimeout(enhance,300);return;}
+                        var input=root.querySelector('input[type="text"],textarea');
+                        if(!input){setTimeout(enhance,300);return;}
+                        if(root.dataset.enhanced) return;
+                        root.dataset.enhanced='1';
+                        var ghost=document.createElement('input');
+                        ghost.type='datetime-local';ghost.step='1';
+                        ghost.className='btb-picker-ghost';ghost.tabIndex=-1;
+                        var btn=document.createElement('button');
+                        btn.type='button';btn.className='btb-picker-trigger';
+                        btn.title='打开日历选择器';
+                        btn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+                        var wrap=input.closest('.wrap')||input.parentElement;
+                        wrap.style.position='relative';
+                        wrap.appendChild(ghost);wrap.appendChild(btn);
+                        btn.addEventListener('click',function(e){
+                            e.preventDefault();e.stopPropagation();
+                            if(input.value){
+                                try{ghost.value=input.value.trim().replace(' ','T');}catch(ex){}
+                            }
+                            ghost.showPicker();
+                        });
+                        ghost.addEventListener('input',function(){
+                            var v=this.value;if(!v)return;
+                            var dt=v.replace('T',' ');
+                            if(dt.length===16)dt+=':00';
+                            var setter=Object.getOwnPropertyDescriptor(
+                                Object.getPrototypeOf(input),'value'
+                            ).set;
+                            setter.call(input,dt);
+                            input.dispatchEvent(new Event('input',{bubbles:true}));
+                        });
+                    }
+                    if(document.readyState==='loading')
+                        document.addEventListener('DOMContentLoaded',enhance);
+                    else setTimeout(enhance,500);
+                })();
+                </script>
+                """
             )
 
             with gr.Row(elem_classes="btb-inline-actions !justify-end"):
