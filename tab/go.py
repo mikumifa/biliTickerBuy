@@ -174,52 +174,6 @@ def go_tab(demo: gr.Blocks):
                 elem_classes="btb-time-input btb-has-picker",
                 elem_id="btb-time-start",
             )
-            gr.HTML(
-                """
-                <script>
-                (function(){
-                    function enhance(){
-                        var root=document.getElementById('btb-time-start');
-                        if(!root){setTimeout(enhance,300);return;}
-                        var input=root.querySelector('input[type="text"],textarea');
-                        if(!input){setTimeout(enhance,300);return;}
-                        if(root.dataset.enhanced) return;
-                        root.dataset.enhanced='1';
-                        var ghost=document.createElement('input');
-                        ghost.type='datetime-local';ghost.step='1';
-                        ghost.className='btb-picker-ghost';ghost.tabIndex=-1;
-                        var btn=document.createElement('button');
-                        btn.type='button';btn.className='btb-picker-trigger';
-                        btn.title='打开日历选择器';
-                        btn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
-                        var wrap=input.closest('.wrap')||input.parentElement;
-                        wrap.style.position='relative';
-                        wrap.appendChild(ghost);wrap.appendChild(btn);
-                        btn.addEventListener('click',function(e){
-                            e.preventDefault();e.stopPropagation();
-                            if(input.value){
-                                try{ghost.value=input.value.trim().replace(' ','T');}catch(ex){}
-                            }
-                            ghost.showPicker();
-                        });
-                        ghost.addEventListener('input',function(){
-                            var v=this.value;if(!v)return;
-                            var dt=v.replace('T',' ');
-                            if(dt.length===16)dt+=':00';
-                            var setter=Object.getOwnPropertyDescriptor(
-                                Object.getPrototypeOf(input),'value'
-                            ).set;
-                            setter.call(input,dt);
-                            input.dispatchEvent(new Event('input',{bubbles:true}));
-                        });
-                    }
-                    if(document.readyState==='loading')
-                        document.addEventListener('DOMContentLoaded',enhance);
-                    else setTimeout(enhance,500);
-                })();
-                </script>
-                """
-            )
 
             with gr.Row(elem_classes="btb-inline-actions !justify-end"):
                 auto_fill_time_btn = gr.Button(
