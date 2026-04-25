@@ -43,10 +43,7 @@ def ticker_cmd(args: Namespace):
             </div>
             <div class="btb-hero__logo" aria-label="biliTickerBuy logo">
                 <img class="btb-hero__logo-image" src="{icon_url}" alt="biliTickerBuy icon">
-                <div class="btb-hero__logo-type">
-                    <strong>BTB</strong>
-                    <span>biliTickerBuy</span>
-                </div>
+                
             </div>
         </div>
         <div class="btb-hero__notice">

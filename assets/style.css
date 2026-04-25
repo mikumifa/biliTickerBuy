@@ -10,7 +10,7 @@
   --bg-surface: #ffffff;
   --bg-secondary: #f5f0f1;
   --bg-input: #f0ebec;
-  --bg-terminal: #211a1c;
+  --bg-terminal: #f8f5f6;
 
   --text-primary: #211a1c;
   --text-secondary: #786a6c;
@@ -147,8 +147,7 @@ html,
 body,
 body.gradio-body {
   background:
-    radial-gradient(circle at top, rgba(140, 37, 53, 0.1), transparent 32%),
-    linear-gradient(180deg, var(--bg-page), var(--bg-secondary));
+    var(--bg-page);
   color: var(--text-primary);
 }
 
@@ -323,16 +322,7 @@ select,
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 
-.gradio-container .choices,
-.gradio-container .choices__inner,
-.gradio-container .single-select,
-.gradio-container [data-testid="dropdown"] > div {
-  background: var(--bg-input) !important;
-  border: 1px solid transparent !important;
-  border-radius: var(--radius-md) !important;
-  min-height: 54px !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02) !important;
-}
+
 
 .gradio-container .choices__inner {
   overflow: hidden !important;
@@ -345,61 +335,6 @@ select,
   background: var(--bg-surface) !important;
   border-color: var(--brand-primary) !important;
   box-shadow: var(--shadow-focus) !important;
-}
-
-.gradio-container .choices__list--single,
-.gradio-container .choices__item--selectable,
-.gradio-container .single-select,
-.gradio-container .choices__input {
-  color: var(--text-primary) !important;
-  white-space: normal !important;
-  word-break: break-word !important;
-}
-
-.gradio-container .choices[data-type*="select-one"]::after {
-  border-color: var(--text-secondary) transparent transparent !important;
-  right: 16px !important;
-}
-
-.gradio-container .choices__list--dropdown,
-.gradio-container .choices__list[aria-expanded],
-.gradio-container [role="listbox"] {
-  z-index: 80 !important;
-  min-width: 100% !important;
-  width: auto !important;
-  max-width: min(720px, calc(100vw - 32px)) !important;
-  margin-top: 8px !important;
-  border: 1px solid var(--border-hover) !important;
-  border-radius: var(--radius-lg) !important;
-  background: color-mix(in srgb, var(--bg-surface) 96%, transparent) !important;
-  box-shadow: var(--shadow-popover) !important;
-  backdrop-filter: blur(14px);
-  overflow: hidden !important;
-}
-
-.gradio-container .choices__list--dropdown .choices__item,
-.gradio-container .choices__list[aria-expanded] .choices__item,
-.gradio-container [role="option"] {
-  padding: 14px 16px !important;
-  color: var(--text-primary) !important;
-  font-size: 14px !important;
-  line-height: 1.55 !important;
-  white-space: normal !important;
-  word-break: break-word !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 70%, transparent);
-}
-
-.gradio-container .choices__list--dropdown .choices__item:last-child,
-.gradio-container .choices__list[aria-expanded] .choices__item:last-child,
-.gradio-container [role="option"]:last-child {
-  border-bottom: none;
-}
-
-.gradio-container .choices__list--dropdown .choices__item--selectable.is-highlighted,
-.gradio-container .choices__list[aria-expanded] .choices__item--selectable.is-highlighted,
-.gradio-container [role="option"][aria-selected="true"] {
-  background: var(--semantic-brand-bg) !important;
-  color: var(--semantic-brand-text) !important;
 }
 
 .gradio-container input::placeholder,
@@ -471,8 +406,8 @@ select,
 .gradio-container .log,
 .gradio-container pre {
   background: var(--bg-terminal) !important;
-  color: #f5eaea !important;
-  border: 1px solid color-mix(in srgb, var(--brand-primary) 26%, transparent) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default) !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow-card) !important;
 }
@@ -532,43 +467,22 @@ select,
 }
 
 .btb-card-amber {
-  background:
-    radial-gradient(circle at top right, rgba(156, 91, 20, 0.12), transparent 34%),
-    linear-gradient(180deg, #fffdfa, #ffffff 55%, #f8f1e8) !important;
+  background: var(--bg-surface) !important;
 }
 
 .btb-card-rose {
-  background:
-    radial-gradient(circle at top right, rgba(140, 37, 53, 0.14), transparent 34%),
-    linear-gradient(180deg, #fff7f8, #ffffff 55%, #f7edf0) !important;
+  background: var(--bg-surface) !important;
 }
 
 .btb-card-sky {
-  background:
-    radial-gradient(circle at top right, rgba(92, 141, 179, 0.14), transparent 34%),
-    linear-gradient(180deg, #f6fbff, #ffffff 55%, #eef6fb) !important;
+  background: var(--bg-surface) !important;
 }
 
-.dark .btb-card-amber,
-.gradio-container.dark .btb-card-amber {
-  background:
-    radial-gradient(circle at top right, rgba(224, 154, 69, 0.16), transparent 34%),
-    linear-gradient(180deg, #231812, #1a1415 55%, #181214) !important;
-}
 
-.dark .btb-card-rose,
-.gradio-container.dark .btb-card-rose {
-  background:
-    radial-gradient(circle at top right, rgba(232, 146, 162, 0.18), transparent 34%),
-    linear-gradient(180deg, #251719, #1a1415 55%, #171213) !important;
-}
 
-.dark .btb-card-sky,
-.gradio-container.dark .btb-card-sky {
-  background:
-    radial-gradient(circle at top right, rgba(113, 161, 196, 0.16), transparent 34%),
-    linear-gradient(180deg, #141d23, #1a1415 55%, #161314) !important;
-}
+
+
+
 
 .btb-badge-pink,
 .btb-badge-blue,
@@ -685,9 +599,7 @@ select,
   border-radius: calc(var(--radius-xl) + 4px);
   padding: 30px 34px;
   background:
-    radial-gradient(circle at top right, rgba(140, 37, 53, 0.16), transparent 26%),
-    radial-gradient(circle at bottom left, rgba(92, 141, 179, 0.12), transparent 24%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-surface) 94%, transparent), color-mix(in srgb, var(--bg-secondary) 88%, transparent));
+    linear-gradient(180deg, var(--bg-surface), var(--bg-secondary));
   box-shadow: var(--shadow-card);
 }
 
@@ -700,7 +612,7 @@ select,
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 .btb-hero__grid,
@@ -745,26 +657,19 @@ select,
 .btb-hero__logo {
   display: flex;
   align-items: center;
-  gap: 16px;
   justify-content: flex-end;
-  min-width: 240px;
-  padding: 18px 20px;
-  border: 1px solid var(--border-default);
-  border-radius: calc(var(--radius-xl) - 2px);
-  background: color-mix(in srgb, var(--bg-surface) 84%, transparent);
-  box-shadow: var(--shadow-subtle);
-  backdrop-filter: blur(10px);
 }
 
 .btb-hero__logo-image {
-  width: 64px;
-  height: 64px;
+  width: 100px;
+  height: 100px;
   object-fit: contain;
   display: block;
-  border-radius: 18px;
-  box-shadow: var(--shadow-btn);
+  border: 3px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
   background: color-mix(in srgb, var(--bg-surface) 86%, transparent);
-  padding: 4px;
+  padding: 8px;
 }
 
 .btb-hero__logo-type {
@@ -1105,10 +1010,10 @@ select,
   }
 
   .btb-hero__logo {
-    justify-content: flex-start;
-    min-width: 0;
-    width: 100%;
-  }
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
 
   .btb-mini-grid {
     grid-template-columns: 1fr;
@@ -1117,11 +1022,127 @@ select,
   .btb-flow-cards {
     grid-template-columns: 1fr;
   }
-
-  .gradio-container .choices__list--dropdown,
-  .gradio-container .choices__list[aria-expanded],
-  .gradio-container [role="listbox"] {
-    min-width: 100% !important;
-    max-width: calc(100vw - 32px) !important;
-  }
 }
+
+
+/* Log Textarea fix */
+.gradio-container .log textarea {
+  background: var(--bg-terminal) !important;
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  font-family: var(--font-mono) !important;
+}
+
+/* Radio Checkbox fix */
+.gradio-container .gr-radio label, .gradio-container .gr-checkboxgroup label {
+  background: var(--bg-input) !important;
+  border-color: transparent !important;
+}
+.gradio-container .gr-radio label.selected, .gradio-container .gr-checkboxgroup label.selected, .gradio-container .gr-radio label:has(input:checked), .gradio-container .gr-checkboxgroup label:has(input:checked) {
+  background: var(--semantic-brand-bg) !important;
+  border-color: var(--brand-primary) !important;
+}
+
+/* --- Dropdown Restored & Fixed Styling --- */
+/* Style the outer wrapper to look like a standard input */
+.gradio-container [data-testid="dropdown"] > .wrap,
+.gradio-container .dropdown > .wrap,
+.gradio-container .form > .dropdown > .wrap {
+  background: var(--input-background-fill, var(--bg-input)) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* Ensure inner selection area has no nested borders/backgrounds */
+body .gradio-container [data-testid="dropdown"] .secondary-wrap,
+body .gradio-container [data-testid="dropdown"] input:not([type="checkbox"]):not([type="radio"]),
+body .gradio-container [data-testid="dropdown"] .single-select,
+body .gradio-container .dropdown .secondary-wrap,
+body .gradio-container .dropdown input:not([type="checkbox"]):not([type="radio"]),
+body .gradio-container .dropdown .single-select {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: var(--body-text-color, inherit) !important;
+  -webkit-text-fill-color: var(--body-text-color, inherit) !important;
+}
+
+/* Dropdown Menu (Listbox/Options) Styling */
+/* Let Gradio handle width, max-height, and position. We ONLY handle colors! */
+.gradio-container .options {
+  background: var(--background-fill-primary, #ffffff) !important;
+  border: 1px solid var(--border-color-primary, #e5e7eb) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-popover, 0 4px 6px -1px rgba(0, 0, 0, 0.1)) !important;
+  backdrop-filter: blur(14px);
+  z-index: 9999 !important;
+  margin: 0 !important;
+}
+
+/* Dropdown Menu Items */
+.gradio-container .options > li {
+  padding: 12px 16px !important;
+  color: var(--body-text-color, #1f2937) !important;
+  font-size: 14px !important;
+  border-bottom: 1px solid var(--border-color-primary, #e5e7eb) !important;
+  transition: background 0.2s;
+}
+.gradio-container .options > li:last-child {
+  border-bottom: none !important;
+}
+
+/* Hover & Selected States */
+.gradio-container .options > li:hover,
+.gradio-container .options > li.selected,
+.gradio-container .options > li:focus {
+  background: var(--background-fill-secondary, #f3f4f6) !important;
+  color: var(--body-text-color, #1f2937) !important;
+}
+
+/* ── Integrated datetime picker trigger ──────────────────────────────────── */
+.btb-has-picker .wrap {
+  position: relative;
+}
+
+.btb-picker-ghost {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.btb-picker-trigger {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0;
+  border: none !important;
+  border-radius: var(--radius-sm) !important;
+  background: transparent !important;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.2s var(--easing-natural), background 0.2s var(--easing-natural);
+  box-shadow: none !important;
+}
+
+.btb-picker-trigger:hover {
+  color: var(--brand-primary);
+  background: var(--bg-secondary) !important;
+  transform: translateY(-50%) !important;
+}
+
+.btb-has-picker input[type="text"],
+.btb-has-picker textarea {
+  padding-right: 48px !important;
+}
+

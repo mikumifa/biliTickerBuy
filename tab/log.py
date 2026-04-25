@@ -14,7 +14,7 @@ def read_last_logs(n=1000):
 
 
 def log_tab():
-    log_textbox = gr.Textbox(label="最近日志", lines=20, interactive=False)
+    log_textbox = gr.Textbox(label="最近日志", lines=20, interactive=False, elem_classes="log")
     refresh_btn = gr.Button("刷新日志")
     gr.File(
         label="下载完整日志", value=os.path.join(LOG_DIR, "app.log"), interactive=False
