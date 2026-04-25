@@ -146,7 +146,7 @@ def go_tab(demo: gr.Blocks):
                         <h3>抢票入口</h3>
                         <p>上传一个或多个配置文件，校准开抢时间后即可批量启动任务。</p>
                     </div>
-                    <span class="btb-badge-blue">批量启动</span>
+                    <span class="btb-badge-pink">批量启动</span>
                 </div>
                 """
             )

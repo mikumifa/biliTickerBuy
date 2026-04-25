@@ -34,6 +34,7 @@ def buy_cmd(args: Namespace):
         from gradio_log import Log
 
         with gr.Blocks(
+            css="assets/style.css",
             head="""<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>""",
             title=f"{filename_only}",
             fill_height=True,

@@ -117,7 +117,7 @@ def _render_ticket_info_html(
     hint: str | None = None,
 ) -> str:
     badge_html = (
-        f'<span class="btb-badge-blue">{html.escape(badge)}</span>' if badge else ""
+        f'<span class="btb-badge-pink">{html.escape(badge)}</span>' if badge else ""
     )
     items_html = "".join(
         (
@@ -731,7 +731,7 @@ def setting_tab():
                         <h3>票务配置</h3>
                         <p>输入活动链接获取票档，然后依次完成联系人、地址和实名购票人配置。</p>
                     </div>
-                    <span class="btb-badge-blue">生成配置</span>
+                    <span class="btb-badge-pink">生成配置</span>
                 </div>
                 """
             )
