@@ -389,9 +389,12 @@ def on_submit_all(
 
         ticket_cur: dict[str, Any] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
-        ticket_id = extract_id_from_url(ticket_id)
-        if ticket_id is None:
-            raise gr.Error("未能从当前链接中解析出票务 ID，请重新获取票务信息。")
+        if isinstance(ticket_id, str) and ticket_id.isdigit():
+            pass
+        else:
+            ticket_id = extract_id_from_url(ticket_id)
+            if ticket_id is None:
+                raise gr.Error("未能从当前链接中解析出票务 ID，请重新获取票务信息。")
 
         ConfigDB.insert("people_buyer_name", people_buyer_name)
         ConfigDB.insert("people_buyer_phone", people_buyer_phone)
