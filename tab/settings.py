@@ -837,10 +837,24 @@ def setting_tab():
                 global ticket_str_list
                 global ticket_value
                 global is_hot_project
+                global project_id
+                global project_name
+
                 try:
-                    ticket_that_day = util.main_request.get(
+                    res = util.main_request.get(
                         url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={_date}"
-                    ).json()["data"]
+                    )
+                    payload = res.json()
+                    ticket_that_day = payload.get("data")
+
+                    if not ticket_that_day or "screen_list" not in ticket_that_day:
+                        gr.Warning("该日期暂无票务信息。")
+                        return [
+                            gr.update(value=_date, visible=True),
+                            gr.update(choices=[]),
+                            gr.update(value="", visible=False),
+                        ]
+
                     ticket_str_list = []
                     ticket_value = []
 
