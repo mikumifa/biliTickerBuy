@@ -1154,10 +1154,13 @@ body .gradio-container .dropdown .single-select {
 .btb-picker-ghost {
   position: absolute;
   opacity: 0;
-  width: 0;
-  height: 0;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
   pointer-events: none;
   overflow: hidden;
+  z-index: -1;
 }
 
 .btb-picker-trigger {
