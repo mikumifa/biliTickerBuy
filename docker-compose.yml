@@ -1,0 +1,17 @@
+services:
+  bilitickerbuy:
+    build: .
+    image: bilitickerbuy
+    container_name: bilitickerbuy_container
+    ports:
+      - "7860-7879:7860-7879" # 默认暴露20个端口，范围可按需修改
+    environment:
+      - GRADIO_SERVER_PORT=7860
+      - GRADIO_NUM_PORTS=100  # 不小于暴露的端口数量
+      # 可在此添加环境变量使得高级设置持久化，避免每次启动容器后都需要在前端重新配置
+      # （设置后网页前端仍会显示为空值，但在开始抢票时会使用这些环境变量的值）
+      # - BTB_HTTPS_PROXYS=http://127.0.1:8080,socks5://127.0.1:1080
+      # - BTB_PUSHPLUSTOKEN=your_pushplus_token
+      # - BTB_BARKTOKEN=your_bark_token
+      # - BTB_NTFY_URL=https://ntfy.sh/topic
+    restart: unless-stopped
