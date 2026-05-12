@@ -239,6 +239,7 @@ def buy(
     ntfy_url=None,
     ntfy_username=None,
     ntfy_password=None,
+    meowNickname=None,
     show_random_message=True,
     show_qrcode=True,
 ):
@@ -251,6 +252,7 @@ def buy(
         ntfy_url=ntfy_url,
         ntfy_username=ntfy_username,
         ntfy_password=ntfy_password,
+        meow_nickname=meowNickname,
         audio_path=audio_path,
     )
 
@@ -280,6 +282,7 @@ def buy_new_terminal(
     ntfy_url=None,
     ntfy_username=None,
     ntfy_password=None,
+    meowNickname=None,
     show_random_message=True,
     terminal_ui="网页",
 ) -> subprocess.Popen:
@@ -323,6 +326,8 @@ def buy_new_terminal(
         command.extend(["--ntfy_username", ntfy_username])
     if ntfy_password:
         command.extend(["--ntfy_password", ntfy_password])
+    if meowNickname:
+        command.extend(["--meowNickname", meowNickname])
     if https_proxys:
         command.extend(["--https_proxys", https_proxys])
     if not show_random_message:

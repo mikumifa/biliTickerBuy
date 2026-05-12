@@ -87,6 +87,7 @@ class NotifierConfig:
     ntfy_url: Optional[str] = None
     ntfy_username: Optional[str] = None
     ntfy_password: Optional[str] = None
+    meow_nickname: Optional[str] = None
     audio_path: Optional[str] = None
     
     @classmethod
@@ -101,6 +102,7 @@ class NotifierConfig:
             ntfy_url=ConfigDB.get("ntfyUrl"),
             ntfy_username=ConfigDB.get("ntfyUsername"),
             ntfy_password=ConfigDB.get("ntfyPassword"),
+            meow_nickname=ConfigDB.get("meowNickname"),
             audio_path=ConfigDB.get("audioPath")
         )
 
@@ -250,6 +252,23 @@ class NotifierManager():
             except Exception as e:
                 loguru.logger.error(f"Ntfy创建失败: {e}")
 
+        # MeoW
+        if config.meow_nickname:
+            try:
+                from util.MeoWUtil import MeoWNotifier
+                notifier = MeoWNotifier(
+                    nickname=config.meow_nickname,
+                    title=title,
+                    content=content,
+                    interval_seconds=interval_seconds,
+                    duration_minutes=duration_minutes
+                )
+                manager.register_notifier("MeoW", notifier)
+            except ImportError as e:
+                loguru.logger.error(f"MeoW导入失败: {e}")
+            except Exception as e:
+                loguru.logger.error(f"MeoW创建失败: {e}")
+
         # Audio
         if config.audio_path:
             try:
@@ -289,6 +308,7 @@ class NotifierManager():
              ("PushPlus", config.pushplus_token, "PushPlus"),
              ("Bark", config.bark_token, "Bark"),
              ("Ntfy", config.ntfy_url, "Ntfy"),
+             ("MeoW", config.meow_nickname, "MeoW"),
              ("Audio", config.audio_path, "音频通知")
         ]
         
