@@ -546,9 +546,9 @@ def go_tab(demo: gr.Blocks):
                 elem_classes="btb-card",
             ):
                 show_random_message_ui = gr.Checkbox(
-                    label="关闭群友语录",
+                    label="开启群友语录",
                     value=True,
-                    info="关闭后，抢票失败时将不再显示有趣的语录",
+                    info="开启后，抢票失败时将显示有趣的语录",
                 )
 
         with gr.Row(
@@ -600,7 +600,7 @@ def go_tab(demo: gr.Blocks):
         audio_path,
         https_proxys,
         terminal_ui,
-        hide_random_message,
+        show_random_message,
     ):
         if not files:
             return [gr.update(value=withTimeString("未提交抢票配置"), visible=True)]
@@ -660,7 +660,7 @@ def go_tab(demo: gr.Blocks):
                     ntfy_password=ConfigDB.get("ntfyPassword"),
                     https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
                     terminal_ui=terminal_ui,
-                    show_random_message=not hide_random_message,
+                    show_random_message=show_random_message,
                 )
                 assigned_proxies_next_idx += 1
         gr.Info("正在启动，请等待抢票页面弹出。")
