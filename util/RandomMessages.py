@@ -1,27 +1,8 @@
+import json
+import os
 import random
 
-
-# 群友语录
-FAIL_MESSAGES = [
-    "放那么多票，你卖谁了？？？",
-    "不是哥们，我票呢？",
-    "库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票库存不足,暂无余票",
-    "被叔叔做局了",
-    "太绝望了，一张票没有",
-    "球球你们了我成年以后还没抢到过票，三年了",
-    "急死我了",
-    "球球你们不要再抢了",
-    "60次都抢不到，我是废物吗？",
-    "怎么感觉除了我都抢到了？",
-    "抢到了能不能请我喝奶茶",
-    "好几次看见票在眼前飘走人要死了",
-    "你们说后台挂个原神是不是就有票了",
-    "恭喜您成功体验了什么叫做绝望",
-    "手抢也抢不到，开了也抢不到，笑嘻了",
-    "幽默B站",
-    "我开始怀疑人生了...",
-    "我要哈气了！！！",
-]
+from util import get_application_path
 
 
 def get_random_fail_message():
@@ -31,4 +12,10 @@ def get_random_fail_message():
     Returns:
         str: 随机选择的失败话语
     """
-    return random.choice(FAIL_MESSAGES)
+    json_path = os.path.join(get_application_path(), "assets", "fail_messages.json")
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            messages = json.load(f)
+        return random.choice(messages)
+    except Exception:
+        return "抢票失败了..."
