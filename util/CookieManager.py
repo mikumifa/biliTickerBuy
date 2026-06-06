@@ -46,7 +46,32 @@ def parse_cookie_list(cookie_str: str) -> list:
 
 
 class CookieManager:
-    """管理 cookies.json，包含多账号和配置"""
+    """
+    管理 cookies.json，包含多账号和配置
+    cookies.json 结构示例：
+    {
+    "_default": {
+        "1": {"key": "cookie",   "value": [{"name": "SESSDATA", "value": "xxx"}, ...]}, //当前账号cookie
+        "2": {"key": "phone",    "value": "13812345678"},            //手机号
+        "3": {"key": "accounts", "value": [                         //账号列表
+        {
+            "uid": "123456",
+            "name": "用户A",
+            "face": "https://...",
+            "cookies": [{"name": "SESSDATA", "value": "xxx"}, ...],
+            "level": 6,
+            "is_vip": true,
+            "coins": 12.5
+        },
+        {
+            "uid": "789012",
+            "name": "用户B",
+            ...
+        }
+        ]}
+    }
+    }
+    """
 
     # 数据库中的键
     _COOKIE_KEY = "cookie"  # 当前账号的 cookie
