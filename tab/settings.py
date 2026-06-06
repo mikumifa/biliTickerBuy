@@ -432,18 +432,26 @@ def on_submit_all(
 
 
 def upload_file(filepath):
+    """导入 cookie 文件并添加到账号池"""
     try:
-        set_main_request(BiliRequest(cookies_config_path=filepath))
-        name = util.main_request.get_request_name()
-        gr.Info("导入成功", duration=5)
+        temp_request = BiliRequest(cookies_config_path=filepath)
+        cookies = temp_request.cookieManager.get_cookies()
+        account = util.main_request.cookieManager.add_account(cookies)
+        set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
+        util.main_request.cookieManager.db.insert("cookie", account.cookies)
+        gr.Info(f"已导入账号 {account.name}", duration=5)
+
+        new_choices = [
+            f"{a.uid} - {a.name} (Lv{a.level})"
+            for a in util.main_request.cookieManager.get_accounts()
+        ]
         yield [
-            gr.update(value=name),
-            gr.update(value=ConfigDB.get("cookies_path")),
+            gr.update(value=GLOBAL_COOKIE_PATH),
+            gr.update(choices=new_choices, value=new_choices[-1]),
         ]
     except Exception as e:
-        name = util.main_request.get_request_name()
         logger.exception(e)
-        raise gr.Error("登录出现错误", duration=5)
+        raise gr.Error(f"导入失败: {e}", duration=5)
 
 
 def setting_tab():
@@ -491,7 +499,7 @@ def setting_tab():
                         <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
                             如果遇到登录问题，可使用
                             <a href="https://login.bilibili.bi/" class="font-medium text-sky-700 dark:text-sky-400 underline decoration-sky-300 dark:decoration-sky-500 underline-offset-4 hover:text-sky-900 dark:hover:text-sky-300" target="_blank">备用登录入口</a>。
-                            导入配置文件属于临时登录；想长期使用同一账号，建议使用扫码登录。
+                            扫码添加新账号，选择切换。
                         </p>
                     </div>
                     <span class="btb-badge-pink">
@@ -502,20 +510,51 @@ def setting_tab():
                 elem_classes="!p-0",
             )
 
+            # 账号列表
+            def _get_account_choices():
+                accounts = util.main_request.cookieManager.get_accounts()
+                return [f"{a.uid} - {a.name} (Lv{a.level})" for a in accounts]
+
+            def _find_uid_from_choice(choice: str) -> str:
+                """从下拉选项字符串中提取 uid"""
+                if not choice:
+                    return ""
+                return choice.split(" - ")[0] if " - " in choice else choice
+
+            def _activate_account(account) -> None:
+                """将账号的 cookies 写入 GLOBAL_COOKIE_PATH 并设为当前活跃账号"""
+                set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
+                util.main_request.cookieManager.db.insert("cookie", account.cookies)
+
             with gr.Row(elem_classes="!items-end !gap-3"):
-                username_ui = gr.Text(
-                    lambda: util.main_request.get_request_name(),
-                    label="账号名称",
-                    interactive=False,
-                    info="输入配置文件使用的账号名称",
-                    scale=5,
+                account_dropdown = gr.Dropdown(
+                    label="当前账号（选择即切换）",
+                    choices=_get_account_choices(),
+                    interactive=True,
+                    scale=3,
                 )
                 gr_file_ui = gr.File(
-                    label="当前登录信息文件", value=lambda: GLOBAL_COOKIE_PATH, scale=1
+                    label="当前登录信息文件",
+                    value=lambda: GLOBAL_COOKIE_PATH,
+                    scale=1,
                 )
 
+            with gr.Row(elem_classes="!items-center !gap-3 !flex-wrap"):
+                login_btn = gr.Button(
+                    "扫码添加账号",
+                    elem_classes="!rounded-xl !border !border-slate-300 dark:border-slate-600 !px-4 !shadow-sm transition",
+                )
+                delete_btn = gr.Button(
+                    "删除当前账号",
+                    elem_classes="!rounded-xl !border !border-red-200 !bg-red-100 !px-4 !text-red-950 !shadow-sm hover:!bg-red-200 !transition",
+                )
+                upload_ui = gr.UploadButton(
+                    label="导入",
+                    elem_classes="!rounded-xl !border !border-slate-200 dark:border-slate-700 !shadow-sm",
+                )
+
+            # 二维码区域（初始隐藏）
             def generate_qrcode():
-                global session_cookies
                 headers = {
                     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
                 }
@@ -564,7 +603,7 @@ def setting_tab():
                     if poll_res.get("code") == 0:
                         code = poll_res["data"]["code"]
                         if code == 0:
-                            # 登录成功 requests.utils.dict_from_cookiejar(
+                            # 登录成功，提取 cookies
                             cookies = parse_cookie_list(res.headers["set-cookie"])
                             return "登录成功！", cookies
                         elif code in (86101, 86090):
@@ -577,104 +616,164 @@ def setting_tab():
                         time.sleep(0.5)
                 return "登录超时，请重试。", None
 
+            qr_img = gr.Image(label="登录验证码", visible=False)
+            check_btn = gr.Button("扫码后点击此按钮", visible=False)
+            qrcode_key_state = gr.State("")
+
             def start_login():
                 img_path, qrcode_key = generate_qrcode()
                 if not img_path:
                     return None, "二维码生成失败"
                 return img_path, qrcode_key
 
-            qr_img = gr.Image(label="登录验证码", visible=False)
-            check_btn = gr.Button("扫码后点击此按钮", visible=False)
-
-            with gr.Row(elem_classes="!items-center !gap-3 !flex-wrap"):
-                login_btn = gr.Button(
-                    "注销并生成二维码登录",
-                    elem_classes="!rounded-xl !border !border-slate-300 dark:border-slate-600 !px-4 !shadow-sm transition",
-                )
-
-                qrcode_key_state = gr.State("")
-
-                def on_login_click():
-                    util.main_request.cookieManager.db.delete("cookie")
-                    gr.Info("已经注销，请重新登录", duration=5)
-                    img_path, msg_or_key = start_login()
-                    if img_path:
-                        gr.Info("已经生成二维码", duration=5)
-                        return [
-                            gr.update(value=img_path, visible=True),
-                            gr.update(value="未登录"),
-                            gr.update(value=GLOBAL_COOKIE_PATH),
-                            msg_or_key,
-                        ]
-
-                    else:
-                        gr.Warning("生成二维码异常", duration=5)
-                        return [
-                            gr.update(value="", visible=False),
-                            gr.update(value="未登录"),
-                            gr.update(value=GLOBAL_COOKIE_PATH),
-                            "",
-                        ]
-
-                def on_check_login(key):
-                    if not key:
-                        return [
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                            gr.update(),
-                        ]
-                    msg, cookies = poll_login(key)
-                    if cookies:
-                        try:
-                            # 扫码登录使用 GLOBAL_COOKIE_PATH
-                            set_main_request(
-                                BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH)
-                            )
-                            util.main_request.cookieManager.db.insert("cookie", cookies)
-                            name = util.main_request.get_request_name()
-                            if name:
-                                gr.Info("登录成功", duration=5)
-                            return [
-                                gr.update(value=name),
-                                gr.update(value=GLOBAL_COOKIE_PATH),
-                                gr.update(visible=False),
-                                gr.update(visible=False),
-                            ]
-                        except Exception:
-                            pass
-
-                    name = util.main_request.get_request_name()
-                    gr.Warning(f"登录出现错误 {msg}", duration=5)
+            def on_login_click():
+                """生成二维码"""
+                img_path, msg_or_key = start_login()
+                if img_path:
+                    gr.Info("已生成二维码，请用 B 站客户端扫码", duration=5)
                     return [
-                        gr.update(value=name),
+                        gr.update(value=img_path, visible=True),
+                        msg_or_key,
+                    ]
+                else:
+                    gr.Warning("生成二维码异常", duration=5)
+                    return [
+                        gr.update(value="", visible=False),
+                        "",
+                    ]
+
+            def on_check_login(key):
+                """扫码成功后添加到账号池并写入 cookies.json"""
+                if not key:
+                    return [
+                        gr.update(), gr.update(), gr.update(),
+                        gr.update(), gr.update(),
+                    ]
+                msg, cookies = poll_login(key)
+                if cookies:
+                    try:
+                        account = util.main_request.cookieManager.add_account(cookies)
+                        _activate_account(account)
+                        gr.Info(f"已添加并切换至账号 {account.name}", duration=5)
+                        new_choices = _get_account_choices()
+                        return [
+                            gr.update(value=GLOBAL_COOKIE_PATH),
+                            gr.update(visible=False),
+                            gr.update(visible=False),
+                            gr.update(choices=new_choices, value=new_choices[-1]),
+                            gr.update(),
+                        ]
+                    except Exception as e:
+                        logger.exception(e)
+                        gr.Warning(f"添加账号失败: {e}", duration=5)
+
+                gr.Warning(f"登录出现错误 {msg}", duration=5)
+                return [
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                ]
+
+            def on_dropdown_change(choice):
+                """下拉框选择即切换账号"""
+                uid = _find_uid_from_choice(choice)
+                if not uid:
+                    return [gr.update(), gr.update()]
+                account = util.main_request.cookieManager.find_by_uid(uid)
+                if account is None:
+                    gr.Warning(f"未找到账号 {uid}", duration=5)
+                    return [gr.update(), gr.update()]
+                _activate_account(account)
+                gr.Info(f"已切换到账号 {account.name}", duration=5)
+                return [
+                    gr.update(value=GLOBAL_COOKIE_PATH),
+                    gr.update(),
+                ]
+
+            def on_delete_account(choice):
+                """删除下拉框当前选中的账号"""
+                uid = _find_uid_from_choice(choice)
+                if not uid:
+                    gr.Warning("请先选择一个账号", duration=5)
+                    return [gr.update(), gr.update(), gr.update()]
+                account = util.main_request.cookieManager.find_by_uid(uid)
+                util.main_request.cookieManager.remove_account(uid)
+                new_choices = _get_account_choices()
+
+                # 检查被删除的是否为当前活跃账号
+                current_name = util.main_request.get_request_name()
+                was_active = account and (account.name == current_name or current_name == "未登录")
+
+                if was_active and new_choices:
+                    # 有剩余账号 → 自动切换到第一个
+                    first_account = util.main_request.cookieManager.get_accounts()[0]
+                    _activate_account(first_account)
+                    gr.Info(
+                        f"已删除账号 {account.name}，自动切换到 {first_account.name}",
+                        duration=5,
+                    )
+                    return [
                         gr.update(value=GLOBAL_COOKIE_PATH),
+                        gr.update(choices=new_choices, value=new_choices[0]),
                         gr.update(),
+                    ]
+                elif was_active:
+                    # 没有剩余账号 → 清空登录状态
+                    set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
+                    util.main_request.cookieManager.db.delete("cookie")
+                    gr.Info(f"已删除最后一个账号 {account.name}，当前无活跃账号", duration=5)
+                    return [
+                        gr.update(value=GLOBAL_COOKIE_PATH),
+                        gr.update(choices=new_choices, value=None),
+                        gr.update(),
+                    ]
+                else:
+                    # 删除的不是活跃账号，无需切换
+                    gr.Info(f"已删除账号 {account.name if account else uid}", duration=5)
+                    return [
+                        gr.update(),
+                        gr.update(choices=new_choices, value=None),
                         gr.update(),
                     ]
 
-                login_btn.click(
-                    on_login_click,
-                    outputs=[qr_img, username_ui, gr_file_ui, qrcode_key_state],
-                )
+            login_btn.click(
+                on_login_click,
+                outputs=[qr_img, qrcode_key_state],
+            )
 
-                @gr.on(
-                    qrcode_key_state.change, inputs=qrcode_key_state, outputs=check_btn
-                )
-                def qrcode_key_state_change(key):
-                    if key:
-                        return gr.update(visible=True)
+            @gr.on(
+                qrcode_key_state.change, inputs=qrcode_key_state, outputs=check_btn
+            )
+            def qrcode_key_state_change(key):
+                if key:
+                    return gr.update(visible=True)
 
-                check_btn.click(
-                    on_check_login,
-                    inputs=[qrcode_key_state],
-                    outputs=[username_ui, gr_file_ui, qr_img, check_btn],
-                )
-                upload_ui = gr.UploadButton(
-                    label="导入",
-                    elem_classes="!rounded-xl !border !border-slate-200 dark:border-slate-700 !shadow-sm",
-                )
-                upload_ui.upload(upload_file, [upload_ui], [username_ui, gr_file_ui])
+            check_btn.click(
+                on_check_login,
+                inputs=[qrcode_key_state],
+                outputs=[
+                    gr_file_ui, qr_img, check_btn,
+                    account_dropdown, qrcode_key_state,
+                ],
+            )
+
+            account_dropdown.change(
+                on_dropdown_change,
+                inputs=[account_dropdown],
+                outputs=[gr_file_ui, account_dropdown],
+            )
+
+            delete_btn.click(
+                on_delete_account,
+                inputs=[account_dropdown],
+                outputs=[gr_file_ui, account_dropdown, qr_img],
+            )
+
+            upload_ui.upload(
+                upload_file, [upload_ui], [gr_file_ui, account_dropdown]
+            )
 
         # 手机号输入卡片
         with gr.Accordion(
