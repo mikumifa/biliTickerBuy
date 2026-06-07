@@ -615,7 +615,7 @@ def setting_tab():
                         """
                         <div class="btb-inline-panel">
                             <div class="btb-inline-panel__eyebrow">Scan Login</div>
-                            <h4>扫码授权</h4>
+                            <h4>扫码登录</h4>
                             <p>先生成二维码，再用手机客户端完成扫码确认。</p>
                         </div>
                         """
