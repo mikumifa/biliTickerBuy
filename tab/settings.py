@@ -602,7 +602,7 @@ def setting_tab():
                     <div>
                         <div class="btb-card-head__eyebrow">Auth</div>
                         <h3>账号登录</h3>
-                        <p>扫码登录即可添加新账号，下拉选择切换账号。</p>
+                        <p>扫码登录添加新账号，右侧可以管理账号。</p>
                     </div>
                     <span class="btb-badge-pink">账号管理</span>
                 </div>
