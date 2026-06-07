@@ -45,10 +45,14 @@ def _wait_until_start(time_start: str):
     yield "0) 等待开始时间"
     yield f"时间偏差已被设置为: {timeoffset}s"
 
-    try:
-        target_time = datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
-        target_time = datetime.strptime(time_start, "%Y-%m-%dT%H:%M")
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"):
+        try:
+            target_time = datetime.strptime(time_start.strip(), fmt)
+            break
+        except ValueError:
+            continue
+    else:
+        raise ValueError(f"无法解析抢票时间: {time_start!r}")
 
     yield f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"
 
@@ -239,6 +243,7 @@ def buy(
     ntfy_url=None,
     ntfy_username=None,
     ntfy_password=None,
+    meowNickname=None,
     show_random_message=True,
     show_qrcode=True,
 ):
@@ -251,6 +256,7 @@ def buy(
         ntfy_url=ntfy_url,
         ntfy_username=ntfy_username,
         ntfy_password=ntfy_password,
+        meow_nickname=meowNickname,
         audio_path=audio_path,
     )
 
@@ -280,6 +286,7 @@ def buy_new_terminal(
     ntfy_url=None,
     ntfy_username=None,
     ntfy_password=None,
+    meowNickname=None,
     show_random_message=True,
     terminal_ui="网页",
 ) -> subprocess.Popen:
@@ -323,6 +330,8 @@ def buy_new_terminal(
         command.extend(["--ntfy_username", ntfy_username])
     if ntfy_password:
         command.extend(["--ntfy_password", ntfy_password])
+    if meowNickname:
+        command.extend(["--meowNickname", meowNickname])
     if https_proxys:
         command.extend(["--https_proxys", https_proxys])
     if not show_random_message:
