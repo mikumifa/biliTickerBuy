@@ -591,9 +591,13 @@ def setting_tab():
             return choice.split(" - ")[0] if " - " in choice else choice
 
         def _activate_account(account) -> None:
-            """将账号的 cookies 写入 GLOBAL_COOKIE_PATH 并设为当前活跃账号"""
+            """将账号的 cookies 写入 GLOBAL_COOKIE_PATH 并设为当前活跃账号，同时检查可用性"""
             set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
             util.main_request.cookieManager.db.insert("cookie", account.cookies)
+            # 检查账号可用性
+            name = util.main_request.get_request_name()
+            if name == "未登录":
+                gr.Warning(f"账号 {account.name} 的 cookies 可能已过期，请重新扫码登录", duration=5)
 
         with gr.Column(elem_classes="btb-card btb-card-rose btb-layout-card"):
             gr.HTML(
@@ -745,6 +749,7 @@ def setting_tab():
                 was_active = account and (account.name == current_name or current_name == "未登录")
 
                 if was_active and new_choices:
+                    # 删除的是当前活跃账号，切换到第一个账号
                     first_account = util.main_request.cookieManager.get_accounts()[0]
                     _activate_account(first_account)
                     gr.Info(f"已删除账号 {account.name}，自动切换到 {first_account.name}", duration=5)
@@ -755,6 +760,7 @@ def setting_tab():
                         gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
                     ]
                 elif was_active:
+                    # 删除的是当前活跃账号，但没有其他账号可切换，清空登录状态
                     set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
                     util.main_request.cookieManager.db.delete("cookie")
                     gr.Info(f"已删除最后一个账号 {account.name}，当前无活跃账号", duration=5)
@@ -765,6 +771,7 @@ def setting_tab():
                         gr.update(value=_render_setting_steps("login", logged_in=False, configured=False)),
                     ]
                 else:
+                    # 删除的不是当前活跃账号，直接删除并刷新列表
                     gr.Info(f"已删除账号 {account.name if account else uid}", duration=5)
                     return [
                         gr.update(),
