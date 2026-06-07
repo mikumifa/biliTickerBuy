@@ -449,19 +449,10 @@ def on_submit_all(
 
 
 def upload_file(filepath):
-    """导入 cookie 文件并添加到账号池"""
     try:
-        temp_request = BiliRequest(cookies_config_path=filepath)
-        cookies = temp_request.cookieManager.get_cookies()
-        account = util.main_request.cookieManager.add_account(cookies)
-        set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
-        util.main_request.cookieManager.db.insert("cookie", account.cookies)
-        gr.Info(f"已导入账号 {account.name}", duration=5)
-
-        new_choices = [
-            f"{a.uid} - {a.name} (Lv{a.level})"
-            for a in util.main_request.cookieManager.get_accounts()
-        ]
+        set_main_request(BiliRequest(cookies_config_path=filepath))
+        name = util.main_request.get_request_name()
+        gr.Info("导入成功", duration=5)
         yield [
             gr.update(value=name),
             gr.update(value=ConfigDB.get("cookies_path")),
@@ -672,7 +663,6 @@ def setting_tab():
                         gr.update(),
                         gr.update(),
                         gr.update(),
-                        gr.update(choices=new_choices, value=None),
                         gr.update(),
                     ]
 
