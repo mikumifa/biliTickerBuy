@@ -95,6 +95,7 @@ def main(run_dir_arg: str) -> int:
         serverchan3_api_url=runtime.get("serverchan3ApiUrl", ""),
         pushplus_token=runtime.get("pushplusToken", ""),
         bark_token=runtime.get("barkToken", ""),
+        meow_nickname=runtime.get("meowNickname", ""),
         ntfy_url=runtime.get("ntfy_url", ""),
         ntfy_username=runtime.get("ntfy_username", ""),
         ntfy_password=runtime.get("ntfy_password", ""),

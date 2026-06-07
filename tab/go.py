@@ -429,6 +429,13 @@ def go_tab(demo: gr.Blocks):
                     info="可填写 jmGYK***** 或完整自建 Bark 推送地址",
                 )
 
+                meow_ui = gr.Textbox(
+                    value=(ConfigDB.get("meowNickname") or ""),
+                    label="MeoW昵称｜输入完成后，回车键保存",
+                    interactive=True,
+                    info="https://www.chuckfang.com/MeoW/api_doc.html",
+                )
+
             with gr.Accordion(
                 label="Ntfy 配置",
                 open=False,
@@ -500,6 +507,10 @@ def go_tab(demo: gr.Blocks):
                 ConfigDB.insert("barkToken", x)
                 return gr.update(value=ConfigDB.get("barkToken"))
 
+            def inner_input_meow(x):
+                ConfigDB.insert("meowNickname", x)
+                return gr.update(value=ConfigDB.get("meowNickname"))
+
             def inner_input_ntfy(x):
                 ConfigDB.insert("ntfyUrl", x)
                 return gr.update(value=ConfigDB.get("ntfyUrl"))
@@ -535,6 +546,9 @@ def go_tab(demo: gr.Blocks):
                 fn=inner_input_pushplus, inputs=pushplus_ui, outputs=pushplus_ui
             )
             bark_ui.submit(fn=inner_input_bark, inputs=bark_ui, outputs=bark_ui)
+
+            meow_ui.submit(fn=inner_input_meow, inputs=meow_ui, outputs=meow_ui)
+
             ntfy_ui.submit(fn=inner_input_ntfy, inputs=ntfy_ui, outputs=ntfy_ui)
             ntfy_username_ui.submit(
                 fn=inner_input_ntfy_username,
@@ -557,9 +571,9 @@ def go_tab(demo: gr.Blocks):
                 elem_classes="btb-card",
             ):
                 show_random_message_ui = gr.Checkbox(
-                    label="关闭群友语录",
+                    label="开启群友语录",
                     value=True,
-                    info="关闭后，抢票失败时不再显示随机提示语",
+                    info="开启后，抢票失败时将显示有趣的语录",
                 )
 
         with gr.Row(elem_classes="btb-card !items-end !gap-3"):
@@ -649,6 +663,7 @@ def go_tab(demo: gr.Blocks):
                         "serverchanKey": ConfigDB.get("serverchanKey"),
                         "serverchan3ApiUrl": ConfigDB.get("serverchan3ApiUrl"),
                         "barkToken": ConfigDB.get("barkToken"),
+                        "meowNickname": ConfigDB.get("meowNickname"),
                         "ntfy_url": ConfigDB.get("ntfyUrl"),
                         "ntfy_username": ConfigDB.get("ntfyUsername"),
                         "ntfy_password": ConfigDB.get("ntfyPassword"),
@@ -672,6 +687,7 @@ def go_tab(demo: gr.Blocks):
                     serverchanKey=ConfigDB.get("serverchanKey"),
                     serverchan3ApiUrl=ConfigDB.get("serverchan3ApiUrl"),
                     barkToken=ConfigDB.get("barkToken"),
+                    meowNickname=ConfigDB.get("meowNickname"),
                     ntfy_url=ConfigDB.get("ntfyUrl"),
                     ntfy_username=ConfigDB.get("ntfyUsername"),
                     ntfy_password=ConfigDB.get("ntfyPassword"),

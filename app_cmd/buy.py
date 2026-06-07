@@ -95,6 +95,7 @@ def buy_cmd(args: Namespace):
         args.ntfy_url,
         args.ntfy_username,
         args.ntfy_password,
+        args.meowNickname,
         not args.hide_random_message,
     )
     logger.info("抢票完成后退出程序。。。。。")
