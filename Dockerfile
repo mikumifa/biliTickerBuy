@@ -28,6 +28,7 @@ RUN apt-get update --allow-unauthenticated && \
 
 ENV BTB_SERVER_NAME="0.0.0.0"
 ENV GRADIO_SERVER_PORT=7860
+ENV GRADIO_NUM_PORTS=100
 ENV BTB_DOCKER=1
 ENV DISPLAY=:99
 RUN mkdir -p /etc/supervisor/conf.d
