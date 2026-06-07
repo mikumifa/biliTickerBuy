@@ -45,10 +45,14 @@ def _wait_until_start(time_start: str):
     yield "0) 等待开始时间"
     yield f"时间偏差已被设置为: {timeoffset}s"
 
-    try:
-        target_time = datetime.strptime(time_start, "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
-        target_time = datetime.strptime(time_start, "%Y-%m-%dT%H:%M")
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"):
+        try:
+            target_time = datetime.strptime(time_start.strip(), fmt)
+            break
+        except ValueError:
+            continue
+    else:
+        raise ValueError(f"无法解析抢票时间: {time_start!r}")
 
     yield f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"
 
