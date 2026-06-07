@@ -10,6 +10,7 @@ build
 *.pyc
 *.log
 *.json
+!assets/fail_messages.json
 tmp/*
 tmp
 __pycache__/
