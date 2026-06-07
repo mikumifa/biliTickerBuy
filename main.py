@@ -125,6 +125,12 @@ def main():
         help="Bark token (optional).",
     )
     notify.add_argument(
+        "--meowNickname",
+        type=str,
+        default=os.environ.get("BTB_MEOWNICKNAME", ""),
+        help="MeoW nickname (optional).",
+    )
+    notify.add_argument(
         "--ntfy_url",
         type=str,
         default=os.environ.get("BTB_NTFY_URL", ""),
