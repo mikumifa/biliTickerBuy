@@ -69,6 +69,82 @@ def _fetch_screens_by_date(
     return screens if isinstance(screens, list) else []
 
 
+def _normalize_date_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        timestamp = int(value)
+        if timestamp > 10**12:
+            timestamp //= 1000
+        try:
+            return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d")
+        except (OverflowError, OSError, ValueError):
+            return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    match = re.search(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})", text)
+    if not match:
+        return None
+    year, month, day = (int(part) for part in match.groups())
+    try:
+        return datetime(year, month, day).strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def _screen_matches_date(screen: dict[str, Any], date_str: str) -> bool:
+    candidates = [
+        screen.get("start_time"),
+        screen.get("start_time_str"),
+        screen.get("name"),
+    ]
+    for ticket in screen.get("ticket_list", []):
+        if isinstance(ticket, dict):
+            candidates.append(ticket.get("screen_name"))
+
+    return any(_normalize_date_string(candidate) == date_str for candidate in candidates)
+
+
+def _fetch_project_payload(request: BiliRequest, project_id: int) -> dict[str, Any]:
+    response = request.get(
+        url=(
+            "https://show.bilibili.com/api/ticket/project/getV2"
+            f"?version=134&id={project_id}&project_id={project_id}&requestSource=pc-new"
+        )
+    )
+    payload = response.json()
+    errno = payload.get("errno", payload.get("code"))
+    if errno != 0:
+        raise RuntimeError(payload.get("msg", payload.get("message", "unknown error")))
+
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise RuntimeError("project payload is empty")
+    return data
+
+
+def _fetch_screens_by_date_with_fallback(
+    request: BiliRequest, project_id: int, date_str: str
+) -> list[dict]:
+    screens = _fetch_screens_by_date(request, project_id, date_str)
+    if screens:
+        return screens
+
+    project_payload = _fetch_project_payload(request, project_id)
+    fallback_screens: list[dict] = []
+    for screen in project_payload.get("screen_list", []):
+        if not isinstance(screen, dict):
+            continue
+        if not _screen_matches_date(screen, date_str):
+            continue
+        screen["project_id"] = screen.get("project_id", project_id)
+        fallback_screens.append(screen)
+    return fallback_screens
+
+
 def _merge_screens(base_screens: list[dict], extra_screens: list[dict]) -> list[dict]:
     merged: list[dict] = []
     seen_screen_ids: set[int] = set()
@@ -262,7 +338,9 @@ def on_submit_ticket_id(num):
         daily_screens: list[dict] = []
         for date_str in _iter_project_dates(data["start_time"], data["end_time"]):
             try:
-                items = _fetch_screens_by_date(util.main_request, project_id, date_str)
+                items = _fetch_screens_by_date_with_fallback(
+                    util.main_request, project_id, date_str
+                )
             except Exception:
                 continue
             for item in items:
@@ -946,13 +1024,11 @@ def setting_tab():
                 global project_name
 
                 try:
-                    res = util.main_request.get(
-                        url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={_date}"
+                    screens = _fetch_screens_by_date_with_fallback(
+                        util.main_request, project_id, _date
                     )
-                    payload = res.json()
-                    ticket_that_day = payload.get("data")
 
-                    if not ticket_that_day or "screen_list" not in ticket_that_day:
+                    if not screens:
                         gr.Warning("该日期暂无票务信息。")
                         return [
                             gr.update(value=_date, visible=True),
@@ -963,7 +1039,7 @@ def setting_tab():
                     ticket_str_list = []
                     ticket_value = []
 
-                    for screen in ticket_that_day["screen_list"]:
+                    for screen in screens:
                         screen_name = screen["name"]
                         screen_id = screen["id"]
                         express_fee = int(screen.get("express_fee", 0))
