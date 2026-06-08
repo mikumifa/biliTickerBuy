@@ -34,7 +34,7 @@
 
 方法二: 如果没有您使用系统的已构建版本，请前往[指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
 
-方法三: 仓库支持通过 `pip install bilitickerbuy` 安装，安装后可以直接使用 `btb` 命令运行。示例：
+方法三: 仓库支持通过 `pip install bilitickerbuy` 安装(推荐python3.11)，安装后可以直接使用 `btb` 命令运行。示例：
 
 ```bash
 # 直接启动ui
@@ -42,14 +42,6 @@ btb
 # 根据配置文件购票
 btb buy ./your_config.json
 ```
-
-## 🔄 软件更新
-
-主界面的“软件更新”页会在打开时检查 GitHub Release，也可以手动点击检查：
-
-- **稳定版**：跳过 GitHub prerelease，只接收正式版本。
-- **测试版**：同时接收正式版本和 prerelease。
-- 程序不会静默覆盖或强制重启。只有用户主动点击后才会下载对应平台的更新包，并使用 Release 中的 SHA-256 清单完成校验；校验通过后仍由用户确认何时替换旧版本。
 
 ## 👀 使用说明书
 
