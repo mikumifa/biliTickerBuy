@@ -16,10 +16,38 @@ env:
   WEBDAV_PASSWORD: ${{ secrets.WEBDAV_PASSWORD }}
 
 jobs:
+  prepare-release:
+    name: Prepare GitHub Prerelease
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Create or update prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRAFT_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          if gh release view "$DRAFT_TAG" >/dev/null 2>&1; then
+            echo "Release $DRAFT_TAG already exists, mark it as prerelease"
+            gh release edit "$DRAFT_TAG" --prerelease --latest=false
+          else
+            echo "Create prerelease $DRAFT_TAG"
+            gh release create "$DRAFT_TAG" \
+              --title "$DRAFT_TAG" \
+              --notes "Prerelease build for $DRAFT_TAG" \
+              --prerelease \
+              --latest=false
+          fi
+
   build:
     name: Build Executables
+    needs: prepare-release
     runs-on: ${{ matrix.config.os.name }}
+    if: startsWith(github.ref, 'refs/tags/v')
+
     strategy:
+      fail-fast: false
       matrix:
         config:
           - os:
@@ -49,6 +77,7 @@ jobs:
           cache: "pip"
 
       - name: Upgrade setuptools, wheel, and install requirements
+        shell: bash
         run: |
           pip install --upgrade setuptools wheel pyinstaller~=5.13.2
           pip install -r requirements.txt
@@ -71,23 +100,29 @@ jobs:
           cd ./dist
           zip -r ../tmp.zip biliTickerBuy
 
-      - name: Upload binaries to release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: svenstaro/upload-release-action@v2
-        with:
-          file: tmp.zip
-          asset_name: ${{ secrets.ReleaseZipName }}_${{ matrix.config.os.filename }}_${{ github.ref_name }}.zip
-          tag: ${{ github.ref_name }}
-          overwrite: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
-
-      - name: Mark release as prerelease
-        if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-')
+      - name: Upload binaries to prerelease
         env:
           GH_TOKEN: ${{ github.token }}
+          DRAFT_TAG: ${{ github.ref_name }}
+          RELEASE_ZIP_NAME: ${{ secrets.ReleaseZipName }}
+          PLATFORM: ${{ matrix.config.os.filename }}
         shell: bash
         run: |
-          gh release edit "${{ github.ref_name }}" --prerelease
+          ASSET_NAME="${RELEASE_ZIP_NAME}_${PLATFORM}_${DRAFT_TAG}.zip"
+
+          echo "Rename tmp.zip -> ${ASSET_NAME}"
+          mv tmp.zip "${ASSET_NAME}"
+
+          echo "Upload ${ASSET_NAME} to release ${DRAFT_TAG}"
+          gh release upload "${DRAFT_TAG}" "${ASSET_NAME}" --clobber
+
+      - name: Ensure release is prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRAFT_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          gh release edit "$DRAFT_TAG" --prerelease --latest=false
 
   webdav-upload:
     name: Upload to WebDAV
@@ -111,22 +146,24 @@ jobs:
         run: |
           mkdir -p release-files
 
-          # Wait for GitHub Release assets to become available
-          sleep 30
-
           ARCHITECTURES=("linux_amd64" "linux_arm64" "macos_arm64" "macos_intel" "windows_amd64")
 
           for arch in "${ARCHITECTURES[@]}"; do
             FILE_NAME="${{ secrets.ReleaseZipName }}_${arch}_${{ steps.version.outputs.version }}.zip"
             DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${FILE_NAME}"
 
-            for i in {1..5}; do
+            for i in {1..10}; do
               if curl -L -f -o "release-files/${FILE_NAME}" "$DOWNLOAD_URL"; then
                 echo "Downloaded ${FILE_NAME}"
                 break
               else
                 echo "Download failed for ${FILE_NAME}, retry $i..."
                 sleep 10
+              fi
+
+              if [ "$i" -eq 10 ]; then
+                echo "Failed to download ${FILE_NAME}"
+                exit 1
               fi
             done
           done
@@ -138,43 +175,19 @@ jobs:
           RELEASE_ZIP_NAME: ${{ secrets.ReleaseZipName }}
           RELEASE_REPOSITORY: ${{ github.repository }}
         run: |
-          for arch in linux_amd64 linux_arm64 macos_arm64 macos_intel windows_amd64; do
-            test -f "release-files/${RELEASE_ZIP_NAME}_${arch}_${RELEASE_VERSION}.zip"
-          done
-
-          cd release-files
-          sha256sum ./*.zip > SHA256SUMS.txt
-          python - <<'PY'
-          import hashlib
-          import json
-          import os
-          from datetime import datetime, timezone
-          from pathlib import Path
-
-          version = os.environ["RELEASE_VERSION"]
-          prefix = os.environ["RELEASE_ZIP_NAME"]
-          repository = os.environ["RELEASE_REPOSITORY"]
-          platforms = (
-              "linux_amd64",
-              "linux_arm64",
-              "macos_arm64",
-              "macos_intel",
-              "windows_amd64",
-          )
-          files = {}
-          for platform_name in platforms:
-              path = Path(f"{prefix}_{platform_name}_{version}.zip")
-              files[platform_name] = {
-                  "name": path.name,
-                  "size": path.stat().st_size,
-                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-              }
-
-          manifest = {
-              "version": version,
-              "release_date": datetime.now(timezone.utc).isoformat(),
-              "github_release": f"https://github.com/{repository}/releases/tag/{version}",
-              "files": files,
+          cat > release-files/version-info.json << EOF
+          {
+            "version": "${{ steps.version.outputs.version }}",
+            "release_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "github_release": "https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}",
+            "prerelease": true,
+            "files": {
+              "linux_amd64": "${{ secrets.ReleaseZipName }}_linux_amd64_${{ steps.version.outputs.version }}.zip",
+              "linux_arm64": "${{ secrets.ReleaseZipName }}_linux_arm64_${{ steps.version.outputs.version }}.zip",
+              "macos_arm64": "${{ secrets.ReleaseZipName }}_macos_arm64_${{ steps.version.outputs.version }}.zip",
+              "macos_intel": "${{ secrets.ReleaseZipName }}_macos_intel_${{ steps.version.outputs.version }}.zip",
+              "windows_amd64": "${{ secrets.ReleaseZipName }}_windows_amd64_${{ steps.version.outputs.version }}.zip"
+            }
           }
           Path("version-info.json").write_text(
               json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
