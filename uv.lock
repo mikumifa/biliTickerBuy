@@ -47,7 +47,7 @@ wheels = [
 
 [[package]]
 name = "bilitickerbuy"
-version = "2.14.15"
+version = "2.14.16"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -60,6 +60,7 @@ dependencies = [
     { name = "loguru" },
     { name = "ntplib" },
     { name = "numpy" },
+    { name = "packaging" },
     { name = "pillow" },
     { name = "playsound3" },
     { name = "pydantic" },
@@ -83,6 +84,7 @@ requires-dist = [
     { name = "loguru", specifier = "~=0.7.2" },
     { name = "ntplib", specifier = "~=0.4.0" },
     { name = "numpy", specifier = "~=1.26.4" },
+    { name = "packaging", specifier = ">=23.2" },
     { name = "pillow", specifier = "~=10.3.0" },
     { name = "playsound3", specifier = "~=3.2.2" },
     { name = "pydantic", specifier = "~=2.8.2" },
