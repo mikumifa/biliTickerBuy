@@ -1,7 +1,7 @@
 from argparse import Namespace
 import os
 
-from util import GlobalStatusInstance
+from util import GlobalStatusInstance, get_application_path
 
 
 def buy_cmd(args: Namespace):
@@ -26,6 +26,7 @@ def buy_cmd(args: Namespace):
     tickets_info, config_path = load_tickets_info(args.tickets_info)
     filename = os.path.basename(config_path) if config_path else "default"
     filename_only = os.path.basename(filename)
+    css_path = os.path.join(get_application_path(), "assets", "style.css")
     if getattr(args, "web", False):
         log_file = loguru_config(LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False)
         from task.endpoint import start_heartbeat_thread
@@ -34,7 +35,7 @@ def buy_cmd(args: Namespace):
         from gradio_log import Log
 
         with gr.Blocks(
-            css="assets/style.css",
+            css=css_path,
             head="""<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>""",
             title=f"{filename_only}",
             fill_height=True,

@@ -7,6 +7,7 @@ import gradio as gr
 import loguru
 
 from app_version import get_app_version
+from util import get_application_path
 
 
 def exit_app_ui():
@@ -25,7 +26,9 @@ def ticker_cmd(args: Namespace):
     from util.LogConfig import loguru_config
 
     loguru_config(LOG_DIR, "app.log", enable_console=True, file_colorize=False)
-    icon_path = os.path.abspath(os.path.join("assets", "icon.ico"))
+    assets_dir = os.path.join(get_application_path(), "assets")
+    icon_path = os.path.join(assets_dir, "icon.ico")
+    css_path = os.path.join(assets_dir, "style.css")
     icon_url = ""
     if os.path.exists(icon_path):
         with open(icon_path, "rb") as icon_file:
@@ -60,7 +63,7 @@ def ticker_cmd(args: Namespace):
 
     with gr.Blocks(
         title="biliTickerBuy",
-        css="assets/style.css",
+        css=css_path,
         head="""
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
