@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bilitickerbuy"
-version = "2.14.15"
+version = "2.14.16"
 description = "开源的 B 站会员购辅助工具，提供命令行和 Gradio 界面"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,6 +28,7 @@ dependencies = [
     "httpx[socks]>=0.28.1",
     "loguru~=0.7.2",
     "ntplib~=0.4.0",
+    "packaging>=23.2",
     "numpy~=1.26.4",
     "playsound3~=3.2.2",
     "pydantic~=2.8.2",
@@ -52,7 +53,7 @@ Issues = "https://github.com/mikumifa/biliTickerBuy/issues"
 btb = "main:main"
 
 [tool.setuptools]
-py-modules = ["main"]
+py-modules = ["main", "app_version", "app_update"]
 
 [tool.setuptools.packages.find]
 where = ["."]
