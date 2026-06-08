@@ -6,6 +6,8 @@ from argparse import Namespace
 import gradio as gr
 import loguru
 
+from app_version import get_app_version
+
 
 def exit_app_ui():
     loguru.logger.info("程序退出")
@@ -18,6 +20,7 @@ def ticker_cmd(args: Namespace):
     from tab.log import log_tab
     from tab.problems import problems_tab
     from tab.settings import setting_tab
+    from tab.update import update_tab
     from util import LOG_DIR
     from util.LogConfig import loguru_config
 
@@ -31,9 +34,11 @@ def ticker_cmd(args: Namespace):
                 + base64.b64encode(icon_file.read()).decode("ascii")
             )
 
+    app_version = get_app_version()
+
     header = f"""
     <section class="btb-hero">
-        <div class="btb-hero__eyebrow">BILI TICKER BUY</div>
+        <div class="btb-hero__eyebrow">BILI TICKER BUY · v{app_version}</div>
         <div class="btb-hero__grid">
             <div>
                 <h1>B 站会员购抢票工作台</h1>
@@ -124,6 +129,8 @@ def ticker_cmd(args: Namespace):
                     go_tab(demo)
                 with gr.Tab("项目说明"):
                     problems_tab()
+                with gr.Tab("软件更新"):
+                    update_tab(demo)
                 with gr.Tab("日志查看"):
                     log_tab()
 

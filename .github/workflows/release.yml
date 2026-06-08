@@ -168,8 +168,12 @@ jobs:
             done
           done
 
-      - name: Generate version info
+      - name: Generate checksums and version info
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_ZIP_NAME: ${{ secrets.ReleaseZipName }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
         run: |
           cat > release-files/version-info.json << EOF
           {
@@ -185,7 +189,21 @@ jobs:
               "windows_amd64": "${{ secrets.ReleaseZipName }}_windows_amd64_${{ steps.version.outputs.version }}.zip"
             }
           }
-          EOF
+          Path("version-info.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload checksum manifest to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ steps.version.outputs.version }}" \
+            release-files/version-info.json \
+            release-files/SHA256SUMS.txt \
+            --clobber
 
       - name: Upload to WebDAV
         shell: bash
