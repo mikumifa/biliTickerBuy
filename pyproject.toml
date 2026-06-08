@@ -56,6 +56,14 @@ btb = "main:main"
 [tool.setuptools]
 py-modules = ["main", "app_version", "app_update"]
 
+[tool.setuptools.data-files]
+assets = [
+    "assets/style.css",
+    "assets/icon.ico",
+    "assets/icon.icns",
+    "assets/fail_messages.json",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["*"]

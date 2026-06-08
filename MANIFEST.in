@@ -1,0 +1,4 @@
+include assets/style.css
+include assets/icon.ico
+include assets/icon.icns
+include assets/fail_messages.json
