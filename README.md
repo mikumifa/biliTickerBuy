@@ -43,14 +43,6 @@ btb
 btb buy ./your_config.json
 ```
 
-## 🔄 软件更新
-
-主界面的“软件更新”页会在打开时检查 GitHub Release，也可以手动点击检查：
-
-- **稳定版**：跳过 GitHub prerelease，只接收正式版本。
-- **测试版**：同时接收正式版本和 prerelease。
-- 程序不会静默覆盖或强制重启。只有用户主动点击后才会下载对应平台的更新包，并使用 Release 中的 SHA-256 清单完成校验；校验通过后仍由用户确认何时替换旧版本。
-
 ## 👀 使用说明书
 
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
