@@ -164,7 +164,9 @@ def fetch_ticket_options(
         "project_id": project_payload["id"],
         "project_name": project_payload.get("name", ""),
         "selected_date": selected_date,
-        "sales_dates": [item["date"] for item in project_payload.get("sales_dates", [])],
+        "sales_dates": [
+            item["date"] for item in project_payload.get("sales_dates", [])
+        ],
         "ticket_options": options,
     }
 
@@ -198,7 +200,9 @@ def fetch_addresses(
     cookies_path: str | Path | None = None,
 ) -> dict[str, Any]:
     request = _make_request(cookies=cookies, cookies_path=cookies_path)
-    addr_response = request.get(url="https://show.bilibili.com/api/ticket/addr/list").json()
+    addr_response = request.get(
+        url="https://show.bilibili.com/api/ticket/addr/list"
+    ).json()
     return {"addresses": addr_response.get("data", {}).get("addr_list", [])}
 
 
@@ -225,7 +229,9 @@ def fetch_purchase_context(
             "?is_default&projectId={0}".format(project_payload["id"])
         )
     ).json()
-    addr_response = request.get(url="https://show.bilibili.com/api/ticket/addr/list").json()
+    addr_response = request.get(
+        url="https://show.bilibili.com/api/ticket/addr/list"
+    ).json()
 
     buyers = buyer_response.get("data", {}).get("list", [])
     addresses = addr_response.get("data", {}).get("addr_list", [])
@@ -242,7 +248,9 @@ def fetch_purchase_context(
         "phone": phone or request.cookieManager.get_config_value("phone", ""),
         "is_hot_project": bool(project_payload.get("hotProject")),
         "has_eticket": bool(project_payload.get("has_eticket")),
-        "sales_dates": [item["date"] for item in project_payload.get("sales_dates", [])],
+        "sales_dates": [
+            item["date"] for item in project_payload.get("sales_dates", [])
+        ],
         "selected_date": selected_date,
         "venue": project_payload.get("venue_info", {}),
         "ticket_options": ticket_options,

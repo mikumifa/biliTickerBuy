@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+
 class NotifierBase(ABC):
     """推送器基类。
 
@@ -23,12 +24,13 @@ class NotifierBase(ABC):
     duration_minutes : int
         允许持续推送的总时长，默认 10 分钟。
     """
+
     def __init__(
         self,
-        title:str,
-        content:str,
+        title: str,
+        content: str,
         interval_seconds=10,
-        duration_minutes=10 #B站订单保存上限
+        duration_minutes=10,  # B站订单保存上限
     ):
         super().__init__()
         self.title = title
@@ -54,20 +56,20 @@ class NotifierBase(ABC):
                 # 使用send_message方法发送
                 self.send_message(self.title, message)
                 # 确认发送成功后停止发送
-                break 
+                break
 
             except Exception as e:
                 loguru.logger.error(f"通知发送失败: {e}")
                 time.sleep(self.interval_seconds)  # 发生错误时等待重试
 
-        loguru.logger.info(f"通知发送成功")
-    
+        loguru.logger.info("通知发送成功")
+
     def start(self):
         if not self.thread.is_alive():
             self.stop_event.clear()
             self.thread = threading.Thread(target=self.run, daemon=False)
             self.thread.start()
-    
+
     def stop(self):
         self.stop_event.set()
         self.thread.join(timeout=3)
@@ -77,9 +79,11 @@ class NotifierBase(ABC):
         """用于发送消息，子类必须实现此方法发送推送消息"""
         pass
 
+
 @dataclass
 class NotifierConfig:
     """推送配置统一管理"""
+
     serverchan_key: Optional[str] = None
     serverchan3_api_url: Optional[str] = None
     pushplus_token: Optional[str] = None
@@ -89,11 +93,12 @@ class NotifierConfig:
     ntfy_password: Optional[str] = None
     meow_nickname: Optional[str] = None
     audio_path: Optional[str] = None
-    
+
     @classmethod
     def from_config_db(cls):
         """从ConfigDB加载配置"""
         from util import ConfigDB
+
         return cls(
             serverchan_key=ConfigDB.get("serverchanKey"),
             serverchan3_api_url=ConfigDB.get("serverchan3ApiUrl"),
@@ -103,12 +108,13 @@ class NotifierConfig:
             ntfy_username=ConfigDB.get("ntfyUsername"),
             ntfy_password=ConfigDB.get("ntfyPassword"),
             meow_nickname=ConfigDB.get("meowNickname"),
-            audio_path=ConfigDB.get("audioPath")
+            audio_path=ConfigDB.get("audioPath"),
         )
 
-class NotifierManager():
+
+class NotifierManager:
     def __init__(self):
-        self.notifier_dict:dict[str,NotifierBase] = {}
+        self.notifier_dict: dict[str, NotifierBase] = {}
 
     def register_notifier(self, name: str, notifier: NotifierBase):
         """注册推送器到管理器中。
@@ -124,7 +130,7 @@ class NotifierManager():
         else:
             self.notifier_dict[name] = notifier
             loguru.logger.info(f"成功添加推送器: {name}")
-    
+
     def remove_notifier(self, name: str):
         """从管理器中移除指定名称的推送器。"""
         if name not in self.notifier_dict:
@@ -132,7 +138,7 @@ class NotifierManager():
         else:
             self.notifier_dict.pop(name)
             loguru.logger.info(f"成功删除推送器: {name}")
-    
+
     def start_all(self):
         for notifer in self.notifier_dict.values():
             notifer.start()
@@ -154,27 +160,33 @@ class NotifierManager():
             notifer.stop()
         else:
             loguru.logger.error(f"推送器停止失败: 不存在名为{name}的推送器")
-    
+
     def list_notifiers(self):
         """返回当前已注册的推送器名称列表。"""
         return list(self.notifier_dict.keys())
 
     @staticmethod
-    def create_from_config(config: NotifierConfig, title: str, content: str, 
-                          interval_seconds: int = 10, duration_minutes: int = 10) -> 'NotifierManager':
+    def create_from_config(
+        config: NotifierConfig,
+        title: str,
+        content: str,
+        interval_seconds: int = 10,
+        duration_minutes: int = 10,
+    ) -> "NotifierManager":
         """通过配置创建NotifierManager，统一的工厂方法"""
         manager = NotifierManager()
-        
+
         # ServerChan Turbo
         if config.serverchan_key:
             try:
                 from util.ServerChanUtil import ServerChanTurboNotifier
+
                 notifier = ServerChanTurboNotifier(
                     token=config.serverchan_key,
                     title=title,
                     content=content,
                     interval_seconds=interval_seconds,
-                    duration_minutes=duration_minutes
+                    duration_minutes=duration_minutes,
                 )
                 manager.register_notifier("ServerChanTurbo", notifier)
             except ImportError as e:
@@ -186,12 +198,13 @@ class NotifierManager():
         if config.serverchan3_api_url:
             try:
                 from util.ServerChanUtil import ServerChan3Notifier
+
                 notifier = ServerChan3Notifier(
                     api_url=config.serverchan3_api_url,
                     title=title,
                     content=content,
                     interval_seconds=interval_seconds,
-                    duration_minutes=duration_minutes
+                    duration_minutes=duration_minutes,
                 )
                 manager.register_notifier("ServerChan3", notifier)
             except ImportError as e:
@@ -203,12 +216,13 @@ class NotifierManager():
         if config.pushplus_token:
             try:
                 from util.PushPlusUtil import PushPlusNotifier
+
                 notifier = PushPlusNotifier(
                     token=config.pushplus_token,
                     title=title,
                     content=content,
                     interval_seconds=interval_seconds,
-                    duration_minutes=duration_minutes
+                    duration_minutes=duration_minutes,
                 )
                 manager.register_notifier("PushPlus", notifier)
             except ImportError as e:
@@ -220,12 +234,13 @@ class NotifierManager():
         if config.bark_token:
             try:
                 from util.BarkUtil import BarkNotifier
+
                 notifier = BarkNotifier(
                     token=config.bark_token,
                     title=title,
                     content=content,
                     interval_seconds=interval_seconds,
-                    duration_minutes=duration_minutes
+                    duration_minutes=duration_minutes,
                 )
                 manager.register_notifier("Bark", notifier)
             except ImportError as e:
@@ -237,6 +252,7 @@ class NotifierManager():
         if config.ntfy_url:
             try:
                 from util.NtfyUtil import NtfyNotifier
+
                 notifier = NtfyNotifier(
                     url=config.ntfy_url,
                     username=config.ntfy_username,
@@ -244,7 +260,7 @@ class NotifierManager():
                     title=title,
                     content=content,
                     interval_seconds=interval_seconds,
-                    duration_minutes=duration_minutes
+                    duration_minutes=duration_minutes,
                 )
                 manager.register_notifier("Ntfy", notifier)
             except ImportError as e:
@@ -256,12 +272,13 @@ class NotifierManager():
         if config.meow_nickname:
             try:
                 from util.MeoWUtil import MeoWNotifier
+
                 notifier = MeoWNotifier(
                     nickname=config.meow_nickname,
                     title=title,
                     content=content,
                     interval_seconds=interval_seconds,
-                    duration_minutes=duration_minutes
+                    duration_minutes=duration_minutes,
                 )
                 manager.register_notifier("MeoW", notifier)
             except ImportError as e:
@@ -273,12 +290,13 @@ class NotifierManager():
         if config.audio_path:
             try:
                 from util.AudioUtil import AudioNotifier
+
                 notifier = AudioNotifier(
                     audio_path=config.audio_path,
                     title=title,
                     content=content,
                     interval_seconds=interval_seconds,
-                    duration_minutes=duration_minutes
+                    duration_minutes=duration_minutes,
                 )
                 manager.register_notifier("Audio", notifier)
             except ImportError as e:
@@ -293,38 +311,38 @@ class NotifierManager():
         """测试所有已配置的推送渠道"""
         config = NotifierConfig.from_config_db()
         results = []
-        
+
         # 使用统一的工厂方法创建测试管理器
         test_manager = NotifierManager.create_from_config(
-            config=config,
-            title="抢票提醒",
-            content="测试推送"
+            config=config, title="抢票提醒", content="测试推送"
         )
-        
+
         # 测试每个已配置的推送渠道
         test_cases = [
-             ("ServerChanTurbo", config.serverchan_key, "Server酱ᵀᵘʳᵇᵒ"),
-             ("ServerChan3", config.serverchan3_api_url, "Server酱³"),
-             ("PushPlus", config.pushplus_token, "PushPlus"),
-             ("Bark", config.bark_token, "Bark"),
-             ("Ntfy", config.ntfy_url, "Ntfy"),
-             ("MeoW", config.meow_nickname, "MeoW"),
-             ("Audio", config.audio_path, "音频通知")
+            ("ServerChanTurbo", config.serverchan_key, "Server酱ᵀᵘʳᵇᵒ"),
+            ("ServerChan3", config.serverchan3_api_url, "Server酱³"),
+            ("PushPlus", config.pushplus_token, "PushPlus"),
+            ("Bark", config.bark_token, "Bark"),
+            ("Ntfy", config.ntfy_url, "Ntfy"),
+            ("MeoW", config.meow_nickname, "MeoW"),
+            ("Audio", config.audio_path, "音频通知"),
         ]
-        
+
         for notifier_name, config_value, display_name in test_cases:
             if not config_value:
                 results.append(f"⚠️ {display_name}: 未配置")
                 continue
-                
+
             if notifier_name in test_manager.notifier_dict:
                 try:
                     notifier = test_manager.notifier_dict[notifier_name]
-                    notifier.send_message("🎫 抢票测试", f"这是一条{display_name}测试推送消息")
+                    notifier.send_message(
+                        "🎫 抢票测试", f"这是一条{display_name}测试推送消息"
+                    )
                     results.append(f"✅ {display_name}: 测试推送已发送")
                 except Exception as e:
                     results.append(f"❌ {display_name}: 推送失败 - {str(e)}")
             else:
                 results.append(f"❌ {display_name}: 创建失败")
-        
+
         return "\n".join(results)

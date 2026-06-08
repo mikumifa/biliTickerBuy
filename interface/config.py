@@ -38,7 +38,9 @@ def normalize_time_start(value: Any) -> str:
     ):
         try:
             parsed = datetime.strptime(text, fmt)
-            return parsed.strftime("%Y-%m-%dT%H:%M:%S" if "%S" in fmt else "%Y-%m-%dT%H:%M")
+            return parsed.strftime(
+                "%Y-%m-%dT%H:%M:%S" if "%S" in fmt else "%Y-%m-%dT%H:%M"
+            )
         except ValueError:
             continue
 
@@ -142,7 +144,9 @@ def generate_ticket_config(
     config.update(copy.deepcopy(parameters))
 
     if "cookies" not in config and config.get("cookies_path"):
-        config["cookies"] = _coerce_cookie_store(_load_json_file(config["cookies_path"]))
+        config["cookies"] = _coerce_cookie_store(
+            _load_json_file(config["cookies_path"])
+        )
     elif "cookies" in config:
         config["cookies"] = _coerce_cookie_store(config["cookies"])
 
@@ -160,11 +164,13 @@ def generate_ticket_config(
     config.setdefault("phone", "")
 
     if not config.get("detail"):
-        config["detail"] = "{username}-project-{project_id}-screen-{screen_id}-sku-{sku_id}".format(
-            username=config.get("username", "unknown-user"),
-            project_id=config.get("project_id", "unknown"),
-            screen_id=config.get("screen_id", "unknown"),
-            sku_id=config.get("sku_id", "unknown"),
+        config["detail"] = (
+            "{username}-project-{project_id}-screen-{screen_id}-sku-{sku_id}".format(
+                username=config.get("username", "unknown-user"),
+                project_id=config.get("project_id", "unknown"),
+                screen_id=config.get("screen_id", "unknown"),
+                sku_id=config.get("sku_id", "unknown"),
+            )
         )
 
     if config.get("link_id") in ("", None):
@@ -222,14 +228,17 @@ def build_ticket_config_from_selection(
     addresses = purchase_context.get("addresses") or []
 
     ticket_index = selection.get("ticket_index")
-    if not isinstance(ticket_index, int) or not (0 <= ticket_index < len(ticket_options)):
+    if not isinstance(ticket_index, int) or not (
+        0 <= ticket_index < len(ticket_options)
+    ):
         raise ValueError("ticket_index is required and must point to a valid option")
 
     buyer_indices = selection.get("buyer_indices")
     if not isinstance(buyer_indices, list) or not buyer_indices:
         raise ValueError("buyer_indices must be a non-empty list")
     if any(
-        not isinstance(idx, int) or idx < 0 or idx >= len(buyers) for idx in buyer_indices
+        not isinstance(idx, int) or idx < 0 or idx >= len(buyers)
+        for idx in buyer_indices
     ):
         raise ValueError("buyer_indices contains an invalid buyer index")
 
@@ -327,7 +336,9 @@ def validate_config(config_or_path: str | Path | dict[str, Any]) -> ValidationRe
                 continue
             for field_name in BUYER_REQUIRED_FIELDS:
                 if not buyer.get(field_name):
-                    errors.append("buyer_info[{0}] missing field: {1}".format(idx, field_name))
+                    errors.append(
+                        "buyer_info[{0}] missing field: {1}".format(idx, field_name)
+                    )
 
     deliver_info = config.get("deliver_info")
     if not isinstance(deliver_info, dict):
@@ -347,7 +358,9 @@ def validate_config(config_or_path: str | Path | dict[str, Any]) -> ValidationRe
                 continue
             for field_name in COOKIE_REQUIRED_FIELDS:
                 if cookie.get(field_name) in (None, ""):
-                    errors.append("cookies[{0}] missing field: {1}".format(idx, field_name))
+                    errors.append(
+                        "cookies[{0}] missing field: {1}".format(idx, field_name)
+                    )
 
     if config.get("phone") in (None, ""):
         warnings.append("phone is empty; this is allowed but some flows may rely on it")

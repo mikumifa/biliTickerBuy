@@ -103,5 +103,5 @@ class BiliRequest:
                 return "未登录"
             result = self.get("https://api.bilibili.com/x/web-interface/nav").json()
             return result["data"]["uname"]
-        except Exception as e:
+        except Exception:
             return "未登录"

@@ -222,35 +222,6 @@ def _render_ticket_info_html(
     """
 
 
-def _render_setting_steps(
-    current: str, *, logged_in: bool = False, configured: bool = False
-) -> str:
-    login_done = logged_in
-    config_done = configured
-    export_done = configured
-
-    def step(label: str, number: int, key: str, done: bool) -> str:
-        classes = ["btb-step-strip__item"]
-        if key == current and not done:
-            classes.append("is-active")
-        if done:
-            classes.append("is-done")
-        return (
-            f'<div class="{" ".join(classes)}">'
-            f"<span>{number}</span>"
-            f"<strong>{label}</strong>"
-            "</div>"
-        )
-
-    return f"""
-    <div class="btb-step-strip">
-        {step("登录", 1, "login", login_done)}
-        {step("票务配置", 2, "ticket", config_done)}
-        {step("导出配置", 3, "export", export_done)}
-    </div>
-    """
-
-
 def _empty_ticket_info_updates():
     return [
         gr.update(choices=[], value=None),
@@ -259,9 +230,6 @@ def _empty_ticket_info_updates():
         gr.update(visible=False),
         gr.update(value="", visible=False),
         gr.update(visible=False, value=None),
-        gr.update(
-            value=_render_setting_steps("ticket", logged_in=True, configured=False)
-        ),
     ]
 
 
@@ -269,7 +237,15 @@ def _format_ticket_option(screen_name: str, ticket: dict, express_fee: int) -> s
     ticket_desc = ticket.get("desc", "")
     sale_start = str(ticket.get("sale_start", "未知"))
     ticket_price = int(ticket.get("price", 0)) + express_fee
-    ticket_can_buy = sales_flag_number_map.get(ticket.get("sale_flag_number"), "未知")
+    # sale_flag_number may be None or non-int; coerce to int safely for dict lookup
+    sale_flag_number_raw = ticket.get("sale_flag_number")
+    try:
+        sale_flag_number = (
+            int(sale_flag_number_raw) if sale_flag_number_raw is not None else 0
+        )
+    except (TypeError, ValueError):
+        sale_flag_number = 0
+    ticket_can_buy = sales_flag_number_map.get(sale_flag_number, "未知")
     return (
         f"{screen_name} - {ticket_desc} - {_format_price(ticket_price)} - "
         f"{ticket_can_buy} - 【起售时间：{sale_start}】"
@@ -429,9 +405,6 @@ def on_submit_ticket_id(num):
             gr.update(visible=True, value=sales_dates[0])
             if sales_dates_show
             else gr.update(visible=False),
-            gr.update(
-                value=_render_setting_steps("ticket", logged_in=True, configured=False)
-            ),
         ]
     except gr.Error as exc:
         gr.Warning(exc.message)
@@ -528,9 +501,6 @@ def on_submit_all(
         yield [
             gr.update(value=config_dir, visible=True),
             gr.update(value=filename, visible=True),
-            gr.update(
-                value=_render_setting_steps("export", logged_in=True, configured=True)
-            ),
         ]
     except gr.Error as exc:
         gr.Warning(exc.message)
@@ -555,9 +525,6 @@ def upload_file(filepath):
         yield [
             gr.update(value=GLOBAL_COOKIE_PATH),
             gr.update(choices=new_choices, value=new_choices[-1]),
-            gr.update(
-                value=_render_setting_steps("ticket", logged_in=True, configured=False)
-            ),
         ]
     except Exception as exc:
         logger.exception(exc)
@@ -576,9 +543,6 @@ def setting_tab():
                 </div>
             </section>
             """
-        )
-        step_status_ui = gr.HTML(
-            value=_render_setting_steps("login", logged_in=False, configured=False)
         )
 
         gr.HTML(
@@ -807,11 +771,6 @@ def setting_tab():
                             gr.update(visible=False),
                             gr.update(choices=new_choices, value=new_choices[-1]),
                             gr.update(),
-                            gr.update(
-                                value=_render_setting_steps(
-                                    "ticket", logged_in=True, configured=False
-                                )
-                            ),
                         ]
                     except Exception as exc:
                         logger.exception(exc)
@@ -841,11 +800,6 @@ def setting_tab():
                 return [
                     gr.update(value=GLOBAL_COOKIE_PATH),
                     gr.update(),
-                    gr.update(
-                        value=_render_setting_steps(
-                            "ticket", logged_in=True, configured=False
-                        )
-                    ),
                 ]
 
             def on_delete_account(choice):
@@ -868,18 +822,13 @@ def setting_tab():
                     first_account = util.main_request.cookieManager.get_accounts()[0]
                     _activate_account(first_account)
                     gr.Info(
-                        f"已删除账号 {account.name}，自动切换到 {first_account.name}",
+                        f"已删除账号 {account.name if account else uid}，自动切换到 {first_account.name}",
                         duration=5,
                     )
                     return [
                         gr.update(value=GLOBAL_COOKIE_PATH),
                         gr.update(choices=new_choices, value=new_choices[0]),
                         gr.update(),
-                        gr.update(
-                            value=_render_setting_steps(
-                                "ticket", logged_in=True, configured=False
-                            )
-                        ),
                     ]
                 elif was_active:
                     # 删除的是当前活跃账号，但没有其他账号可切换，清空登录状态
@@ -888,17 +837,13 @@ def setting_tab():
                     )
                     util.main_request.cookieManager.db.delete("cookie")
                     gr.Info(
-                        f"已删除最后一个账号 {account.name}，当前无活跃账号", duration=5
+                        f"已删除最后一个账号 {account.name if account else uid}，当前无活跃账号",
+                        duration=5,
                     )
                     return [
                         gr.update(value=GLOBAL_COOKIE_PATH),
                         gr.update(choices=new_choices, value=None),
                         gr.update(),
-                        gr.update(
-                            value=_render_setting_steps(
-                                "login", logged_in=False, configured=False
-                            )
-                        ),
                     ]
                 else:
                     # 删除的不是当前活跃账号，直接删除并刷新列表
@@ -930,25 +875,22 @@ def setting_tab():
                     check_btn,
                     account_dropdown,
                     qrcode_key_state,
-                    step_status_ui,
                 ],
             )
 
             account_dropdown.change(
                 on_dropdown_change,
                 inputs=[account_dropdown],
-                outputs=[gr_file_ui, account_dropdown, step_status_ui],
+                outputs=[gr_file_ui, account_dropdown],
             )
 
             delete_btn.click(
                 on_delete_account,
                 inputs=[account_dropdown],
-                outputs=[gr_file_ui, account_dropdown, qr_img, step_status_ui],
+                outputs=[gr_file_ui, account_dropdown, qr_img],
             )
 
-            upload_ui.upload(
-                upload_file, [upload_ui], [gr_file_ui, account_dropdown, step_status_ui]
-            )
+            upload_ui.upload(upload_file, [upload_ui], [gr_file_ui, account_dropdown])
 
         with gr.Accordion(
             label="填写当前账号绑定的手机号（可选）",
@@ -1062,7 +1004,7 @@ def setting_tab():
                         people_buyer_phone,
                         address_ui,
                     ],
-                    outputs=[config_output_ui, config_file_ui, step_status_ui],
+                    outputs=[config_output_ui, config_file_ui],
                 )
 
             ticket_id_btn.click(
@@ -1075,7 +1017,6 @@ def setting_tab():
                     inner,
                     info_ui,
                     data_ui,
-                    step_status_ui,
                 ],
                 show_progress="hidden",
             )

@@ -4,6 +4,7 @@ import time
 
 import loguru
 import requests
+from util.Notifier import NotifierBase
 
 # 维护所有运行中的通知线程
 _active_notification_threads = {}  # type: ignore
@@ -245,12 +246,9 @@ def test_connection(server_url, username=None, password=None):
         return False, f"测试过程中发生错误: {str(e)}"
 
 
-# 添加NtfyNotifier类，和其他推送渠道一样的静态类
-from util.Notifier import NotifierBase
-
-
 class NtfyNotifier(NotifierBase):
     """Ntfy通知器，继承自NotifierBase，实现统一接口"""
+
     def __init__(
         self,
         url,
@@ -259,13 +257,13 @@ class NtfyNotifier(NotifierBase):
         title="",
         content="",
         interval_seconds=15,
-        duration_minutes=5
+        duration_minutes=5,
     ):
         super().__init__(title, content, interval_seconds, duration_minutes)
         self.url = url
         self.username = username
         self.password = password
-    
+
     def send_message(self, title, message):
         """使用send_message函数发送单次通知"""
         send_message(self.url, message, title, self.username, self.password)
@@ -286,12 +284,16 @@ class NtfyNotifier(NotifierBase):
 
                 # 使用send_message方法发送
                 self.send_message(
-                    f"{self.title} ({count}/{self.duration_minutes * 60 // self.interval_seconds})" if self.title else "Bili Ticket Notification",
-                    message
+                    f"{self.title} ({count}/{self.duration_minutes * 60 // self.interval_seconds})"
+                    if self.title
+                    else "Bili Ticket Notification",
+                    message,
                 )
 
                 # 等待指定的间隔时间或直到收到停止信号
-                for _ in range(int(self.interval_seconds * 10)):  # 分成更小的步骤检查停止事件
+                for _ in range(
+                    int(self.interval_seconds * 10)
+                ):  # 分成更小的步骤检查停止事件
                     if self.stop_event.is_set():
                         break
                     time.sleep(0.1)

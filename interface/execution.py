@@ -160,14 +160,23 @@ def _mark_managed_run_failed(
 
 def _reconcile_managed_run(run_dir: Path, status: dict[str, Any]) -> dict[str, Any]:
     current_status = status.get("status")
-    if current_status in {"succeeded", "completed", "duplicate_order", "failed", "cancelled"}:
+    if current_status in {
+        "succeeded",
+        "completed",
+        "duplicate_order",
+        "failed",
+        "cancelled",
+    }:
         return status
 
     pid = status.get("pid")
     if _pid_is_running(pid):
         updated_at = status.get("updated_at")
         heartbeat_timeout = _heartbeat_timeout_seconds(status)
-        if isinstance(updated_at, (int, float)) and time.time() - float(updated_at) > heartbeat_timeout:
+        if (
+            isinstance(updated_at, (int, float))
+            and time.time() - float(updated_at) > heartbeat_timeout
+        ):
             return _mark_managed_run_failed(
                 run_dir,
                 run_id=status["run_id"],
@@ -181,7 +190,13 @@ def _reconcile_managed_run(run_dir: Path, status: dict[str, Any]) -> dict[str, A
     if result_path.exists():
         result = _load_json(result_path)
         terminal_status = result.get("status")
-        if terminal_status in {"succeeded", "completed", "duplicate_order", "failed", "cancelled"}:
+        if terminal_status in {
+            "succeeded",
+            "completed",
+            "duplicate_order",
+            "failed",
+            "cancelled",
+        }:
             fields: dict[str, Any] = {
                 "status": terminal_status,
                 "finished_at": status.get("finished_at") or time.time(),
@@ -429,7 +444,9 @@ def start_managed_buy(
         "payment_qr_url": None,
         "error": None,
         "last_message": None,
-        "heartbeat_timeout_seconds": max(float(runtime.get("interval", 1000)) / 1000.0 * 20.0, 30.0),
+        "heartbeat_timeout_seconds": max(
+            float(runtime.get("interval", 1000)) / 1000.0 * 20.0, 30.0
+        ),
         "logs_path": str(run_dir / "events.log"),
         "result_path": str(run_dir / "result.json"),
         "config_path": str(run_dir / "config.json"),
@@ -531,7 +548,13 @@ def cancel_managed_buy(
 
     status = _load_json(status_path)
     current_status = status.get("status")
-    if current_status in {"succeeded", "completed", "duplicate_order", "failed", "cancelled"}:
+    if current_status in {
+        "succeeded",
+        "completed",
+        "duplicate_order",
+        "failed",
+        "cancelled",
+    }:
         return {
             "ok": True,
             "run": status,
@@ -542,6 +565,7 @@ def cancel_managed_buy(
     pid = status.get("pid")
     process_was_running = _pid_is_running(pid)
     if process_was_running:
+        assert pid is not None
         _terminate_pid(pid)
 
     updated_status = _update_managed_status(
