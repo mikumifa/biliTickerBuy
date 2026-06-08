@@ -9,6 +9,7 @@ from util.KVDatabase import KVDatabase
 @dataclass
 class Account:
     """B站账号信息"""
+
     uid: str
     name: str
     face: str
