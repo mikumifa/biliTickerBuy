@@ -105,7 +105,9 @@ def _screen_matches_date(screen: dict[str, Any], date_str: str) -> bool:
         if isinstance(ticket, dict):
             candidates.append(ticket.get("screen_name"))
 
-    return any(_normalize_date_string(candidate) == date_str for candidate in candidates)
+    return any(
+        _normalize_date_string(candidate) == date_str for candidate in candidates
+    )
 
 
 def _fetch_project_payload(request: BiliRequest, project_id: int) -> dict[str, Any]:
@@ -204,11 +206,7 @@ def _render_ticket_info_html(
         )
         for label, value in lines
     )
-    hint_html = (
-        f'<p class="btb-card-note">{html.escape(hint)}</p>'
-        if hint
-        else ""
-    )
+    hint_html = f'<p class="btb-card-note">{html.escape(hint)}</p>' if hint else ""
     return f"""
     <div class="btb-ticket-panel">
         <div class="btb-ticket-panel__head">
@@ -224,7 +222,9 @@ def _render_ticket_info_html(
     """
 
 
-def _render_setting_steps(current: str, *, logged_in: bool = False, configured: bool = False) -> str:
+def _render_setting_steps(
+    current: str, *, logged_in: bool = False, configured: bool = False
+) -> str:
     login_done = logged_in
     config_done = configured
     export_done = configured
@@ -259,7 +259,9 @@ def _empty_ticket_info_updates():
         gr.update(visible=False),
         gr.update(value="", visible=False),
         gr.update(visible=False, value=None),
-        gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
+        gr.update(
+            value=_render_setting_steps("ticket", logged_in=True, configured=False)
+        ),
     ]
 
 
@@ -372,7 +374,9 @@ def on_submit_ticket_id(num):
             screen_name = screen["name"]
             screen_id = screen["id"]
             current_project_id = screen["project_id"]
-            express_fee = 0 if data["has_eticket"] else max(screen.get("express_fee", 0), 0)
+            express_fee = (
+                0 if data["has_eticket"] else max(screen.get("express_fee", 0), 0)
+            )
 
             for ticket in screen["ticket_list"]:
                 ticket["price"] = int(ticket.get("price", 0)) + express_fee
@@ -381,7 +385,9 @@ def on_submit_ticket_id(num):
                 ticket["is_hot_project"] = is_hot_project
                 if "link_id" in screen:
                     ticket["link_id"] = screen["link_id"]
-                ticket_str_list.append(_format_ticket_option(screen_name, ticket, express_fee))
+                ticket_str_list.append(
+                    _format_ticket_option(screen_name, ticket, express_fee)
+                )
                 ticket_value.append(
                     {"project_id": current_project_id, "ticket": ticket}
                 )
@@ -393,7 +399,9 @@ def on_submit_ticket_id(num):
             url="https://show.bilibili.com/api/ticket/addr/list"
         ).json()
         buyer_value = buyer_json["data"]["list"]
-        buyer_str_list = [f"{item['name']}-{item['personal_id']}" for item in buyer_value]
+        buyer_str_list = [
+            f"{item['name']}-{item['personal_id']}" for item in buyer_value
+        ]
         addr_value = addr_json["data"]["addr_list"]
         addr_str_list = [
             f"{item['addr']}-{item['name']}-{item['phone']}" for item in addr_value
@@ -421,7 +429,9 @@ def on_submit_ticket_id(num):
             gr.update(visible=True, value=sales_dates[0])
             if sales_dates_show
             else gr.update(visible=False),
-            gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
+            gr.update(
+                value=_render_setting_steps("ticket", logged_in=True, configured=False)
+            ),
         ]
     except gr.Error as exc:
         gr.Warning(exc.message)
@@ -518,7 +528,9 @@ def on_submit_all(
         yield [
             gr.update(value=config_dir, visible=True),
             gr.update(value=filename, visible=True),
-            gr.update(value=_render_setting_steps("export", logged_in=True, configured=True)),
+            gr.update(
+                value=_render_setting_steps("export", logged_in=True, configured=True)
+            ),
         ]
     except gr.Error as exc:
         gr.Warning(exc.message)
@@ -543,7 +555,9 @@ def upload_file(filepath):
         yield [
             gr.update(value=GLOBAL_COOKIE_PATH),
             gr.update(choices=new_choices, value=new_choices[-1]),
-            gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
+            gr.update(
+                value=_render_setting_steps("ticket", logged_in=True, configured=False)
+            ),
         ]
     except Exception as exc:
         logger.exception(exc)
@@ -620,7 +634,9 @@ def setting_tab():
                     qr.add_data(url)
                     qr.make(fit=True)
                     path = os.path.join(TEMP_PATH, "login_qrcode.png")
-                    qr.make_image(fill_color="black", back_color="white").get_image().save(path)
+                    qr.make_image(
+                        fill_color="black", back_color="white"
+                    ).get_image().save(path)
                     return path, qrcode_key
                 time.sleep(1)
             return None, "二维码生成失败"
@@ -675,7 +691,10 @@ def setting_tab():
             # 检查账号可用性
             name = util.main_request.get_request_name()
             if name == "未登录":
-                gr.Warning(f"账号 {account.name} 的 cookies 可能已过期，请重新扫码登录", duration=5)
+                gr.Warning(
+                    f"账号 {account.name} 的 cookies 可能已过期，请重新扫码登录",
+                    duration=5,
+                )
 
         with gr.Column(elem_classes="btb-card btb-card-rose btb-layout-card"):
             gr.HTML(
@@ -768,8 +787,12 @@ def setting_tab():
                 """扫码成功后添加到账号池并切换"""
                 if not key:
                     return [
-                        gr.update(), gr.update(), gr.update(),
-                        gr.update(), gr.update(), gr.update(),
+                        gr.update(),
+                        gr.update(),
+                        gr.update(),
+                        gr.update(),
+                        gr.update(),
+                        gr.update(),
                     ]
                 msg, cookies = poll_login(key)
                 if cookies:
@@ -784,7 +807,11 @@ def setting_tab():
                             gr.update(visible=False),
                             gr.update(choices=new_choices, value=new_choices[-1]),
                             gr.update(),
-                            gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
+                            gr.update(
+                                value=_render_setting_steps(
+                                    "ticket", logged_in=True, configured=False
+                                )
+                            ),
                         ]
                     except Exception as exc:
                         logger.exception(exc)
@@ -792,8 +819,12 @@ def setting_tab():
 
                 gr.Warning(msg, duration=5)
                 return [
-                    gr.update(), gr.update(), gr.update(),
-                    gr.update(), gr.update(), gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
+                    gr.update(),
                 ]
 
             def on_dropdown_change(choice):
@@ -810,7 +841,11 @@ def setting_tab():
                 return [
                     gr.update(value=GLOBAL_COOKIE_PATH),
                     gr.update(),
-                    gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
+                    gr.update(
+                        value=_render_setting_steps(
+                            "ticket", logged_in=True, configured=False
+                        )
+                    ),
                 ]
 
             def on_delete_account(choice):
@@ -824,33 +859,52 @@ def setting_tab():
                 new_choices = _get_account_choices()
 
                 current_name = util.main_request.get_request_name()
-                was_active = account and (account.name == current_name or current_name == "未登录")
+                was_active = account and (
+                    account.name == current_name or current_name == "未登录"
+                )
 
                 if was_active and new_choices:
                     # 删除的是当前活跃账号，切换到第一个账号
                     first_account = util.main_request.cookieManager.get_accounts()[0]
                     _activate_account(first_account)
-                    gr.Info(f"已删除账号 {account.name}，自动切换到 {first_account.name}", duration=5)
+                    gr.Info(
+                        f"已删除账号 {account.name}，自动切换到 {first_account.name}",
+                        duration=5,
+                    )
                     return [
                         gr.update(value=GLOBAL_COOKIE_PATH),
                         gr.update(choices=new_choices, value=new_choices[0]),
                         gr.update(),
-                        gr.update(value=_render_setting_steps("ticket", logged_in=True, configured=False)),
+                        gr.update(
+                            value=_render_setting_steps(
+                                "ticket", logged_in=True, configured=False
+                            )
+                        ),
                     ]
                 elif was_active:
                     # 删除的是当前活跃账号，但没有其他账号可切换，清空登录状态
-                    set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
+                    set_main_request(
+                        BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH)
+                    )
                     util.main_request.cookieManager.db.delete("cookie")
-                    gr.Info(f"已删除最后一个账号 {account.name}，当前无活跃账号", duration=5)
+                    gr.Info(
+                        f"已删除最后一个账号 {account.name}，当前无活跃账号", duration=5
+                    )
                     return [
                         gr.update(value=GLOBAL_COOKIE_PATH),
                         gr.update(choices=new_choices, value=None),
                         gr.update(),
-                        gr.update(value=_render_setting_steps("login", logged_in=False, configured=False)),
+                        gr.update(
+                            value=_render_setting_steps(
+                                "login", logged_in=False, configured=False
+                            )
+                        ),
                     ]
                 else:
                     # 删除的不是当前活跃账号，直接删除并刷新列表
-                    gr.Info(f"已删除账号 {account.name if account else uid}", duration=5)
+                    gr.Info(
+                        f"已删除账号 {account.name if account else uid}", duration=5
+                    )
                     return [
                         gr.update(),
                         gr.update(choices=new_choices, value=None),
@@ -870,7 +924,14 @@ def setting_tab():
             check_btn.click(
                 on_check_login,
                 inputs=[qrcode_key_state],
-                outputs=[gr_file_ui, qr_img, check_btn, account_dropdown, qrcode_key_state, step_status_ui],
+                outputs=[
+                    gr_file_ui,
+                    qr_img,
+                    check_btn,
+                    account_dropdown,
+                    qrcode_key_state,
+                    step_status_ui,
+                ],
             )
 
             account_dropdown.change(
@@ -934,7 +995,9 @@ def setting_tab():
 
             info_ui = gr.HTML(visible=False, elem_classes="btb-ticket-summary")
 
-            with gr.Column(visible=False, elem_id="ticket-detail", elem_classes="btb-detail-shell") as inner:
+            with gr.Column(
+                visible=False, elem_id="ticket-detail", elem_classes="btb-detail-shell"
+            ) as inner:
                 with gr.Row(elem_classes="btb-split-grid !items-end"):
                     ticket_info_ui = gr.Dropdown(
                         label="选择票档",
@@ -1014,6 +1077,7 @@ def setting_tab():
                     data_ui,
                     step_status_ui,
                 ],
+                show_progress="hidden",
             )
 
             def on_submit_data(_date):
@@ -1050,7 +1114,9 @@ def setting_tab():
                             ticket["screen"] = screen_name
                             ticket["screen_id"] = screen_id
                             ticket["is_hot_project"] = is_hot_project
-                            ticket_can_buy = "可购买" if ticket.get("clickable") else "不可购买"
+                            ticket_can_buy = (
+                                "可购买" if ticket.get("clickable") else "不可购买"
+                            )
                             ticket_str = (
                                 f"{screen_name} - {ticket['desc']} - {_format_price(ticket_price)} - "
                                 f"{ticket_can_buy} - 【起售时间：{sale_start}】"
@@ -1080,7 +1146,6 @@ def setting_tab():
                     ]
                 except Exception as exc:
                     logger.exception(exc)
-                    gr.Warning("切换日期失败，未能获取对应日期的票务信息。")
                     return [
                         gr.update(),
                         gr.update(),

@@ -132,10 +132,10 @@ def go_tab(demo: gr.Blocks):
             """
         )
         go_step_status_ui = gr.HTML(
-            value=_render_go_steps("upload", uploaded=False, scheduled=False, launched=False)
+            value=_render_go_steps(
+                "upload", uploaded=False, scheduled=False, launched=False
+            )
         )
-
-
 
         with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
             gr.HTML(
@@ -244,7 +244,9 @@ def go_tab(demo: gr.Blocks):
                     project_id = int(config["project_id"])
                     sku_id = int(config["sku_id"])
                 except (KeyError, TypeError, ValueError) as exc:
-                    raise gr.Error(f"{os.path.basename(filepath)} 缺少 project_id 或 sku_id") from exc
+                    raise gr.Error(
+                        f"{os.path.basename(filepath)} 缺少 project_id 或 sku_id"
+                    ) from exc
 
                 project_detail = _fetch_project_detail(project_id)
                 sale_start = _resolve_sale_start(project_detail, sku_id)
@@ -255,7 +257,9 @@ def go_tab(demo: gr.Blocks):
                 sale_start_items.append((os.path.basename(filepath), sale_start))
 
             latest_sale_start = max(sale_start for _, sale_start in sale_start_items)
-            unique_sale_starts = sorted({sale_start for _, sale_start in sale_start_items})
+            unique_sale_starts = sorted(
+                {sale_start for _, sale_start in sale_start_items}
+            )
             sale_start_lines = "\n".join(
                 f"{filename}: {sale_start.strftime('%Y-%m-%d %H:%M:%S')}"
                 for filename, sale_start in sale_start_items
@@ -347,7 +351,9 @@ def go_tab(demo: gr.Blocks):
                     fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
                 )
 
-                test_proxy_btn = gr.Button("测试代理连通性", elem_classes="btb-soft-button")
+                test_proxy_btn = gr.Button(
+                    "测试代理连通性", elem_classes="btb-soft-button"
+                )
                 test_timeout_ui = gr.Number(
                     label="测试超时（秒）",
                     value=10,
@@ -475,10 +481,14 @@ def go_tab(demo: gr.Blocks):
 
                         from util import NtfyUtil
 
-                        success, message = NtfyUtil.test_connection(url, username, password)
+                        success, message = NtfyUtil.test_connection(
+                            url, username, password
+                        )
                         return f"成功: {message}" if success else f"错误: {message}"
 
-                    test_ntfy_button = gr.Button("测试 Ntfy 连接", elem_classes="btb-soft-button")
+                    test_ntfy_button = gr.Button(
+                        "测试 Ntfy 连接", elem_classes="btb-soft-button"
+                    )
                     test_ntfy_result = gr.Textbox(label="测试结果", interactive=False)
                     test_ntfy_button.click(
                         fn=test_ntfy_connection, inputs=[], outputs=test_ntfy_result
@@ -540,7 +550,9 @@ def go_tab(demo: gr.Blocks):
                 fn=inner_input_serverchan, inputs=serverchan_ui, outputs=serverchan_ui
             )
             serverchan3_ui.submit(
-                fn=inner_input_serverchan3, inputs=serverchan3_ui, outputs=serverchan3_ui
+                fn=inner_input_serverchan3,
+                inputs=serverchan3_ui,
+                outputs=serverchan3_ui,
             )
             pushplus_ui.submit(
                 fn=inner_input_pushplus, inputs=pushplus_ui, outputs=pushplus_ui
@@ -560,7 +572,9 @@ def go_tab(demo: gr.Blocks):
                 inputs=ntfy_password_ui,
                 outputs=ntfy_password_ui,
             )
-            test_all_push_button.click(fn=test_all_push, inputs=[], outputs=test_push_result)
+            test_all_push_button.click(
+                fn=test_all_push, inputs=[], outputs=test_push_result
+            )
             audio_path_ui.upload(
                 fn=inner_input_audio_path, inputs=audio_path_ui, outputs=audio_path_ui
             )
@@ -624,6 +638,7 @@ def go_tab(demo: gr.Blocks):
         hide_random_message,
     ):
         if not files:
+            gr.Warning("尚未上传配置文件")
             return [
                 gr.update(value=withTimeString("尚未上传配置文件"), visible=True),
                 _render_go_step_update(uploaded=False, scheduled=False),
@@ -634,8 +649,11 @@ def go_tab(demo: gr.Blocks):
                 gr.update(value=withTimeString("尚未设置抢票开始时间"), visible=True),
                 _render_go_step_update(uploaded=True, scheduled=False),
             ]
+        gr.Warning("正在启动任务，请查看终端或网页日志")
         yield [
-            gr.update(value=withTimeString("正在启动任务，请查看终端或网页日志"), visible=True),
+            gr.update(
+                value=withTimeString("正在启动任务，请查看终端或网页日志"), visible=True
+            ),
             _render_go_step_update(uploaded=True, scheduled=True, launched=True),
         ]
 
@@ -758,4 +776,5 @@ def go_tab(demo: gr.Blocks):
             show_random_message_ui,
         ],
         outputs=[ticket_ui, go_step_status_ui],
+        show_progress="hidden",
     )

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import copy
-from datetime import datetime
 from pathlib import Path
-import re
 from typing import Any
 
 from .common import _extract_project_id, _format_sale_status, _make_request
@@ -88,73 +86,6 @@ def _merge_link_goods(
     return merged
 
 
-def _normalize_date_string(value: Any) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, (int, float)):
-        timestamp = int(value)
-        if timestamp > 10**12:
-            timestamp //= 1000
-        try:
-            return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d")
-        except (OverflowError, OSError, ValueError):
-            return None
-
-    text = str(value).strip()
-    if not text:
-        return None
-
-    match = re.search(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})", text)
-    if not match:
-        return None
-    year, month, day = (int(part) for part in match.groups())
-    try:
-        return datetime(year, month, day).strftime("%Y-%m-%d")
-    except ValueError:
-        return None
-
-
-def _screen_matches_date(screen: dict[str, Any], date_str: str) -> bool:
-    candidates = [
-        screen.get("start_time"),
-        screen.get("start_time_str"),
-        screen.get("name"),
-    ]
-    for ticket in screen.get("ticket_list", []):
-        if isinstance(ticket, dict):
-            candidates.append(ticket.get("screen_name"))
-    return any(_normalize_date_string(candidate) == date_str for candidate in candidates)
-
-
-def _fetch_screens_by_date_with_fallback(
-    *,
-    request: Any,
-    project_payload: dict[str, Any],
-    selected_date: str,
-) -> list[dict[str, Any]]:
-    project_id = int(project_payload["id"])
-    date_payload = request.get(
-        url=(
-            "https://show.bilibili.com/api/ticket/project/infoByDate"
-            "?id={0}&date={1}".format(project_id, selected_date)
-        )
-    ).json()
-    screens = date_payload.get("data", {}).get("screen_list", [])
-    if screens:
-        return screens
-
-    fallback_screens: list[dict[str, Any]] = []
-    for screen in project_payload.get("screen_list", []):
-        if not isinstance(screen, dict):
-            continue
-        if not _screen_matches_date(screen, selected_date):
-            continue
-        screen_copy = copy.deepcopy(screen)
-        screen_copy["project_id"] = screen_copy.get("project_id", project_id)
-        fallback_screens.append(screen_copy)
-    return fallback_screens
-
-
 def _fetch_ticket_options(
     *,
     request: Any,
@@ -166,11 +97,13 @@ def _fetch_ticket_options(
     project_id = int(project_payload["id"])
 
     if selected_date:
-        screens = _fetch_screens_by_date_with_fallback(
-            request=request,
-            project_payload=project_payload,
-            selected_date=selected_date,
-        )
+        date_payload = request.get(
+            url=(
+                "https://show.bilibili.com/api/ticket/project/infoByDate"
+                "?id={0}&date={1}".format(project_id, selected_date)
+            )
+        ).json()
+        screens = date_payload.get("data", {}).get("screen_list", [])
     else:
         screens = _merge_link_goods(
             request=request,
