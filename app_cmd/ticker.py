@@ -29,22 +29,18 @@ def ticker_cmd(args: Namespace):
     icon_url = ""
     if os.path.exists(icon_path):
         with open(icon_path, "rb") as icon_file:
-            icon_url = (
-                "data:image/x-icon;base64,"
-                + base64.b64encode(icon_file.read()).decode("ascii")
-            )
+            icon_url = "data:image/x-icon;base64," + base64.b64encode(
+                icon_file.read()
+            ).decode("ascii")
 
     app_version = get_app_version()
 
     header = f"""
     <section class="btb-hero">
-        <div class="btb-hero__eyebrow">BILI TICKER BUY · v{app_version}</div>
+        <div class="btb-hero__eyebrow">BiliTickerBuy · v{app_version}</div>
         <div class="btb-hero__grid">
             <div>
-                <h1>B 站会员购抢票工作台</h1>
-                <p class="btb-hero__lead">
-                    从登录、生成配置到定时开抢，按步骤完成准备，减少临场操作和信息遗漏。
-                </p>
+                <h1>B站会员购抢票</h1>
             </div>
             <div class="btb-hero__logo" aria-label="biliTickerBuy logo">
                 <img class="btb-hero__logo-image" src="{icon_url}" alt="biliTickerBuy icon">
