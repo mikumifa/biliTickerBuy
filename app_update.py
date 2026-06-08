@@ -229,9 +229,7 @@ def download_update_package(
             raise UpdateError("更新包大小校验失败，文件可能不完整，已取消更新。")
         actual_sha256 = digest.hexdigest()
         if actual_sha256 != expected_sha256:
-            raise UpdateError(
-                "更新包 SHA-256 校验失败，文件可能不完整，已取消更新。"
-            )
+            raise UpdateError("更新包 SHA-256 校验失败，文件可能不完整，已取消更新。")
         partial_path.replace(output_path)
     except Exception:
         partial_path.unlink(missing_ok=True)

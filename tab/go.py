@@ -1,4 +1,4 @@
-﻿import datetime
+import datetime
 import json
 import os
 import platform

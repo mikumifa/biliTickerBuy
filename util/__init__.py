@@ -80,7 +80,9 @@ __all__ = [
     "GlobalStatusInstance",
 ]
 loguru.logger.debug(f"设置路径EXE_PATH={EXE_PATH}")
-CONFIG_DB_PATH = os.environ.get("BTB_CONFIG_PATH", os.path.join(EXE_PATH, "config.json"))
+CONFIG_DB_PATH = os.environ.get(
+    "BTB_CONFIG_PATH", os.path.join(EXE_PATH, "config.json")
+)
 GLOBAL_COOKIE_PATH = os.environ.get(
     "BTB_COOKIES_PATH", os.path.join(EXE_PATH, "cookies.json")
 )

@@ -3,15 +3,9 @@ import requests
 
 from util.Notifier import NotifierBase
 
+
 class ServerChanTurboNotifier(NotifierBase):
-    def __init__(
-        self,
-        token,
-        title,
-        content,
-        interval_seconds=10,
-        duration_minutes=10
-    ):
+    def __init__(self, token, title, content, interval_seconds=10, duration_minutes=10):
         super().__init__(title, content, interval_seconds, duration_minutes)
         self.token = token
 
@@ -25,12 +19,7 @@ class ServerChanTurboNotifier(NotifierBase):
 
 class ServerChan3Notifier(NotifierBase):
     def __init__(
-        self,
-        api_url,
-        title,
-        content,
-        interval_seconds=10,
-        duration_minutes=10
+        self, api_url, title, content, interval_seconds=10, duration_minutes=10
     ):
         super().__init__(title, content, interval_seconds, duration_minutes)
         self.api_url = api_url
