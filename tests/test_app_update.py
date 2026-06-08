@@ -1,5 +1,4 @@
 import hashlib
-import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -85,7 +84,7 @@ def test_download_verifies_sha256(tmp_path: Path):
                 "sha256": hashlib.sha256(package).hexdigest(),
                 "size": len(package),
             }
-        }
+        },
     }
     release = ReleaseInfo(
         version="2.14.17",
@@ -96,8 +95,16 @@ def test_download_verifies_sha256(tmp_path: Path):
         prerelease=False,
         published_at="",
         assets=(
-            {"name": "version-info.json", "browser_download_url": "https://example.test/version-info.json", "size": 1},
-            {"name": filename, "browser_download_url": "https://example.test/package.zip", "size": len(package)},
+            {
+                "name": "version-info.json",
+                "browser_download_url": "https://example.test/version-info.json",
+                "size": 1,
+            },
+            {
+                "name": filename,
+                "browser_download_url": "https://example.test/package.zip",
+                "size": len(package),
+            },
         ),
     )
 
@@ -130,8 +137,16 @@ def test_download_rejects_bad_sha256(tmp_path: Path):
         prerelease=False,
         published_at="",
         assets=(
-            {"name": "version-info.json", "browser_download_url": "https://example.test/version-info.json", "size": 1},
-            {"name": filename, "browser_download_url": "https://example.test/package.zip", "size": len(b"tampered")},
+            {
+                "name": "version-info.json",
+                "browser_download_url": "https://example.test/version-info.json",
+                "size": 1,
+            },
+            {
+                "name": filename,
+                "browser_download_url": "https://example.test/package.zip",
+                "size": len(b"tampered"),
+            },
         ),
     )
 

@@ -3,18 +3,14 @@ import json
 import os
 import platform
 import time
-
 import gradio as gr
-import requests
-import util
 from gradio import SelectData
 from loguru import logger
+import requests
 
 from task.buy import buy_new_terminal
-from util import ConfigDB
-from util import Endpoint
-from util import GlobalStatusInstance
-from util import time_service
+import util
+from util import ConfigDB, Endpoint, GlobalStatusInstance, time_service
 
 
 def withTimeString(string):
@@ -46,7 +42,7 @@ def _fetch_project_detail(project_id: int) -> dict:
         raise RuntimeError(payload.get("msg", payload.get("message", "未知错误")))
     data = payload.get("data")
     if not isinstance(data, dict):
-        raise RuntimeError("项目详情为空")
+        raise RuntimeError("项目详情返回为空")
     return data
 
 
@@ -66,139 +62,90 @@ def _resolve_sale_start(project_detail: dict, sku_id: int) -> datetime.datetime 
     return None
 
 
-def _render_go_steps(
-    current: str,
-    *,
-    uploaded: bool = False,
-    scheduled: bool = False,
-    launched: bool = False,
-) -> str:
-    def step(label: str, number: int, key: str, done: bool) -> str:
-        classes = ["btb-step-strip__item"]
-        if done:
-            classes.append("is-done")
-        elif key == current:
-            classes.append("is-active")
-        return (
-            f'<div class="{" ".join(classes)}">'
-            f"<span>{number}</span>"
-            f"<strong>{label}</strong>"
-            "</div>"
-        )
-
-    return f"""
-    <div class="btb-step-strip">
-        {step("上传配置", 1, "upload", uploaded)}
-        {step("设置时间", 2, "schedule", scheduled)}
-        {step("开始运行", 3, "launch", launched)}
-    </div>
-    """
-
-
-def _render_go_step_update(
-    *,
-    uploaded: bool,
-    scheduled: bool,
-    launched: bool = False,
-):
-    current = "upload"
-    if launched:
-        current = "launch"
-    elif uploaded and scheduled:
-        current = "launch"
-    elif uploaded:
-        current = "schedule"
-    return gr.update(
-        value=_render_go_steps(
-            current,
-            uploaded=uploaded,
-            scheduled=scheduled,
-            launched=launched,
-        )
-    )
-
-
 def go_tab(demo: gr.Blocks):
     with gr.Column(elem_classes="btb-page-section"):
-        gr.HTML(
-            """
-            <section class="btb-section-head">
-                <div>
-                    <div class="btb-section-head__eyebrow">STEP 02</div>
-                    <h2>启动抢票任务</h2>
-                    <p>上传配置文件，校准起抢时间，确认通知与代理策略后再批量启动任务。</p>
-                </div>
-            </section>
-            """
-        )
-        go_step_status_ui = gr.HTML(
-            value=_render_go_steps(
-                "upload", uploaded=False, scheduled=False, launched=False
-            )
-        )
-
         with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
-            gr.HTML(
+            gr.Markdown(
                 """
-                <div class="btb-card-head">
+                <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <div class="btb-card-head__eyebrow">Launch</div>
-                        <h3>抢票入口</h3>
-                        <p>上传一个或多个配置文件，校准开抢时间后即可批量启动任务。</p>
+                        <p class="text-lg font-semibold text-slate-900">启动抢票</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">
+                            上传一个或多个配置文件，设置抢票时间后即可批量启动任务。
+                        </p>
                     </div>
-                    <span class="btb-badge-pink">批量启动</span>
+                    <span class="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-medium text-sky-700">
+                        抢票入口
+                    </span>
                 </div>
-                """
+                """,
+                elem_classes="!p-0",
             )
-
-            with gr.Row(elem_classes="btb-split-grid !items-stretch"):
+            with gr.Row(elem_classes="!items-stretch !gap-3"):
                 upload_ui = gr.Files(
-                    label="上传配置文件",
+                    label="上传多个配置文件,每一个上传的文件都会启动一个抢票程序",
                     file_count="multiple",
                     scale=5,
-                    elem_classes="btb-upload-panel",
                 )
                 ticket_ui = gr.TextArea(
-                    label="配置预览",
-                    info="选择文件后可预览当前配置内容",
+                    label="查看",
+                    info="只能通过上传文件方式上传信息",
                     interactive=False,
                     visible=False,
-                    scale=5,
-                    elem_classes="btb-preview-panel",
+                    scale=4,
+                )
+            with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
+                gr.HTML(
+                    """
+                    <div class="btb-card-head">
+                        <div>
+                            <div class="btb-card-head__eyebrow">Schedule</div>
+                            <h3>选择抢票时间</h3>
+                            <p>
+                                程序已经提前帮你校准时间，请设置成<strong>开票时间</strong>。
+                                切勿设置为开票前时间，否则有封号风险。
+                            </p>
+                        </div>
+                        <span class="btb-badge-pink">精确到秒</span>
+                    </div>
+                    """,
+                    label="选择抢票的时间",
                 )
 
-            time_start_ui = gr.Textbox(
-                label="抢票开始时间",
-                placeholder="2026-05-01 10:00:00",
-                info="直接输入或点击右侧日历图标选择 · 格式 YYYY-MM-DD HH:MM:SS",
-                elem_classes="btb-time-input btb-has-picker",
-                elem_id="btb-time-start",
-            )
-
-            with gr.Row(elem_classes="btb-inline-actions !justify-end"):
+                gr.HTML(
+                    """
+                    <div class="btb-time-picker-card">
+                        <label class="btb-time-picker-card__label" for="datetime">
+                            抢票开始时间
+                        </label>
+                        <input
+                            type="datetime-local"
+                            id="datetime"
+                            name="datetime"
+                            step="1"
+                            class="btb-native-datetime-input"
+                        >
+                        <p class="btb-time-picker-card__hint">
+                            会根据已上传配置自动检查每个票档的起售时间，并回填可安全开抢的时间点。
+                        </p>
+                    </div>
+                    """
+                )
+            with gr.Row(elem_classes="!justify-end"):
                 auto_fill_time_btn = gr.Button(
-                    "自动填充抢票时间",
+                    "自动填写抢票时间",
                     elem_classes="btb-soft-button",
                     scale=0,
                     min_width=220,
                 )
 
-        def upload(filepath, time_start):
+        def upload(filepath):
             try:
                 with open(filepath[0], "r", encoding="utf-8") as file:
                     content = file.read()
-                return [
-                    gr.update(value=content, visible=True),
-                    _render_go_step_update(
-                        uploaded=True,
-                        scheduled=bool(str(time_start or "").strip()),
-                    ),
-                ]
-            except Exception as exc:
-                return [
-                    gr.update(value=str(exc), visible=True),
-                    gr.update(),
-                ]
+                return gr.update(content, visible=True)
+            except Exception as e:
+                return str(e)
 
         def file_select_handler(select_data: SelectData, files):
             file_label = files[select_data.index]
@@ -206,30 +153,22 @@ def go_tab(demo: gr.Blocks):
                 with open(file_label, "r", encoding="utf-8") as file:
                     content = file.read()
                 return content
-            except Exception as exc:
-                return str(exc)
+            except Exception as e:
+                return str(e)
 
-        upload_ui.upload(
-            fn=upload,
-            inputs=[upload_ui, time_start_ui],
-            outputs=[ticket_ui, go_step_status_ui],
-        )
+        upload_ui.upload(fn=upload, inputs=upload_ui, outputs=ticket_ui)
         upload_ui.clear(
-            fn=lambda: [
-                gr.update("", visible=False),
-                _render_go_step_update(uploaded=False, scheduled=False),
-            ],
-            outputs=[ticket_ui, go_step_status_ui],
+            fn=lambda x: gr.update("", visible=False),
+            inputs=upload_ui,
+            outputs=ticket_ui,
         )
+
         upload_ui.select(file_select_handler, upload_ui, ticket_ui)
 
         def auto_fill_time(files):
             if not files:
-                gr.Warning("请先上传至少一个配置文件。")
-                return [
-                    "",
-                    _render_go_step_update(uploaded=False, scheduled=False),
-                ]
+                gr.Warning("请先上传至少一个抢票配置文件。")
+                return ""
 
             sale_start_items: list[tuple[str, datetime.datetime]] = []
             adjusted_now = datetime.datetime.fromtimestamp(
@@ -252,7 +191,7 @@ def go_tab(demo: gr.Blocks):
                 sale_start = _resolve_sale_start(project_detail, sku_id)
                 if sale_start is None:
                     raise gr.Error(
-                        f"{os.path.basename(filepath)} 没有找到对应票档的 sale_start，请重新生成配置。"
+                        f"{os.path.basename(filepath)} 未找到对应票档的 sale_start，请重新生成该配置。"
                     )
                 sale_start_items.append((os.path.basename(filepath), sale_start))
 
@@ -267,79 +206,73 @@ def go_tab(demo: gr.Blocks):
 
             if latest_sale_start <= adjusted_now:
                 gr.Warning(
-                    "所有配置对应票档都已经过了起售时间，未自动填充。\n"
-                    f"当前校准后时间: {adjusted_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"{sale_start_lines}"
+                    "所有配置对应票档都已经过起售时间，不自动填写抢票时间。\n"
+                    f"当前校准后时间: {adjusted_now.strftime('%Y-%m-%d %H:%M:%S')}\n{sale_start_lines}"
                 )
-                return [
-                    "",
-                    _render_go_step_update(uploaded=True, scheduled=False),
-                ]
+                return ""
 
-            autofill_value = latest_sale_start.strftime("%Y-%m-%d %H:%M:%S")
+            autofill_value = latest_sale_start.strftime("%Y-%m-%dT%H:%M:%S")
             if len(unique_sale_starts) == 1:
                 gr.Info(
-                    "已自动填充抢票时间。\n"
-                    f"自动填充值: {latest_sale_start.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    "已自动填写抢票时间。\n"
+                    f"自动填写值: {latest_sale_start.strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"当前校准后时间: {adjusted_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"{sale_start_lines}"
                 )
-                return [
-                    autofill_value,
-                    _render_go_step_update(uploaded=True, scheduled=True),
-                ]
+                return autofill_value
 
             gr.Warning(
-                "多个配置的起售时间不同，系统已自动填充为最晚的起售时间。\n"
-                f"自动填充值: {latest_sale_start.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                "抢票的起始时间不一样，已自动填写为最晚的起售时间，确保所有票档届时都已开始抢票。\n"
+                f"自动填写值: {latest_sale_start.strftime('%Y-%m-%d %H:%M:%S')}\n"
                 f"当前校准后时间: {adjusted_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
                 f"{sale_start_lines}"
             )
-            return [
-                autofill_value,
-                _render_go_step_update(uploaded=True, scheduled=True),
-            ]
-
-        def on_time_start_change(files, time_start):
-            return _render_go_step_update(
-                uploaded=bool(files),
-                scheduled=bool(str(time_start or "").strip()),
-            )
+            return autofill_value
 
         with gr.Accordion(
             label="高级设置",
             open=False,
             elem_classes="btb-card btb-soft-accordion",
         ):
-            gr.HTML(
+            gr.Markdown(
                 """
-                <div class="btb-card-head">
+                <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <div class="btb-card-head__eyebrow">Advanced</div>
-                        <h3>高级设置</h3>
-                        <p>这里包含代理、成功提醒、提示音和一些杂项配置。大多数情况下不需要展开修改。</p>
+                        <p class="text-base font-semibold text-slate-900">高级设置</p>
+                        <p class="mt-1 text-sm leading-6 text-slate-600">
+                            这里包含代理、成功提醒、提示音和杂项选项。大多数情况下不需要展开修改。
+                        </p>
                     </div>
-                    <span class="btb-badge-amber">可选配置</span>
+                    <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+                        可选配置
+                    </span>
                 </div>
-                """
+                """,
+                elem_classes="!p-0",
             )
 
             with gr.Accordion(
-                label="代理配置",
+                label="填写你的代理服务器[可选]",
                 open=False,
-                elem_classes="btb-card",
+                elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
             ):
-                gr.Markdown(
-                    """
-                    > 填写代理地址后，程序会在请求会员购接口时使用这些代理。
-                    >
-                    > 支持 HTTP / HTTPS / SOCKS，多个代理请用英文逗号分隔。
-                    """
-                )
+                gr.Markdown("""
+                        > **注意**：
+
+                        填写代理服务器地址后，程序在使用这个配置文件后会在出现风控后后根据代理服务器去访问哔哩哔哩的抢票接口。
+
+                        抢票前请确保代理服务器已经开启，并且可以正常访问哔哩哔哩的抢票接口。
+
+                        支持 HTTP/HTTPS/SOCKS 代理。
+
+                        """)
+
+                def get_latest_proxy():
+                    return ConfigDB.get("https_proxy") or ""
 
                 https_proxy_ui = gr.Textbox(
-                    label="代理地址",
-                    info="例如 http://127.0.0.1:8080,https://127.0.0.1:8081,socks5://127.0.0.1:1080",
+                    label="填写抢票时候的代理服务器地址，使用逗号隔开|输入完成后，回车键保存",
+                    info="例如： http://127.0.0.1:8080,https://127.0.0.1:8081,socks5://127.0.0.1:1080",
                     value=(ConfigDB.get("https_proxy") or ""),
                 )
 
@@ -352,32 +285,36 @@ def go_tab(demo: gr.Blocks):
                 )
 
                 test_proxy_btn = gr.Button(
-                    "测试代理连通性", elem_classes="btb-soft-button"
+                    "🔍 测试代理连通性",
+                    elem_classes="btb-soft-button",
                 )
                 test_timeout_ui = gr.Number(
-                    label="测试超时（秒）",
+                    label="测试代理超时时间(秒)",
                     value=10,
                     minimum=5,
                     maximum=60,
                     step=1,
                 )
+
                 test_result_ui = gr.Textbox(
                     label="测试结果",
                     lines=10,
                     max_lines=15,
                     interactive=False,
-                    placeholder="点击按钮开始测试代理连通性...",
+                    placeholder="点击上方按钮开始测试代理连通性...",
                 )
 
                 def test_proxy_connectivity(proxy_string, timeout):
+                    """测试代理连通性"""
                     try:
                         from util.ProxyTester import test_proxy_connectivity
 
                         if not proxy_string or proxy_string.strip() == "":
-                            proxy_string = "none"
-                        return test_proxy_connectivity(proxy_string, int(timeout))
-                    except Exception as exc:
-                        return f"测试过程中出现错误: {exc}"
+                            proxy_string = "none"  # 测试直连
+                        result = test_proxy_connectivity(proxy_string, int(timeout))
+                        return result
+                    except Exception as e:
+                        return f"❌ 测试过程中发生错误: {str(e)}"
 
                 test_proxy_btn.click(
                     fn=test_proxy_connectivity,
@@ -386,88 +323,103 @@ def go_tab(demo: gr.Blocks):
                 )
 
             with gr.Accordion(
-                label="提示音配置",
+                label="配置抢票成功后播放音乐[可选]",
                 open=False,
-                elem_classes="btb-card",
+                elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
             ):
-                with gr.Row():
+                with gr.Row(elem_classes="btb-inline-actions !justify-end"):
                     audio_path_ui = gr.Audio(
-                        label="上传提示音（推荐 wav）",
+                        label="上传提示声音[只支持格式wav]",
                         type="filepath",
                         loop=True,
                         value=(ConfigDB.get("audioPath") or None),
                     )
 
             with gr.Accordion(
-                label="推送通知配置",
+                label="配置抢票推送消息[可选]",
                 open=False,
-                elem_classes="btb-card",
+                elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
             ):
                 gr.Markdown(
                     """
-                    支持 `Server酱 Turbo`、`pushplus`、`Server酱 3`、`ntfy` 和 `Bark`。
-
-                    留空则不会启用对应通知方式。
+                    🗨️ **抢票成功提醒**
+        
+                    > 你需要去对应的网站获取 key 或 token，然后填入下面的输入框  
+                    > [Server酱<sup>Turbo</sup>](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html) | [Server酱<sup>3</sup>](https://sc3.ft07.com/sendkey) | [ntfy](https://ntfy.sh/) | [Bark](https://bark.day.app/)  
+                    > 留空以不启用提醒功能
+        
+                    ### 🔍 推送服务对比
+        
+                    | 服务     | 优点                               | 缺点                            |
+                    |----------|------------------------------------|---------------------------------|
+                    | Server酱<sup>Turbo</sup> | 简单易用，微信推送              | 微信推送很难看到 |
+                    | pushplus | 简单易用，微信推送| 微信推送很难看到               |
+                    | Server酱<sup>3</sup> | APP推送，有中文文档              | 配置复杂 |
+                    | ntfy     | APP推送, 功能强大, 支持长期响铃 | 配置复杂，需要手动搭建或注册公网地址 |
+                    | Bark     | iOS通知推送，配置简单，无视静音和勿扰模式，支持APP跳转 | 仅支持iOS设备 |
+        
+                    ✅ 推荐：初次使用建议选择 **pushplus** 或 **Server酱ᵀᵘʳᵇᵒ**，配置最简单  
+                    🍎 iOS用户推荐使用 **Bark**，通知效果最佳  
+                    🛠️ 追求高度自由/有自建服务器/需要在抢票成功时通过手机播放铃声时，建议用 **ntfy** 或 **Server酱³**
                     """
                 )
-                serverchan_ui = gr.Textbox(
-                    value=(ConfigDB.get("serverchanKey") or ""),
-                    label="Server酱 Turbo SendKey",
-                    interactive=True,
-                    info="https://sct.ftqq.com/",
-                )
+                with gr.Row(elem_classes="btb-inline-actions !justify-end"):
+                    serverchan_ui = gr.Textbox(
+                        value=(ConfigDB.get("serverchanKey") or ""),
+                        label="Server酱ᵀᵘʳᵇᵒ的SendKey｜输入完成后，回车键保存",
+                        interactive=True,
+                        info="https://sct.ftqq.com/",
+                    )
+
                 serverchan3_ui = gr.Textbox(
                     value=(ConfigDB.get("serverchan3ApiUrl") or ""),
-                    label="Server酱 3 API URL",
+                    label="Server酱³的API URL｜输入完成后，回车键保存",
                     interactive=True,
                     info="https://sc3.ft07.com/",
                 )
+
                 pushplus_ui = gr.Textbox(
                     value=(ConfigDB.get("pushplusToken") or ""),
-                    label="PushPlus Token",
+                    label="PushPlus的Token｜输入完成后，回车键保存",
                     interactive=True,
                     info="https://www.pushplus.plus/",
                 )
+
                 bark_ui = gr.Textbox(
                     value=(ConfigDB.get("barkToken") or ""),
-                    label="Bark Token 或完整地址",
+                    label="Bark的Token｜输入完成后，回车键保存",
                     interactive=True,
-                    info="可填写 jmGYK***** 或完整自建 Bark 推送地址",
-                )
-
-                meow_ui = gr.Textbox(
-                    value=(ConfigDB.get("meowNickname") or ""),
-                    label="MeoW昵称｜输入完成后，回车键保存",
-                    interactive=True,
-                    info="https://www.chuckfang.com/MeoW/api_doc.html",
+                    info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)；自托管服务请输入完整推送地址，例如: https://bark.example.app/jmGYK*****',
                 )
 
             with gr.Accordion(
-                label="Ntfy 配置",
+                label="Ntfy配置",
                 open=False,
-                elem_classes="btb-card",
+                elem_classes="!rounded-2xl !border !border-slate-200 !bg-slate-50 !shadow-sm",
             ):
                 ntfy_ui = gr.Textbox(
                     value=(ConfigDB.get("ntfyUrl") or ""),
-                    label="Ntfy 服务地址",
+                    label="Ntfy服务器URL｜输入完成后，回车键保存",
                     interactive=True,
-                    info="例如 https://ntfy.sh/your-topic",
+                    info="例如: https://ntfy.sh/your-topic",
                 )
 
                 with gr.Accordion(
-                    label="Ntfy 认证（可选）",
+                    label="Ntfy认证配置[可选]",
                     open=False,
-                    elem_classes="btb-card",
+                    elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
                 ):
-                    with gr.Row():
+                    with gr.Row(elem_classes="btb-inline-actions !justify-end"):
                         ntfy_username_ui = gr.Textbox(
                             value=(ConfigDB.get("ntfyUsername") or ""),
-                            label="Ntfy 用户名",
+                            label="Ntfy用户名",
                             interactive=True,
+                            info="如果你的Ntfy服务器需要认证",
                         )
+
                         ntfy_password_ui = gr.Textbox(
                             value=(ConfigDB.get("ntfyPassword") or ""),
-                            label="Ntfy 密码",
+                            label="Ntfy密码",
                             interactive=True,
                             type="password",
                         )
@@ -476,28 +428,35 @@ def go_tab(demo: gr.Blocks):
                         url = ConfigDB.get("ntfyUrl")
                         username = ConfigDB.get("ntfyUsername")
                         password = ConfigDB.get("ntfyPassword")
+
                         if not url:
-                            return "请先填写 Ntfy 服务地址"
+                            return "错误: 请先设置Ntfy服务器URL"
 
                         from util import NtfyUtil
 
                         success, message = NtfyUtil.test_connection(
                             url, username, password
                         )
-                        return f"成功: {message}" if success else f"错误: {message}"
+
+                        if success:
+                            return f"成功: {message}"
+                        else:
+                            return f"错误: {message}"
 
                     test_ntfy_button = gr.Button(
-                        "测试 Ntfy 连接", elem_classes="btb-soft-button"
+                        "测试Ntfy连接",
+                        elem_classes="btb-soft-button",
                     )
                     test_ntfy_result = gr.Textbox(label="测试结果", interactive=False)
                     test_ntfy_button.click(
                         fn=test_ntfy_connection, inputs=[], outputs=test_ntfy_result
                     )
 
-            with gr.Column():
+            # 推送测试按钮区域
+            with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
                 test_all_push_button = gr.Button(
-                    "测试所有通知方式",
-                    elem_classes="btb-soft-button",
+                    "🧪 测试所有推送",
+                    elem_classes="!rounded-xl !border !border-slate-300 !bg-white !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
                 )
                 test_push_result = gr.Textbox(label="推送测试结果", interactive=False)
 
@@ -517,10 +476,6 @@ def go_tab(demo: gr.Blocks):
                 ConfigDB.insert("barkToken", x)
                 return gr.update(value=ConfigDB.get("barkToken"))
 
-            def inner_input_meow(x):
-                ConfigDB.insert("meowNickname", x)
-                return gr.update(value=ConfigDB.get("meowNickname"))
-
             def inner_input_ntfy(x):
                 ConfigDB.insert("ntfyUrl", x)
                 return gr.update(value=ConfigDB.get("ntfyUrl"))
@@ -538,73 +493,78 @@ def go_tab(demo: gr.Blocks):
                 return gr.update(value=ConfigDB.get("audioPath"))
 
             def test_all_push():
+                """调用NotifierManager统一测试所有推送渠道"""
                 try:
                     from util.Notifier import NotifierManager
 
                     return NotifierManager.test_all_notifiers()
-                except Exception as exc:
-                    logger.exception(exc)
-                    return f"测试过程中出现异常: {exc}"
+                except Exception as e:
+                    logger.exception(e)
+                    return f"错误: 测试过程中发生异常 - {str(e)}"
 
             serverchan_ui.submit(
                 fn=inner_input_serverchan, inputs=serverchan_ui, outputs=serverchan_ui
             )
+
             serverchan3_ui.submit(
                 fn=inner_input_serverchan3,
                 inputs=serverchan3_ui,
                 outputs=serverchan3_ui,
             )
+
             pushplus_ui.submit(
                 fn=inner_input_pushplus, inputs=pushplus_ui, outputs=pushplus_ui
             )
+
             bark_ui.submit(fn=inner_input_bark, inputs=bark_ui, outputs=bark_ui)
 
-            meow_ui.submit(fn=inner_input_meow, inputs=meow_ui, outputs=meow_ui)
-
             ntfy_ui.submit(fn=inner_input_ntfy, inputs=ntfy_ui, outputs=ntfy_ui)
+
             ntfy_username_ui.submit(
                 fn=inner_input_ntfy_username,
                 inputs=ntfy_username_ui,
                 outputs=ntfy_username_ui,
             )
+
             ntfy_password_ui.submit(
                 fn=inner_input_ntfy_password,
                 inputs=ntfy_password_ui,
                 outputs=ntfy_password_ui,
             )
+
             test_all_push_button.click(
                 fn=test_all_push, inputs=[], outputs=test_push_result
             )
+
             audio_path_ui.upload(
                 fn=inner_input_audio_path, inputs=audio_path_ui, outputs=audio_path_ui
             )
-
             with gr.Accordion(
                 label="杂项配置",
                 open=False,
-                elem_classes="btb-card",
+                elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
             ):
                 show_random_message_ui = gr.Checkbox(
-                    label="开启群友语录",
+                    label="关闭群友语录",
                     value=True,
-                    info="开启后，抢票失败时将显示有趣的语录",
+                    info="关闭后，抢票失败时将不再显示有趣的语录",
                 )
 
-        with gr.Row(elem_classes="btb-card !items-end !gap-3"):
+        with gr.Row(elem_classes="btb-inline-actions !justify-end"):
             interval_ui = gr.Number(
-                label="抢票间隔（毫秒）",
+                label="抢票间隔",
                 value=1000,
                 minimum=1,
-                info="请求间隔越小越激进，请按需调整。",
+                info="设置抢票请求之间的时间间隔（单位：毫秒），建议不要设置太小",
             )
             choices = ["网页"]
             if platform.system() == "Windows":
-                choices.insert(0, "终端")
+                choices.insert(0, "终端")  # 或 append，取决于你想要顺序
             terminal_ui = gr.Radio(
                 label="日志显示方式",
                 choices=choices,
                 value=choices[0],
-                info="Windows 支持终端和网页，其它平台默认网页。",
+                info="日志显示的方式,非windows用戶只支持網頁",
                 type="value",
                 interactive=True,
             )
@@ -614,18 +574,20 @@ def go_tab(demo: gr.Blocks):
             response = requests.post(f"{endpoint_url}/buy", json=payload, timeout=5)
             if response.status_code == 200:
                 return True
-            if response.status_code == 409:
+            elif response.status_code == 409:
                 logger.info(f"{endpoint_url} 已经占用")
                 return False
-            return False
-        except Exception as exc:
-            logger.exception(exc)
-            raise exc
+            else:
+                return False
+
+        except Exception as e:
+            logger.exception(e)
+            raise e
 
     def split_proxies(https_proxy_list: list[str], task_num: int) -> list[list[str]]:
         assigned_proxies: list[list[str]] = [[] for _ in range(task_num)]
-        for index, proxy in enumerate(https_proxy_list):
-            assigned_proxies[index % task_num].append(proxy)
+        for i, proxy in enumerate(https_proxy_list):
+            assigned_proxies[i % task_num].append(proxy)
         return assigned_proxies
 
     def start_go(
@@ -634,41 +596,26 @@ def go_tab(demo: gr.Blocks):
         interval,
         audio_path,
         https_proxys,
-        terminal_mode,
+        terminal_ui,
         hide_random_message,
     ):
         if not files:
-            gr.Warning("尚未上传配置文件")
-            return [
-                gr.update(value=withTimeString("尚未上传配置文件"), visible=True),
-                _render_go_step_update(uploaded=False, scheduled=False),
-            ]
-        if not str(time_start or "").strip():
-            gr.Warning("请先填写或自动填充抢票开始时间。")
-            return [
-                gr.update(value=withTimeString("尚未设置抢票开始时间"), visible=True),
-                _render_go_step_update(uploaded=True, scheduled=False),
-            ]
-        gr.Warning("正在启动任务，请查看终端或网页日志")
+            return [gr.update(value=withTimeString("未提交抢票配置"), visible=True)]
         yield [
-            gr.update(
-                value=withTimeString("正在启动任务，请查看终端或网页日志"), visible=True
-            ),
-            _render_go_step_update(uploaded=True, scheduled=True, launched=True),
+            gr.update(value=withTimeString("开始多开抢票,详细查看终端"), visible=True)
         ]
-
         endpoints = GlobalStatusInstance.available_endpoints()
         endpoints_next_idx = 0
         https_proxy_list = ["none"] + https_proxys.split(",")
         assigned_proxies: list[list[str]] = []
         assigned_proxies_next_idx = 0
-
         for idx, filename in enumerate(files):
             with open(filename, "r", encoding="utf-8") as file:
                 content = file.read()
-
-            logger.info(f"启动 {os.path.basename(filename)}")
-            while endpoints_next_idx < len(endpoints) and terminal_mode == "网页":
+            filename_only = os.path.basename(filename)
+            logger.info(f"启动 {filename_only}")
+            # 先分配worker
+            while endpoints_next_idx < len(endpoints) and terminal_ui == "网页":
                 success = try_assign_endpoint(
                     endpoints[endpoints_next_idx].endpoint,
                     payload={
@@ -681,7 +628,6 @@ def go_tab(demo: gr.Blocks):
                         "serverchanKey": ConfigDB.get("serverchanKey"),
                         "serverchan3ApiUrl": ConfigDB.get("serverchan3ApiUrl"),
                         "barkToken": ConfigDB.get("barkToken"),
-                        "meowNickname": ConfigDB.get("meowNickname"),
                         "ntfy_url": ConfigDB.get("ntfyUrl"),
                         "ntfy_username": ConfigDB.get("ntfyUsername"),
                         "ntfy_password": ConfigDB.get("ntfyPassword"),
@@ -691,6 +637,7 @@ def go_tab(demo: gr.Blocks):
                 if success:
                     break
             else:
+                # 再分配https_proxys
                 if assigned_proxies == []:
                     left_task_num = len(files) - idx
                     assigned_proxies = split_proxies(https_proxy_list, left_task_num)
@@ -705,33 +652,52 @@ def go_tab(demo: gr.Blocks):
                     serverchanKey=ConfigDB.get("serverchanKey"),
                     serverchan3ApiUrl=ConfigDB.get("serverchan3ApiUrl"),
                     barkToken=ConfigDB.get("barkToken"),
-                    meowNickname=ConfigDB.get("meowNickname"),
                     ntfy_url=ConfigDB.get("ntfyUrl"),
                     ntfy_username=ConfigDB.get("ntfyUsername"),
                     ntfy_password=ConfigDB.get("ntfyPassword"),
                     https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
-                    terminal_ui=terminal_mode,
+                    terminal_ui=terminal_ui,
                     show_random_message=not hide_random_message,
                 )
                 assigned_proxies_next_idx += 1
-        gr.Info("正在启动，请等待抢票页面或终端弹出。")
+        gr.Info("正在启动，请等待抢票页面弹出。")
 
-    go_btn = gr.Button("开始抢票", elem_classes="btb-strong-button")
+    go_btn = gr.Button(
+        "开始抢票",
+        elem_classes="btb-strong-button",
+    )
 
+    _time_tmp = gr.Textbox(visible=False)
+    _auto_fill_time_tmp = gr.Textbox(visible=False)
     auto_fill_time_btn.click(
         fn=auto_fill_time,
         inputs=upload_ui,
-        outputs=[time_start_ui, go_step_status_ui],
+        outputs=_auto_fill_time_tmp,
+    ).then(
+        fn=None,
+        inputs=_auto_fill_time_tmp,
+        outputs=_time_tmp,
+        js="""
+        (value) => {
+            const input = document.getElementById("datetime");
+            if (input) {
+                input.value = value || "";
+            }
+            return value || "";
+        }
+        """,
     )
-
-    time_start_ui.change(
-        fn=on_time_start_change,
-        inputs=[upload_ui, time_start_ui],
-        outputs=go_step_status_ui,
+    go_btn.click(
+        fn=None,
+        inputs=None,
+        outputs=_time_tmp,
+        js='(x) => document.getElementById("datetime").value',
     )
-
     _report_tmp = gr.Button(visible=False)
     _report_tmp.api_info
+
+    # hander endpoint hearts
+
     _end_point_tinput = gr.Textbox(visible=False)
 
     def report(end_point, detail):
@@ -742,39 +708,38 @@ def go_tab(demo: gr.Blocks):
 
     _report_tmp.click(
         fn=report,
-        inputs=[_end_point_tinput, time_start_ui],
+        inputs=[_end_point_tinput, _time_tmp],  # fake useage
         api_name="report",
     )
 
     def tick():
         return f"当前时间戳：{int(time.time())}"
 
-    timer = gr.Textbox(label="定时刷新", interactive=False, visible=False)
+    timer = gr.Textbox(label="定时更新", interactive=False, visible=False)
     demo.load(fn=tick, inputs=None, outputs=timer, every=1)
 
     @gr.render(inputs=timer)
-    def show_split(_text):
+    def show_split(text):
         endpoints = GlobalStatusInstance.available_endpoints()
         if len(endpoints) != 0:
             gr.Markdown("## 当前运行终端列表")
             for endpoint in endpoints:
-                with gr.Row():
+                with gr.Row(elem_classes="btb-inline-actions !justify-end"):
                     gr.Button(
-                        value=f"打开终端 {endpoint.endpoint} {endpoint.detail}",
+                        value=f"点击跳转 🚀 {endpoint.endpoint} {endpoint.detail}",
                         link=endpoint.endpoint,
+                        elem_classes="btb-soft-button",
                     )
 
     go_btn.click(
         fn=start_go,
         inputs=[
             upload_ui,
-            time_start_ui,
+            _time_tmp,
             interval_ui,
             audio_path_ui,
             https_proxy_ui,
             terminal_ui,
             show_random_message_ui,
         ],
-        outputs=[ticket_ui, go_step_status_ui],
-        show_progress="hidden",
     )

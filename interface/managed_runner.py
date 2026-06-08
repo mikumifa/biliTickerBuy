@@ -12,9 +12,6 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from task.buy import buy_stream
-from util.Notifier import NotifierConfig
-
 
 def _load_json(path: Path) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8") as handle:
@@ -50,6 +47,9 @@ def _heartbeat_loop(
 
 
 def main(run_dir_arg: str) -> int:
+    from task.buy import buy_stream
+    from util.Notifier import NotifierConfig
+
     run_dir = Path(run_dir_arg)
     status_path = run_dir / "status.json"
     result_path = run_dir / "result.json"

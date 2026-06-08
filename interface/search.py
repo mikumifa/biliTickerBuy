@@ -4,6 +4,7 @@ from pathlib import Path
 from urllib.parse import quote, urlencode
 
 import requests
+from typing import cast, List
 
 from .auth import get_login_state
 from .common import _cookies_to_header, _resolve_cookie_list
@@ -97,7 +98,9 @@ def format_ticket_search_results_text(
             keyword
         )
 
-    results = list(search_result.get("results") or [])[:limit]
+    results = list(cast(List[dict[str, object]], search_result.get("results") or []))[
+        :limit
+    ]
     if not results:
         return "没有找到和“{0}”相关的票务结果。".format(keyword)
 
@@ -115,13 +118,19 @@ def format_ticket_search_results_text(
 
         lines.extend(
             [
-                "{0}. {1}".format(idx, item.get("title") or item.get("project_name") or "未知活动"),
+                "{0}. {1}".format(
+                    idx, item.get("title") or item.get("project_name") or "未知活动"
+                ),
                 "   城市：{0}  场地：{1}".format(
                     item.get("city", "未知城市"),
                     item.get("venue_name", "未知场地"),
                 ),
-                "   时间：{0}".format(item.get("tlabel") or item.get("start_time", "未知时间")),
-                "   价格：{0}  状态：{1}".format(price_text, item.get("sale_flag", "未知状态")),
+                "   时间：{0}".format(
+                    item.get("tlabel") or item.get("start_time", "未知时间")
+                ),
+                "   价格：{0}  状态：{1}".format(
+                    price_text, item.get("sale_flag", "未知状态")
+                ),
                 "   链接：{0}".format(item.get("url", "")),
                 "",
             ]
