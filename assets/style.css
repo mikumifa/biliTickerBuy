@@ -1,0 +1,1098 @@
+/* =========================================================
+   Safe Gradio Theme CSS
+   简洁稳定版：避免误伤 Gradio 内部结构
+   ========================================================= */
+
+/* ---------- Theme Tokens ---------- */
+
+:root,
+.gradio-container {
+  --brand-primary: #8c2535;
+  --brand-primary-hover: #7a1f2d;
+  --brand-primary-light: #f9ecee;
+
+  --bg-page: #faf8f8;
+  --bg-surface: #ffffff;
+  --bg-secondary: #f5f0f1;
+  --bg-input: #f0ebec;
+  --bg-terminal: #f8f5f6;
+
+  --text-primary: #211a1c;
+  --text-secondary: #786a6c;
+  --text-tertiary: #a19496;
+  --text-inverse: #ffffff;
+
+  --border-default: rgba(140, 37, 53, 0.1);
+  --border-hover: rgba(140, 37, 53, 0.2);
+  --border-focus: rgba(140, 37, 53, 0.4);
+
+  --semantic-success-text: #2f5d3e;
+  --semantic-success-bg: rgba(47, 93, 62, 0.08);
+  --semantic-success-ring: rgba(47, 93, 62, 0.2);
+
+  --semantic-warn-text: #9c5b14;
+  --semantic-warn-bg: rgba(156, 91, 20, 0.08);
+  --semantic-warn-ring: rgba(156, 91, 20, 0.2);
+
+  --semantic-error-text: #c0392b;
+  --semantic-error-bg: rgba(192, 57, 43, 0.08);
+  --semantic-error-ring: rgba(192, 57, 43, 0.2);
+
+  --semantic-brand-text: #8c2535;
+  --semantic-brand-bg: rgba(140, 37, 53, 0.08);
+  --semantic-brand-ring: rgba(140, 37, 53, 0.2);
+
+  --shadow-subtle:
+    0 1px 2px rgba(33, 26, 28, 0.04), 0 2px 6px rgba(33, 26, 28, 0.03);
+
+  --shadow-card:
+    0 2px 8px -2px rgba(33, 26, 28, 0.06),
+    0 8px 24px -4px rgba(33, 26, 28, 0.04), 0 0 0 1px rgba(140, 37, 53, 0.05);
+
+  --shadow-card-hover:
+    0 4px 14px -2px rgba(140, 37, 53, 0.1),
+    0 12px 32px -4px rgba(140, 37, 53, 0.1), 0 0 0 1px rgba(140, 37, 53, 0.12);
+
+  --shadow-btn:
+    0 2px 4px -1px rgba(140, 37, 53, 0.2),
+    0 4px 12px -2px rgba(140, 37, 53, 0.15);
+
+  --shadow-focus: 0 0 0 3px rgba(140, 37, 53, 0.15);
+
+  --shadow-popover:
+    0 12px 32px -4px rgba(33, 26, 28, 0.12),
+    0 4px 12px -2px rgba(33, 26, 28, 0.08), 0 0 0 1px rgba(140, 37, 53, 0.08);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --font-sans:
+    "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-serif: "Noto Serif SC", serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --easing-natural: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* ---------- Dark Theme ---------- */
+
+:root[data-theme="dark"],
+:root.dark,
+html.dark,
+body.dark,
+.dark .gradio-container,
+.gradio-container.dark {
+  --brand-primary-light: #2b1419;
+
+  --bg-page: #0b090a;
+  --bg-surface: #141112;
+  --bg-secondary: #1d181a;
+  --bg-input: #181415;
+  --bg-terminal: #0f0c0d;
+
+  --text-primary: #f2e9ea;
+  --text-secondary: #b5a4a6;
+  --text-tertiary: #8a7b7d;
+  --text-inverse: #ffffff;
+
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.16);
+  --border-focus: rgba(240, 168, 181, 0.4);
+
+  --semantic-success-text: #86c498;
+  --semantic-success-bg: rgba(134, 196, 152, 0.15);
+  --semantic-success-ring: rgba(134, 196, 152, 0.3);
+
+  --semantic-warn-text: #ebb067;
+  --semantic-warn-bg: rgba(235, 176, 103, 0.15);
+  --semantic-warn-ring: rgba(235, 176, 103, 0.3);
+
+  --semantic-error-text: #f06a5b;
+  --semantic-error-bg: rgba(240, 106, 91, 0.15);
+  --semantic-error-ring: rgba(240, 106, 91, 0.3);
+
+  --semantic-brand-text: #f0a8b5;
+  --semantic-brand-bg: rgba(240, 168, 181, 0.15);
+  --semantic-brand-ring: rgba(240, 168, 181, 0.3);
+
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+
+  --shadow-card:
+    0 2px 8px -2px rgba(0, 0, 0, 0.65), 0 8px 24px -4px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+
+  --shadow-card-hover:
+    0 4px 14px -2px rgba(0, 0, 0, 0.85), 0 12px 32px -4px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(240, 168, 181, 0.3);
+
+  --shadow-btn: 0 2px 4px -1px rgba(0, 0, 0, 0.6);
+
+  --shadow-focus: 0 0 0 3px rgba(240, 168, 181, 0.3);
+
+  --shadow-popover:
+    0 12px 32px -4px rgba(0, 0, 0, 0.85), 0 4px 12px -2px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Gradio Variables ---------- */
+
+:root,
+.gradio-container {
+  --body-background-fill: var(--bg-page) !important;
+  --background-fill-primary: var(--bg-surface);
+  --background-fill-secondary: var(--bg-secondary);
+  --block-background-fill: var(--bg-surface);
+  --panel-background-fill: var(--bg-secondary);
+  --input-background-fill: var(--bg-input);
+  --border-color-primary: var(--border-default);
+  --border-color-accent: var(--brand-primary);
+  --color-accent: var(--brand-primary);
+  --color-accent-soft: var(--brand-primary-light);
+  --body-text-color: var(--text-primary);
+  --body-text-color-subdued: var(--text-secondary);
+}
+
+/* ---------- Base ---------- */
+
+html,
+body,
+body.gradio-body {
+  background: var(--bg-page) !important;
+  color: var(--text-primary) !important;
+}
+
+body,
+button,
+input,
+textarea,
+select,
+.gradio-container {
+  font-family: var(--font-sans) !important;
+}
+
+.gradio-container {
+  color: var(--text-primary);
+  background: transparent !important;
+}
+
+/* ---------- Text / Markdown ---------- */
+
+.gradio-container .prose,
+.gradio-container .markdown,
+.gradio-container .gradio-markdown {
+  color: var(--text-primary);
+}
+
+.gradio-container .prose h1,
+.gradio-container .prose h2,
+.gradio-container .prose h3,
+.gradio-container .prose strong {
+  color: var(--text-primary);
+}
+
+.gradio-container a {
+  color: var(--brand-primary);
+}
+
+.gradio-container code,
+.gradio-container pre,
+.gradio-container textarea {
+  font-family: var(--font-mono) !important;
+}
+
+/* ---------- Basic Components ---------- */
+
+.gradio-container .block,
+.gradio-container .panel,
+.gradio-container .gr-box,
+.gradio-container .gr-panel,
+.gradio-container .gr-form,
+.gradio-container .gr-group,
+.gradio-container .gr-block,
+.gradio-container .gradio-html,
+.gradio-container .gradio-markdown {
+  border-radius: var(--radius-lg) !important;
+}
+
+/* ---------- Buttons ---------- */
+
+.gradio-container button,
+.gradio-container .gr-button,
+.gradio-container .button-primary {
+  border-radius: var(--radius-md) !important;
+  border: 1px solid transparent !important;
+  font-weight: 600 !important;
+  transition:
+    background-color 0.2s var(--easing-natural),
+    border-color 0.2s var(--easing-natural),
+    box-shadow 0.2s var(--easing-natural) !important;
+}
+
+.gradio-container button:hover,
+.gradio-container .gr-button:hover,
+.gradio-container .button-primary:hover {
+  box-shadow: var(--shadow-subtle);
+}
+
+.gradio-container button:focus-visible,
+.gradio-container input:focus,
+.gradio-container textarea:focus,
+.gradio-container select:focus {
+  outline: none !important;
+  box-shadow: var(--shadow-focus) !important;
+}
+
+.gradio-container button.primary,
+.gradio-container .primary,
+.gradio-container button[id*="submit"],
+.gradio-container button[id*="generate"] {
+  background: linear-gradient(
+    180deg,
+    var(--brand-primary),
+    var(--brand-primary-hover)
+  ) !important;
+  color: var(--text-inverse) !important;
+  box-shadow: var(--shadow-btn) !important;
+}
+
+.gradio-container button.secondary,
+.gradio-container .secondary {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-default) !important;
+}
+
+/* ---------- Inputs ---------- */
+
+.gradio-container label,
+.gradio-container .label-wrap label,
+.gradio-container .block-title,
+.gradio-container .caption-label {
+  color: var(--text-secondary) !important;
+  font-weight: 600 !important;
+}
+
+.gradio-container
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.gradio-container textarea,
+.gradio-container select,
+.gradio-container .gr-text-input,
+.gradio-container .gr-textarea,
+.gradio-container .gr-select,
+.gradio-container .gr-number input {
+  background: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.gradio-container input::placeholder,
+.gradio-container textarea::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+.gradio-container input:not([type="checkbox"]):not([type="radio"]):focus,
+.gradio-container textarea:focus,
+.gradio-container select:focus,
+.gradio-container .gr-number input:focus {
+  background: var(--bg-surface) !important;
+  border-color: var(--brand-primary) !important;
+}
+
+.gradio-container input[type="checkbox"],
+.gradio-container input[type="radio"] {
+  accent-color: var(--brand-primary);
+}
+
+.gradio-container input[type="datetime-local"] {
+  color-scheme: light;
+}
+
+.dark .gradio-container input[type="datetime-local"],
+.gradio-container.dark input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+/* ---------- Tabs ---------- */
+
+.gradio-container .tabs,
+.gradio-container [role="tablist"] {
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: 6px;
+  box-shadow: var(--shadow-subtle);
+}
+
+.gradio-container button[role="tab"],
+.gradio-container [role="tab"] {
+  border-radius: calc(var(--radius-lg) - 2px) !important;
+  color: var(--text-secondary) !important;
+  transition:
+    background-color 0.2s var(--easing-natural),
+    color 0.2s var(--easing-natural) !important;
+}
+
+.gradio-container button[role="tab"]:hover,
+.gradio-container [role="tab"]:hover {
+  color: var(--text-primary) !important;
+  background: color-mix(in srgb, var(--bg-surface) 80%, transparent) !important;
+}
+
+.gradio-container button[role="tab"][aria-selected="true"],
+.gradio-container [role="tab"][aria-selected="true"] {
+  background: linear-gradient(
+    180deg,
+    var(--bg-surface),
+    var(--brand-primary-light)
+  ) !important;
+  color: var(--brand-primary) !important;
+  border-color: var(--border-hover) !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+/* ---------- File Upload ---------- */
+
+.gradio-container .gr-file,
+.gradio-container .file-preview,
+.gradio-container .file-preview-holder,
+.gradio-container .upload-container,
+.gradio-container [data-testid="file"] {
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent) !important;
+  border: 1px dashed var(--border-hover) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+.gradio-container .gr-file:hover,
+.gradio-container .upload-container:hover {
+  border-color: var(--brand-primary) !important;
+  background: color-mix(
+    in srgb,
+    var(--brand-primary-light) 55%,
+    var(--bg-surface)
+  ) !important;
+}
+
+/* ---------- Accordion ---------- */
+
+.gradio-container .gr-accordion,
+.gradio-container details {
+  border: 1px solid var(--border-default) !important;
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+.gradio-container .gr-accordion summary,
+.gradio-container details summary {
+  color: var(--text-primary) !important;
+}
+
+.gradio-container .gr-accordion summary:hover,
+.gradio-container details summary:hover {
+  background: var(--bg-secondary) !important;
+}
+
+/* ---------- Code / JSON / Log ---------- */
+
+.gradio-container .gr-json,
+.gradio-container .cm-editor,
+.gradio-container .ace_editor,
+.gradio-container .log,
+.gradio-container pre {
+  background: var(--bg-terminal) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.gradio-container .gr-json *,
+.gradio-container .cm-editor *,
+.gradio-container .ace_editor *,
+.gradio-container pre * {
+  font-family: var(--font-mono) !important;
+}
+
+.gradio-container .log textarea {
+  background: var(--bg-terminal) !important;
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  font-family: var(--font-mono) !important;
+}
+
+/* ---------- Table ---------- */
+
+.gradio-container .table-wrap,
+.gradio-container table {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-default) !important;
+}
+
+.gradio-container th,
+.gradio-container td {
+  border-color: var(--border-default) !important;
+}
+
+/* ---------- Selection ---------- */
+
+.gradio-container ::selection {
+  background: var(--semantic-brand-bg);
+  color: var(--semantic-brand-text);
+}
+
+/* =========================================================
+   Custom App Layout
+   只控制你自己的 btb-* class，不误伤 Gradio 内部
+   ========================================================= */
+
+.btb-app-shell {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  gap: 24px !important;
+  padding: 28px 8px 56px;
+}
+
+.btb-page-section {
+  gap: 20px !important;
+}
+
+/* ---------- Hero ---------- */
+
+.btb-hero {
+  position: relative;
+  border: 1px solid var(--border-default);
+  border-radius: calc(var(--radius-xl) + 4px);
+  padding: 30px 34px;
+  background: linear-gradient(180deg, var(--bg-surface), var(--bg-secondary));
+  box-shadow: var(--shadow-card);
+}
+
+.btb-hero__grid,
+.btb-section-head,
+.btb-card-head,
+.btb-ticket-panel__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.btb-hero__grid {
+  align-items: end;
+}
+
+.btb-hero__eyebrow,
+.btb-section-head__eyebrow,
+.btb-card-head__eyebrow,
+.btb-inline-panel__eyebrow,
+.btb-ticket-panel__head .btb-card-head__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.btb-hero h1,
+.btb-section-head h2,
+.btb-card-head h3,
+.btb-inline-panel h4,
+.btb-ticket-panel h4 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.btb-hero h1 {
+  margin-top: 8px;
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.btb-hero__lead,
+.btb-section-head p,
+.btb-card-head p,
+.btb-inline-panel p {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.btb-hero__logo {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.btb-hero__logo-image {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  display: block;
+  border: 3px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+  background: color-mix(in srgb, var(--bg-surface) 86%, transparent);
+  padding: 8px;
+}
+
+.btb-hero__notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--semantic-warn-bg);
+  color: var(--semantic-warn-text);
+  box-shadow: inset 0 0 0 1px var(--semantic-warn-ring);
+}
+
+.btb-hero__notice a {
+  color: inherit !important;
+  text-decoration: underline;
+}
+
+.btb-hero__notice-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--semantic-warn-text) 14%, transparent);
+  font-weight: 700;
+}
+
+/* ---------- Cards ---------- */
+
+.btb-card {
+  position: relative;
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--border-default) !important;
+  padding: 1.25rem !important;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-surface) 95%, transparent),
+    color-mix(in srgb, var(--bg-surface) 78%, var(--brand-primary-light))
+  ) !important;
+  box-shadow: var(--shadow-card) !important;
+  transition:
+    box-shadow 0.24s var(--easing-natural),
+    border-color 0.24s var(--easing-natural) !important;
+}
+
+.btb-card:hover {
+  border-color: var(--border-hover) !important;
+  box-shadow: var(--shadow-card-hover) !important;
+}
+
+.btb-card-amber,
+.btb-card-rose,
+.btb-card-sky {
+  background: var(--bg-surface) !important;
+}
+
+.btb-card-head {
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+.btb-card-head h3 {
+  margin-top: 6px;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.btb-card-note {
+  margin: 16px 0 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ---------- Section ---------- */
+
+.btb-section-head {
+  align-items: end;
+  padding: 4px 4px 2px;
+}
+
+.btb-section-head h2 {
+  margin-top: 8px;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+/* ---------- Steps ---------- */
+
+.btb-step-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.btb-step-strip__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.btb-step-strip__item span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.btb-step-strip__item.is-active {
+  background: var(--semantic-brand-bg);
+  color: var(--semantic-brand-text);
+  box-shadow: inset 0 0 0 1px var(--semantic-brand-ring);
+}
+
+.btb-step-strip__item.is-active span {
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+}
+
+.btb-step-strip__item.is-done {
+  background: var(--semantic-success-bg);
+  color: var(--semantic-success-text);
+  box-shadow: inset 0 0 0 1px var(--semantic-success-ring);
+}
+
+.btb-step-strip__item.is-done span {
+  background: var(--semantic-success-text);
+  color: var(--text-inverse);
+}
+
+/* ---------- Small Cards / Panels ---------- */
+
+.btb-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.btb-mini-card,
+.btb-subcard,
+.btb-ticket-panel {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: color-mix(in srgb, var(--bg-surface) 90%, transparent);
+  box-shadow: var(--shadow-subtle);
+}
+
+.btb-mini-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+}
+
+.btb-mini-card strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.btb-mini-card span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.btb-subcard {
+  padding: 18px;
+}
+
+.btb-ticket-panel {
+  width: 100%;
+  padding: 18px;
+}
+
+.btb-ticket-panel__head {
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.btb-ticket-summary,
+.btb-people-grid,
+.btb-preview-panel,
+.btb-upload-panel {
+  width: 100%;
+}
+
+/* ---------- Flow Cards ---------- */
+
+.btb-flow-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.btb-flow-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  box-shadow: var(--shadow-subtle);
+}
+
+.btb-flow-card strong {
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.btb-flow-card span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.btb-flow-card__num {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--semantic-brand-bg);
+  color: var(--semantic-brand-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--semantic-brand-ring);
+}
+
+/* ---------- Action Area ---------- */
+
+.btb-inline-actions,
+.btb-action-band,
+.btb-output-band,
+.btb-layout-card,
+.btb-split-grid,
+.btb-detail-shell {
+  gap: 12px !important;
+}
+
+.btb-action-band,
+.btb-detail-shell {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  padding: 14px;
+  background: color-mix(in srgb, var(--bg-surface) 76%, transparent);
+}
+
+.btb-strong-button {
+  background: linear-gradient(
+    180deg,
+    var(--brand-primary),
+    var(--brand-primary-hover)
+  ) !important;
+  color: var(--text-inverse) !important;
+  border-color: transparent !important;
+  box-shadow: var(--shadow-btn) !important;
+}
+
+.btb-soft-button {
+  background: color-mix(in srgb, var(--bg-surface) 86%, transparent) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default) !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+/* ---------- Badges ---------- */
+
+.btb-badge-pink,
+.btb-badge-blue,
+.btb-badge-amber {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  border-radius: 999px !important;
+  padding: 0.35rem 0.8rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px var(--ring) !important;
+}
+
+.btb-badge-pink {
+  --ring: var(--semantic-brand-ring);
+  background: var(--semantic-brand-bg) !important;
+  color: var(--semantic-brand-text) !important;
+}
+
+.btb-badge-blue {
+  --ring: rgba(92, 141, 179, 0.25);
+  background: rgba(92, 141, 179, 0.1) !important;
+  color: #386987 !important;
+}
+
+.btb-badge-amber {
+  --ring: var(--semantic-warn-ring);
+  background: var(--semantic-warn-bg) !important;
+  color: var(--semantic-warn-text) !important;
+}
+
+.dark .btb-badge-blue,
+.gradio-container.dark .btb-badge-blue {
+  color: #9bc4df !important;
+  background: rgba(92, 141, 179, 0.18) !important;
+}
+
+/* ---------- Update Status ---------- */
+
+.btb-update-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.btb-update-status strong {
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.btb-update-status.is-current {
+  color: var(--semantic-success-text);
+  background: var(--semantic-success-bg);
+  box-shadow: inset 0 0 0 1px var(--semantic-success-ring);
+}
+
+.btb-update-status.is-available {
+  color: var(--semantic-brand-text);
+  background: var(--semantic-brand-bg);
+  box-shadow: inset 0 0 0 1px var(--semantic-brand-ring);
+}
+
+.btb-update-status.is-error {
+  color: var(--semantic-error-text);
+  background: var(--semantic-error-bg);
+  box-shadow: inset 0 0 0 1px var(--semantic-error-ring);
+}
+
+/* =========================================================
+   Dropdown Safe Styling
+   关键原则：只改颜色和视觉，不强行改定位
+   ========================================================= */
+
+.gradio-container .gradio-dropdown,
+.gradio-container [data-testid="dropdown"],
+.gradio-container .dropdown,
+.gradio-container .choices,
+.gradio-container .choices.is-open {
+  overflow: visible !important;
+}
+
+.gradio-container .gradio-dropdown,
+.gradio-container [data-testid="dropdown"],
+.gradio-container .dropdown,
+.gradio-container .choices {
+  position: relative !important;
+}
+
+.gradio-container .gradio-dropdown:focus-within,
+.gradio-container [data-testid="dropdown"]:focus-within,
+.gradio-container .dropdown:focus-within,
+.gradio-container .choices.is-open {
+  z-index: 10000 !important;
+}
+
+.gradio-container [data-testid="dropdown"] > .wrap,
+.gradio-container .dropdown > .wrap,
+.gradio-container .gradio-dropdown > .wrap {
+  background: var(--bg-input) !important;
+  border-radius: var(--radius-md) !important;
+  overflow: visible !important;
+}
+
+.gradio-container [data-testid="dropdown"] .secondary-wrap,
+.gradio-container
+  [data-testid="dropdown"]
+  input:not([type="checkbox"]):not([type="radio"]),
+.gradio-container [data-testid="dropdown"] .single-select,
+.gradio-container .dropdown .secondary-wrap,
+.gradio-container .dropdown input:not([type="checkbox"]):not([type="radio"]),
+.gradio-container .dropdown .single-select,
+.gradio-container .gradio-dropdown .secondary-wrap,
+.gradio-container
+  .gradio-dropdown
+  input:not([type="checkbox"]):not([type="radio"]),
+.gradio-container .gradio-dropdown .single-select {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+.gradio-container [data-testid="dropdown"]:focus-within > .wrap,
+.gradio-container .dropdown:focus-within > .wrap,
+.gradio-container .gradio-dropdown:focus-within > .wrap,
+.gradio-container .choices.is-focused .choices__inner,
+.gradio-container .choices.is-open .choices__inner {
+  background: var(--bg-surface) !important;
+  border-color: var(--brand-primary) !important;
+  box-shadow: var(--shadow-focus) !important;
+}
+
+.gradio-container .choices__inner {
+  overflow: hidden !important;
+}
+
+/* 下拉菜单本体：不要写 margin: 0，不要写 top/left/transform */
+.gradio-container .options,
+.gradio-container .choices__list--dropdown,
+.gradio-container .choices__list[role="listbox"] {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-popover) !important;
+  z-index: 10001 !important;
+  overflow: auto !important;
+}
+
+.gradio-container .options > li,
+.gradio-container .choices__list--dropdown .choices__item,
+.gradio-container .choices__list[role="listbox"] .choices__item {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+  padding: 10px 14px !important;
+  font-size: 14px !important;
+  border-bottom: 1px solid var(--border-default) !important;
+}
+
+.gradio-container .options > li:last-child,
+.gradio-container .choices__list--dropdown .choices__item:last-child,
+.gradio-container .choices__list[role="listbox"] .choices__item:last-child {
+  border-bottom: none !important;
+}
+
+.gradio-container .options > li:hover,
+.gradio-container .options > li.selected,
+.gradio-container .options > li:focus,
+.gradio-container
+  .choices__list--dropdown
+  .choices__item--selectable.is-highlighted,
+.gradio-container .choices__list--dropdown .choices__item.is-highlighted,
+.gradio-container
+  .choices__list[role="listbox"]
+  .choices__item--selectable.is-highlighted,
+.gradio-container .choices__list[role="listbox"] .choices__item.is-highlighted {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Dropdown 放在自定义容器里时，不裁剪 */
+.btb-card:has(.choices.is-open),
+.btb-detail-shell:has(.choices.is-open),
+.btb-action-band:has(.choices.is-open),
+.btb-ticket-panel:has(.choices.is-open) {
+  position: relative !important;
+  z-index: 9999 !important;
+}
+
+/* =========================================================
+   Optional Compatibility with Tailwind-like classes
+   只保留极少数常见颜色修正
+   ========================================================= */
+
+.text-sky-700,
+.text-sky-400,
+.text-rose-600,
+.text-rose-400 {
+  color: var(--brand-primary) !important;
+}
+
+.bg-white,
+.dark .bg-white {
+  background-color: var(--bg-surface) !important;
+}
+
+.border-slate-200,
+.border-slate-300,
+.border-slate-700,
+.border-slate-600 {
+  border-color: var(--border-default) !important;
+}
+
+/* =========================================================
+   Mobile
+   ========================================================= */
+
+@media (max-width: 960px) {
+  .btb-hero,
+  .btb-card {
+    padding: 22px !important;
+  }
+
+  .btb-hero__grid,
+  .btb-section-head,
+  .btb-card-head,
+  .btb-ticket-panel__head {
+    flex-direction: column;
+  }
+
+  .btb-step-strip {
+    justify-content: flex-start;
+  }
+
+  .btb-mini-grid,
+  .btb-flow-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .gradio-container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .btb-card {
+    padding: 1rem !important;
+  }
+
+  .gradio-container .tabs,
+  .gradio-container [role="tablist"] {
+    border-radius: var(--radius-lg);
+  }
+
+  .gradio-container .options,
+  .gradio-container .choices__list--dropdown,
+  .gradio-container .choices__list[role="listbox"] {
+    max-width: calc(100vw - 32px) !important;
+  }
+}

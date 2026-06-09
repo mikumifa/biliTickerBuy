@@ -10,6 +10,7 @@ build
 *.pyc
 *.log
 *.json
+!assets/fail_messages.json
 tmp/*
 tmp
 __pycache__/
@@ -17,3 +18,9 @@ __pycache__/
 *$py.class
 geetest/dataset
 geetest/debug
+test.py
+main.build
+main.dist
+.DS_Store
+bilitickerbuy.egg-info
+btb_runs

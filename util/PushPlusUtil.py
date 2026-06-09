@@ -3,15 +3,9 @@ import requests
 
 from util.Notifier import NotifierBase
 
+
 class PushPlusNotifier(NotifierBase):
-    def __init__(
-        self,
-        token,
-        title,
-        content,
-        interval_seconds=10,
-        duration_minutes=10
-    ):
+    def __init__(self, token, title, content, interval_seconds=10, duration_minutes=10):
         super().__init__(title, content, interval_seconds, duration_minutes)
         self.token = token
 

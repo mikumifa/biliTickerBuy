@@ -15,11 +15,60 @@ RUN curl -sSf https://sh.rustup.rs  | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 ENV TZ=Asia/Shanghai
 COPY requirements.txt .
-RUN python -m pip install --no-cache-dir -r requirements.txt  -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN python -m pip install --no-cache-dir -r requirements.txt  -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+    python -m pip uninstall -y jinja2 && \
+    python -m pip install --no-cache-dir "jinja2==3.1.2" "fastapi==0.112.2" "starlette==0.38.6" -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+    python -c "import jinja2, fastapi, starlette; assert jinja2.__version__ == '3.1.2', jinja2.__version__; assert fastapi.__version__ == '0.112.2', fastapi.__version__; assert starlette.__version__ == '0.38.6', starlette.__version__"
 COPY . .
-ENV BTB_SERVER_NAME="0.0.0.0"
-ENV GRADIO_SERVER_PORT 7860
-RUN playwright install-deps
-RUN playwright install chromium
+RUN apt-get update --allow-unauthenticated && \
+    apt-get install -y --allow-unauthenticated --no-install-recommends \
+    libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
+    libgtk-3-0 libgbm1 libasound2 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-CMD ["python", "main.py"]
+ENV BTB_SERVER_NAME="0.0.0.0"
+ENV GRADIO_SERVER_PORT=7860
+ENV GRADIO_NUM_PORTS=100
+ENV BTB_DOCKER=1
+ENV DISPLAY=:99
+RUN mkdir -p /etc/supervisor/conf.d
+COPY <<EOF /etc/supervisor/conf.d/supervisord.conf
+[supervisord]
+nodaemon=true
+user=root
+
+[program:xvfb]
+command=/usr/bin/Xvfb :99 -screen 0 1280x720x16
+autorestart=true
+priority=100
+
+[program:fluxbox]
+command=/usr/bin/fluxbox
+environment=DISPLAY=":99"
+autorestart=true
+priority=200
+
+[program:x11vnc]
+command=/usr/bin/x11vnc -display :99 -nopw -shared -forever -loop -noxdamage -repeat -nobell -wait 50
+autorestart=true
+priority=300
+startsecs=5
+
+[program:app]
+command=python main.py
+directory=/app
+environment=DISPLAY=":99"
+autorestart=unexpected
+stopasgroup=true
+killasgroup=true
+startsecs=5
+startretries=3
+stdout_logfile=/dev/fd/1
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/fd/2
+stderr_logfile_maxbytes=0
+priority=400
+EOF
+EXPOSE 5900 7860
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

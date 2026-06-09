@@ -1,12 +1,10 @@
 from collections import namedtuple
 from dataclasses import dataclass, field
 import os
+import re
 import sys
 import time
 import loguru
-import importlib
-from typing import Any, Optional
-from loguru import logger
 from util.BiliRequest import BiliRequest
 from util.KVDatabase import KVDatabase
 from util.LogConfig import loguru_config
@@ -28,15 +26,10 @@ def get_application_path() -> str:
     return application_path
 
 
-FILES_ROOT_PATH: str = get_application_path()  # 文件根目录
-
-
-def get_application_tmp_path() -> str:
-    os.makedirs(os.path.join(FILES_ROOT_PATH, "tmp"), exist_ok=True)
-    return os.path.join(FILES_ROOT_PATH, "tmp")
-
 def get_exec_path() -> str:
-    if len(sys.argv[0]) > 0 and sys.argv[0].endswith(".py"):    # sometime, argv[0] of `python main.py` is main.py
+    if len(sys.argv[0]) > 0 and sys.argv[0].endswith(
+        ".py"
+    ):  # sometime, argv[0] of `python main.py` is main.py
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     else:
         return os.path.dirname(os.path.realpath(sys.executable))
@@ -44,9 +37,19 @@ def get_exec_path() -> str:
 
 EXE_PATH: str = get_exec_path()  # 应用目录
 
+
+def get_application_tmp_path() -> str:
+    os.makedirs(os.path.join(EXE_PATH, "tmp"), exist_ok=True)
+    return os.path.join(EXE_PATH, "tmp")
+
+
 TEMP_PATH: str = get_application_tmp_path()  # 临时目录
-LOG_DIR: str = os.path.join(EXE_PATH, "btb_logs")
-loguru_config(LOG_DIR, "app.log", enable_console=True, file_colorize=False)
+os.environ["GRADIO_TEMP_DIR"] = TEMP_PATH
+LOG_DIR: str = os.environ.get("BTB_LOG_DIR", os.path.join(EXE_PATH, "btb_logs"))
+os.makedirs(LOG_DIR, exist_ok=True)
+log_file_name = os.environ.get("BTB_APP_LOG_NAME", "app.log")
+log_file_name = re.sub(r"[^\w.\-]", "_", log_file_name) or "app.log"
+loguru_config(LOG_DIR, log_file_name, enable_console=True, file_colorize=False)
 ERRNO_DICT = {
     0: "成功",
     3: "抢票CD中",
@@ -60,10 +63,11 @@ ERRNO_DICT = {
     100017: "票种不可售",
     100051: "订单准备过期，重新验证",
     100034: "票价错误",
+    900001: "当前拥挤，请稍后再试",
+    900002: "当前拥挤，请稍后再试",
 }
 
 __all__ = [
-    "FILES_ROOT_PATH",
     "TEMP_PATH",
     "EXE_PATH",
     "ERRNO_DICT",
@@ -75,11 +79,14 @@ __all__ = [
     "LOG_DIR",
     "GlobalStatusInstance",
 ]
-loguru.logger.debug(
-    f"设置路径, FILES_ROOT_PATH={FILES_ROOT_PATH} TEMP_PATH={TEMP_PATH} EXE_PATH={EXE_PATH}"
+loguru.logger.debug(f"设置路径EXE_PATH={EXE_PATH}")
+CONFIG_DB_PATH = os.environ.get(
+    "BTB_CONFIG_PATH", os.path.join(EXE_PATH, "config.json")
 )
-ConfigDB = KVDatabase(os.path.join(EXE_PATH, "config.json"))
-GLOBAL_COOKIE_PATH = os.path.join(EXE_PATH, "cookies.json")
+GLOBAL_COOKIE_PATH = os.environ.get(
+    "BTB_COOKIES_PATH", os.path.join(EXE_PATH, "cookies.json")
+)
+ConfigDB = KVDatabase(CONFIG_DB_PATH)
 if ConfigDB.get("cookies_path") is None:
     ConfigDB.insert("cookies_path", GLOBAL_COOKIE_PATH)
 main_request = BiliRequest(cookies_config_path=ConfigDB.get("cookies_path"))
@@ -93,14 +100,6 @@ def set_main_request(request):
 time_service = TimeUtil()
 time_service.set_timeoffset(time_service.compute_timeoffset())
 
-
-global bili_ticket_gt_python
-bili_ticket_gt_python: Optional[Any] = None
-try:
-    bili_ticket_gt_python = importlib.import_module("bili_ticket_gt_python")
-except Exception as e:
-    logger.error(f"本地验证码模块加载失败，错误信息：{e}")
-    logger.error("请更换设备")
 
 Endpoint = namedtuple("Endpoint", ["endpoint", "detail", "update_at"])
 

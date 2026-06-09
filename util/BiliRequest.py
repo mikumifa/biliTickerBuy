@@ -10,7 +10,11 @@ class BiliRequest:
         self, headers=None, cookies=None, cookies_config_path=None, proxy: str = "none"
     ):
         self.session = requests.Session()
-        self.proxy_list = proxy.split(",") if proxy else []
+        self.proxy_list = (
+            [v.strip() for v in proxy.split(",") if len(v.strip()) != 0]
+            if proxy
+            else []
+        )
         if len(self.proxy_list) == 0:
             raise ValueError("at least have none proxy")
         self.now_proxy_idx = 0
@@ -45,7 +49,7 @@ class BiliRequest:
             data = json.dumps(data)
         else:
             self.headers["Content-Type"] = "application/x-www-form-urlencoded"
-        response = self.session.get(url, data=data, headers=self.headers)
+        response = self.session.get(url, data=data, headers=self.headers, timeout=10)
         if response.status_code == 412:
             self.count_and_sleep()
             self.switch_proxy()
@@ -56,8 +60,7 @@ class BiliRequest:
         response.raise_for_status()
         self.clear_request_count()
         if response.json().get("msg", "") == "请先登录":
-            self.headers["cookie"] = self.cookieManager.get_cookies_str_force()
-            self.get(url, data)
+            raise RuntimeError("当前未登录，请重新登陆")
         return response
 
     def switch_proxy(self):
@@ -79,19 +82,18 @@ class BiliRequest:
             data = json.dumps(data)
         else:
             self.headers["content-type"] = "application/x-www-form-urlencoded"
-        response = self.session.post(url, data=data, headers=self.headers)
+        response = self.session.post(url, data=data, headers=self.headers, timeout=10)
         if response.status_code == 412:
             self.count_and_sleep()
             self.switch_proxy()
             loguru.logger.warning(
                 f"412风控，切换代理到 {self.proxy_list[self.now_proxy_idx]}"
             )
-            return self.get(url, data, isJson)
+            return self.post(url, data, isJson)
         response.raise_for_status()
         self.clear_request_count()
         if response.json().get("msg", "") == "请先登录":
-            self.headers["cookie"] = self.cookieManager.get_cookies_str_force()
-            self.post(url, data)
+            raise RuntimeError("当前未登录，请重新登陆")
         return response
 
     def get_request_name(self):
@@ -101,6 +103,5 @@ class BiliRequest:
                 return "未登录"
             result = self.get("https://api.bilibili.com/x/web-interface/nav").json()
             return result["data"]["uname"]
-        except Exception as e:
-            loguru.logger.exception(e)
+        except Exception:
             return "未登录"

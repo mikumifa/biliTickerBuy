@@ -1,6 +1,7 @@
 from argparse import Namespace
+import os
 
-from util import GlobalStatus
+from util import GlobalStatusInstance, get_application_path
 
 
 def buy_cmd(args: Namespace):
@@ -8,22 +9,33 @@ def buy_cmd(args: Namespace):
     import uuid
 
     from util import LOG_DIR
-    import os
     from task.buy import buy
     from loguru import logger
 
-    filename_only = os.path.basename(args.filename)
-    logger.info(f"模式：{args.terminal_ui}")
-    if args.terminal_ui == "网页":
-        log_file = loguru_config(
-            LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False, file_colorize=True
-        )
+    def load_tickets_info(tickets_info: str) -> tuple[str, str | None]:
+        config_path = os.path.expanduser(tickets_info)
+        if os.path.isfile(config_path):
+            logger.info(f"使用配置文件：{config_path}")
+            try:
+                with open(config_path, "r", encoding="utf-8") as config_file:
+                    return config_file.read(), config_path
+            except OSError as exc:
+                raise SystemExit(f"读取配置文件失败: {exc}") from exc
+        return tickets_info, None
+
+    tickets_info, config_path = load_tickets_info(args.tickets_info)
+    filename = os.path.basename(config_path) if config_path else "default"
+    filename_only = os.path.basename(filename)
+    css_path = os.path.join(get_application_path(), "assets", "style.css")
+    if getattr(args, "web", False):
+        log_file = loguru_config(LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False)
         from task.endpoint import start_heartbeat_thread
         import gradio_client
         import gradio as gr
         from gradio_log import Log
 
         with gr.Blocks(
+            css=css_path,
             head="""<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>""",
             title=f"{filename_only}",
             fill_height=True,
@@ -53,37 +65,38 @@ def buy_cmd(args: Namespace):
 
         print(f"抢票日志路径： {log_file}")
         print(f"运行程序网址   ↓↓↓↓↓↓↓↓↓↓↓↓↓↓   {filename_only} ")
+        is_docker = os.path.exists("/.dockerenv") or os.environ.get("BTB_DOCKER") == "1"
         demo.launch(
             server_name=args.server_name,
             server_port=args.port,
-            share=args.share,
-            inbrowser=True,
+            share=args.share or is_docker,
+            inbrowser=not is_docker,
             prevent_thread_lock=True,
         )
         client = gradio_client.Client(args.endpoint_url)
         assert demo.local_url
-        GlobalStatus.nowTask = filename_only
+        GlobalStatusInstance.nowTask = filename_only
         start_heartbeat_thread(
             client,
             self_url=demo.local_url,
             to_url=args.endpoint_url,
         )
     else:
-        log_file = loguru_config(
-            LOG_DIR, f"{uuid.uuid1()}.log", enable_console=True, file_colorize=True
-        )
+        log_file = loguru_config(LOG_DIR, f"{uuid.uuid1()}.log", enable_console=True)
     buy(
-        args.tickets_info_str,
+        tickets_info,
         args.time_start,
         args.interval,
-        args.mode,
-        args.total_attempts,
         args.audio_path,
         args.pushplusToken,
         args.serverchanKey,
+        args.barkToken,
         args.https_proxys,
+        args.serverchan3ApiUrl,
         args.ntfy_url,
         args.ntfy_username,
         args.ntfy_password,
+        args.meowNickname,
+        not args.hide_random_message,
     )
     logger.info("抢票完成后退出程序。。。。。")
