@@ -132,5 +132,4 @@ if exist "%META_FILE%" del /f /q "%META_FILE%" >nul 2>nul
 if exist "%TEMP_EXTRACT%" rmdir /s /q "%TEMP_EXTRACT%" >nul 2>nul
 
 echo [biliTickerBuy] 已更新到 !RELEASE_TAG!。
-echo 请手动重新启动程序。
 pause
