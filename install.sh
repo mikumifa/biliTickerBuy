@@ -1,4 +1,3 @@
-```sh
 #!/usr/bin/env sh
 set -eu
 
@@ -702,4 +701,3 @@ case ":$PATH:" in
     echo "export PATH=\"$BIN_DIR:\$PATH\""
     ;;
 esac
-```
