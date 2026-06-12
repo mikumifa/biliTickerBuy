@@ -24,7 +24,7 @@ API_URL="https://api.github.com/repos/$REPO/releases/latest"
 ENV_INSTALL_FILE="$INSTALL_DIR/.env.install"
 
 [ -f "$ENV_INSTALL_FILE" ] && . "$ENV_INSTALL_FILE"
-GH_PROXY="${GH_PROXY:-}"
+GH_PROXY="${GH_PROXY:-https://gh-proxy.org}"
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -54,13 +54,17 @@ http_get() {
     if [ -n "$output" ]; then
       if ! curl --fail --location --progress-bar -H 'User-Agent: biliTickerBuy-updater' -o "$output" "$url"; then
         echo "下载失败：$url" >&2
-        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/" >&2
+        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀。" >&2
+        echo "可在安装目录的 .env.install 中配置，例如：GH_PROXY=https://gh-proxy.org" >&2
+        echo "可用前缀可前往 https://ghproxy.link/ 查找。" >&2
         exit 1
       fi
     else
       if ! curl --fail --location --silent --show-error -H 'User-Agent: biliTickerBuy-updater' "$url"; then
         echo "请求失败：$url" >&2
-        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/" >&2
+        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀。" >&2
+        echo "可在安装目录的 .env.install 中配置，例如：GH_PROXY=https://gh-proxy.org" >&2
+        echo "可用前缀可前往 https://ghproxy.link/ 查找。" >&2
         exit 1
       fi
     fi
@@ -68,13 +72,17 @@ http_get() {
     if [ -n "$output" ]; then
       if ! wget -O "$output" --header='User-Agent: biliTickerBuy-updater' "$url"; then
         echo "下载失败：$url" >&2
-        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/" >&2
+        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀。" >&2
+        echo "可在安装目录的 .env.install 中配置，例如：GH_PROXY=https://gh-proxy.org" >&2
+        echo "可用前缀可前往 https://ghproxy.link/ 查找。" >&2
         exit 1
       fi
     else
       if ! wget -qO- --header='User-Agent: biliTickerBuy-updater' "$url"; then
         echo "请求失败：$url" >&2
-        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/" >&2
+        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀。" >&2
+        echo "可在安装目录的 .env.install 中配置，例如：GH_PROXY=https://gh-proxy.org" >&2
+        echo "可用前缀可前往 https://ghproxy.link/ 查找。" >&2
         exit 1
       fi
     fi

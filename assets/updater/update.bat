@@ -55,7 +55,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "[System.IO.File]::WriteAllText('%META_FILE%', $content, [System.Text.Encoding]::ASCII)"
 if errorlevel 1 (
   echo 获取版本信息失败。
-  echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/
+  echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀。
+  echo 可在安装目录的 .env.install 中配置，例如：GH_PROXY=https://gh-proxy.org
+  echo 可用前缀可前往 https://ghproxy.link/ 查找。
   exit /b 1
 )
 
@@ -87,7 +89,9 @@ if exist "%TEMP_ZIP%" (
     curl.exe -L --progress-bar -H "User-Agent: biliTickerBuy-updater" -o "%TEMP_ZIP%" "%ASSET_URL%"
     if errorlevel 1 (
       echo 下载失败：%ASSET_URL%
-      echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/
+      echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀。
+      echo 可在安装目录的 .env.install 中配置，例如：GH_PROXY=https://gh-proxy.org
+      echo 可用前缀可前往 https://ghproxy.link/ 查找。
       exit /b 1
     )
   ) else (
@@ -95,7 +99,9 @@ if exist "%TEMP_ZIP%" (
       "$ErrorActionPreference='Stop'; Invoke-WebRequest -Headers @{ 'User-Agent'='biliTickerBuy-updater' } -Uri '%ASSET_URL%' -OutFile '%TEMP_ZIP%'"
     if errorlevel 1 (
       echo 下载失败：%ASSET_URL%
-      echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/
+      echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀。
+      echo 可在安装目录的 .env.install 中配置，例如：GH_PROXY=https://gh-proxy.org
+      echo 可用前缀可前往 https://ghproxy.link/ 查找。
       exit /b 1
     )
   )
