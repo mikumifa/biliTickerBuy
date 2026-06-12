@@ -10,7 +10,7 @@ class BiliRequest:
         self, headers=None, cookies=None, cookies_config_path=None, proxy: str = "none"
     ):
         self.session = requests.Session()
-        self.session.verify = False  # 禁用 SSL 验证，便于抓包测试
+        # self.session.verify = False  # 禁用 SSL 验证，便于抓包测试
         self.proxy_list = (
             [v.strip() for v in proxy.split(",") if len(v.strip()) != 0]
             if proxy
