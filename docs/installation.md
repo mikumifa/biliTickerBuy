@@ -26,33 +26,20 @@
 | macOS   | Apple Silicon   | `macos_arm64`   |
 | macOS   | Intel           | `macos_intel`   |
 
-下载完成后，解压安装包并运行其中的 `biliTickerBuy` 或 `biliTickerBuy.exe`。
+下载完成后，解压安装包并运行其中的程序：
+
+- Windows：`biliTickerBuy.exe`
+- Linux / macOS：`biliTickerBuy`
 
 如果安装包中包含更新脚本，也可以使用其中的脚本更新程序。
 
 ---
 
-## 方法二：命令行安装
-
-命令行安装脚本会自动识别当前系统和处理器架构，下载最新版本，并创建 `btb` 启动命令。
-
-### Windows
-
-在 PowerShell 中执行：
-
-```powershell
-irm https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.ps1 | iex
-```
-
-安装完成后，重新打开 PowerShell，然后运行：
-
-```powershell
-btb
-```
-
-### Linux / macOS
+## 方法二：Linux / macOS 命令行安装
 
 > Linux 预构建版本要求 Ubuntu 22.04 或更高版本。其他 Linux 发行版建议使用 Docker 或 PyPI 安装。
+
+安装脚本会自动识别当前系统和处理器架构、下载最新版本，并创建 `btb` 启动命令。
 
 执行以下命令：
 
@@ -70,7 +57,7 @@ btb
 
 ## GitHub 下载代理
 
-安装脚本默认使用以下加速前缀下载 GitHub Release 文件：
+Linux / macOS 安装脚本默认使用以下加速前缀下载 GitHub Release 文件：
 
 ```text
 https://gh-proxy.org/
@@ -82,13 +69,9 @@ https://gh-proxy.org/
 
 ---
 
-## 自定义安装参数
+## 自定义 Linux / macOS 安装参数
 
-安装脚本支持自定义 GitHub 下载代理、程序安装目录和命令目录。
-
-### Linux / macOS
-
-可用环境变量：
+安装脚本支持通过环境变量自定义 GitHub 下载代理、程序安装目录和命令目录。
 
 | 环境变量      | 说明                                    |
 | ------------- | --------------------------------------- |
@@ -96,23 +79,23 @@ https://gh-proxy.org/
 | `INSTALL_DIR` | 程序安装目录                            |
 | `BIN_DIR`     | `btb` 启动命令所在目录                  |
 
-由于通过管道执行时，环境变量需要传递给 `sh`，推荐使用以下写法。
+通过管道执行安装脚本时，需要将环境变量传递给 `sh`。
 
-#### 自定义代理
+### 自定义代理
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.sh |
   GH_PROXY="https://其他代理前缀" sh
 ```
 
-#### 禁用代理并直连 GitHub
+### 禁用代理并直连 GitHub
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.sh |
   GH_PROXY="" sh
 ```
 
-#### 自定义安装目录
+### 自定义安装目录
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.sh |
@@ -121,7 +104,7 @@ curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install
   sh
 ```
 
-#### 同时自定义代理和安装目录
+### 同时自定义代理和安装目录
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.sh |
@@ -129,85 +112,6 @@ curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install
   INSTALL_DIR="$HOME/apps/biliTickerBuy" \
   BIN_DIR="$HOME/.local/bin" \
   sh
-```
-
-### Windows PowerShell
-
-Windows 安装脚本支持以下参数：
-
-| 参数          | 说明                        |
-| ------------- | --------------------------- |
-| `-GhProxy`    | 指定 GitHub 下载加速前缀    |
-| `-NoProxy`    | 禁用下载代理并直连 GitHub   |
-| `-InstallDir` | 指定程序安装目录            |
-| `-BinDir`     | 指定 `btb` 启动命令所在目录 |
-
-带自定义参数运行时，需要先将安装脚本下载到本地。
-
-#### 自定义代理
-
-```powershell
-Invoke-WebRequest `
-  https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.ps1 `
-  -OutFile install.ps1
-
-.\install.ps1 -GhProxy "https://其他代理前缀"
-```
-
-#### 禁用代理并直连 GitHub
-
-```powershell
-Invoke-WebRequest `
-  https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.ps1 `
-  -OutFile install.ps1
-
-.\install.ps1 -NoProxy
-```
-
-#### 自定义安装目录
-
-```powershell
-Invoke-WebRequest `
-  https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.ps1 `
-  -OutFile install.ps1
-
-.\install.ps1 `
-  -InstallDir "D:\Apps\biliTickerBuy" `
-  -BinDir "D:\Apps\bin"
-```
-
-#### 同时自定义代理和安装目录
-
-```powershell
-Invoke-WebRequest `
-  https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.ps1 `
-  -OutFile install.ps1
-
-.\install.ps1 `
-  -GhProxy "https://其他代理前缀" `
-  -InstallDir "D:\Apps\biliTickerBuy" `
-  -BinDir "D:\Apps\bin"
-```
-
-如果当前 PowerShell 执行策略阻止运行脚本，可以通过以下方式执行：
-
-```powershell
-powershell.exe `
-  -NoProfile `
-  -ExecutionPolicy Bypass `
-  -File .\install.ps1
-```
-
-带参数时：
-
-```powershell
-powershell.exe `
-  -NoProfile `
-  -ExecutionPolicy Bypass `
-  -File .\install.ps1 `
-  -NoProxy `
-  -InstallDir "D:\Apps\biliTickerBuy" `
-  -BinDir "D:\Apps\bin"
 ```
 
 ---
@@ -261,31 +165,25 @@ python3 -m pip install --upgrade bilitickerbuy
 
 ## 更新程序
 
-### 命令行安装版本
+### Windows 预构建版本
 
-再次运行对应平台的安装脚本，即可下载并安装最新版本。
+进入程序所在目录，运行安装包中的更新脚本：
 
-Windows PowerShell：
-
-```powershell
-irm https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.ps1 | iex
+```bat
+update.bat
 ```
 
-Linux / macOS：
+也可以前往 [GitHub Releases](https://github.com/mikumifa/biliTickerBuy/releases) 手动下载并替换为最新版本。
+
+### Linux / macOS 命令行安装版本
+
+再次运行安装脚本即可下载并安装最新版本：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.sh | sh
 ```
 
 如果安装目录中包含更新脚本，也可以运行：
-
-Windows：
-
-```powershell
-.\update.bat
-```
-
-Linux / macOS：
 
 ```bash
 ./update.sh
@@ -303,22 +201,16 @@ python -m pip install --upgrade bilitickerbuy
 
 ### 下载失败
 
-安装脚本会在代理下载失败后尝试直连 GitHub。
+Linux / macOS 安装脚本会在代理下载失败后尝试直连 GitHub。
 
 如果仍然失败，可以：
 
 1. 检查当前网络是否能够访问 GitHub。
-2. 更换 GitHub 下载加速前缀。
-3. 禁用代理并尝试直连。
+2. 更换 `GH_PROXY` 加速前缀。
+3. 设置 `GH_PROXY=""` 禁用代理并尝试直连。
 4. 前往 [GitHub Releases](https://github.com/mikumifa/biliTickerBuy/releases) 手动下载安装包。
 
-Windows 禁用代理：
-
-```powershell
-.\install.ps1 -NoProxy
-```
-
-Linux / macOS 禁用代理：
+禁用代理：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.sh |
@@ -335,63 +227,27 @@ curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install
 chmod +x biliTickerBuy
 ```
 
-### Windows 阻止运行脚本
+### Windows 阻止程序运行
 
-如果 PowerShell 提示系统禁止运行脚本，可以使用：
+如果 Windows Defender 或 SmartScreen 弹出安全提示，请先确认程序来自本项目的官方 GitHub 仓库。
 
-```powershell
-powershell.exe `
-  -NoProfile `
-  -ExecutionPolicy Bypass `
-  -File .\install.ps1
-```
+项目官方下载地址：
 
-如果 Windows Defender 或 SmartScreen 弹出安全提示，请先确认安装脚本和程序来自本项目的官方 GitHub 仓库，再选择继续运行。
+[GitHub Releases](https://github.com/mikumifa/biliTickerBuy/releases)
 
-### PowerShell 中无法识别 `irm`
+确认文件来源可信后，再根据系统提示选择是否继续运行。
 
-`irm` 是 `Invoke-RestMethod` 的别名。如果当前环境不支持该别名，可以使用完整命令：
+### Linux / macOS 安装后找不到 `btb`
 
-```powershell
-Invoke-RestMethod `
-  https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.ps1 |
-  Invoke-Expression
-```
+安装脚本默认会将命令目录添加到用户的 `PATH`。
 
-也可以先下载脚本再执行：
+更新后的 `PATH` 通常不会立即应用到已经打开的终端。请关闭并重新打开终端，然后执行：
 
-```powershell
-Invoke-WebRequest `
-  https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.ps1 `
-  -OutFile install.ps1
-
-powershell.exe `
-  -NoProfile `
-  -ExecutionPolicy Bypass `
-  -File .\install.ps1
-```
-
-### 安装完成后找不到 `btb`
-
-安装脚本会将以下目录添加到当前用户的 `PATH`：
-
-```text
-%LOCALAPPDATA%\biliTickerBuy\bin
-```
-
-更新后的 `PATH` 通常不会立即应用到已经打开的终端。
-
-请关闭并重新打开 PowerShell，然后执行：
-
-```powershell
+```bash
 btb
 ```
 
-当前终端也可以使用完整路径启动：
-
-```powershell
-& "$env:LOCALAPPDATA\biliTickerBuy\bin\btb.cmd"
-```
+也可以根据安装完成时显示的提示，使用完整路径运行程序。
 
 ### PyPI 安装后找不到命令
 
