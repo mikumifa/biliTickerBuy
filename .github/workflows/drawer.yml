@@ -29,6 +29,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update contributors README
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: akhilmhdh/contributors-readme-action@v2.3.10
         env:
           GITHUB_TOKEN: ${{ github.token }}

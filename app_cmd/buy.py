@@ -1,5 +1,6 @@
 from argparse import Namespace
 import os
+import re
 
 from util import GlobalStatusInstance, get_application_path
 
@@ -23,12 +24,20 @@ def buy_cmd(args: Namespace):
                 raise SystemExit(f"读取配置文件失败: {exc}") from exc
         return tickets_info, None
 
+    def resolve_log_file_name() -> str:
+        configured_name = os.environ.get("BTB_APP_LOG_NAME", "").strip()
+        if configured_name:
+            return re.sub(r"[^\w.\-]", "_", os.path.basename(configured_name))
+        return f"{uuid.uuid4()}.log"
+
     tickets_info, config_path = load_tickets_info(args.tickets_info)
     filename = os.path.basename(config_path) if config_path else "default"
     filename_only = os.path.basename(filename)
     css_path = os.path.join(get_application_path(), "assets", "style.css")
+    log_file_name = resolve_log_file_name()
     if getattr(args, "web", False):
-        log_file = loguru_config(LOG_DIR, f"{uuid.uuid1()}.log", enable_console=False)
+        log_file = loguru_config(LOG_DIR, log_file_name, enable_console=False)
+        logger.info(f"抢票日志路径：{log_file}")
         from task.endpoint import start_heartbeat_thread
         import gradio_client
         import gradio as gr
@@ -82,7 +91,8 @@ def buy_cmd(args: Namespace):
             to_url=args.endpoint_url,
         )
     else:
-        log_file = loguru_config(LOG_DIR, f"{uuid.uuid1()}.log", enable_console=True)
+        log_file = loguru_config(LOG_DIR, log_file_name, enable_console=True)
+        logger.info(f"抢票日志路径：{log_file}")
     buy(
         tickets_info,
         args.time_start,
