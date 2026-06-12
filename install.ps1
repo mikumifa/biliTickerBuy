@@ -1,47 +1,44 @@
-```bat
-@echo off
-setlocal
+﻿#requires -Version 5.1
+<#
+.SYNOPSIS
+    biliTickerBuy Windows 一键安装脚本。
 
-rem ============================================================
-rem biliTickerBuy Windows installer
-rem
-rem 默认安装目录：
-rem   %LOCALAPPDATA%\biliTickerBuy\app
-rem
-rem 默认命令目录：
-rem   %LOCALAPPDATA%\biliTickerBuy\bin
-rem
-rem 默认使用 GitHub 代理：
-rem   install.bat
-rem
-rem 禁用代理：
-rem   set "GH_PROXY="
-rem   install.bat
-rem
-rem 指定代理：
-rem   set "GH_PROXY=https://gh-proxy.org"
-rem   install.bat
-rem
-rem 自定义安装目录：
-rem   set "INSTALL_DIR=D:\Apps\biliTickerBuy"
-rem   set "BIN_DIR=D:\Apps\bin"
-rem   install.bat
-rem ============================================================
+.DESCRIPTION
+    默认安装目录：
+      %LOCALAPPDATA%\biliTickerBuy\app
 
-where powershell.exe >nul 2>&1
-if errorlevel 1 (
-    echo [biliTickerBuy] 未找到 PowerShell，无法继续安装。
-    exit /b 1
+    默认命令目录：
+      %LOCALAPPDATA%\biliTickerBuy\bin
+
+    默认 GitHub 代理：
+      https://gh-proxy.org
+
+    使用示例：
+
+      直接安装：
+        powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+
+      禁用 GitHub 代理：
+        .\install.ps1 -NoProxy
+
+      指定 GitHub 代理：
+        .\install.ps1 -GhProxy "https://其他代理前缀"
+
+      自定义安装目录：
+        .\install.ps1 `
+          -InstallDir "D:\Apps\biliTickerBuy" `
+          -BinDir "D:\Apps\bin"
+#>
+
+[CmdletBinding()]
+param(
+    [string]$GhProxy,
+    [switch]$NoProxy,
+    [string]$InstallDir,
+    [string]$BinDir
 )
 
-set "BTB_INSTALLER_FILE=%~f0"
-
-powershell.exe ^
-  -NoLogo ^
-  -NoProfile ^
-  -ExecutionPolicy Bypass ^
-  -Command ^
-  "$raw = [System.IO.File]::ReadAllText($env:BTB_INSTALLER_FILE, [System.Text.Encoding]::UTF8); $parts = [regex]::Split($raw, '(?m)^# === POWERSHELL PAYLOAD ===\r?$', 2); if ($parts.Count -ne 2) { throw '安装脚本中缺少 PowerShell payload。' }; Invoke-Expression $parts[1]"
+\r?$', 2); if ($parts.Count -ne 2) { throw '安装脚本中缺少 PowerShell payload。' }; Invoke-Expression $parts[1]"
 
 set "BTB_EXIT_CODE=%ERRORLEVEL%"
 endlocal & exit /b %BTB_EXIT_CODE%
@@ -581,16 +578,33 @@ function Show-NetworkHelp {
     Write-ErrorMessage "可用前缀可前往 https://ghproxy.link/ 查找。"
 }
 
-$GhProxy = Get-EnvironmentValue -Name "GH_PROXY"
+if ($NoProxy) {
+    $GhProxy = ""
+}
+elseif (-not $PSBoundParameters.ContainsKey("GhProxy")) {
+    $environmentProxy = Get-EnvironmentValue -Name "GH_PROXY"
 
-# 环境变量完全未设置时，使用默认代理。
-# 环境变量被显式设置为空字符串时，禁用代理。
-if ($null -eq $GhProxy) {
-    $GhProxy = "https://gh-proxy.org"
+    if ($null -eq $environmentProxy) {
+        $GhProxy = "https://gh-proxy.org"
+    }
+    else {
+        $GhProxy = $environmentProxy
+    }
 }
 
-$InstallDirectory = Get-EnvironmentValue -Name "INSTALL_DIR"
-$BinDirectory = Get-EnvironmentValue -Name "BIN_DIR"
+if (-not $PSBoundParameters.ContainsKey("InstallDir")) {
+    $InstallDirectory = Get-EnvironmentValue -Name "INSTALL_DIR"
+}
+else {
+    $InstallDirectory = $InstallDir
+}
+
+if (-not $PSBoundParameters.ContainsKey("BinDir")) {
+    $BinDirectory = Get-EnvironmentValue -Name "BIN_DIR"
+}
+else {
+    $BinDirectory = $BinDir
+}
 
 if ([string]::IsNullOrWhiteSpace($InstallDirectory)) {
     $InstallDirectory = Join-Path $env:LOCALAPPDATA "biliTickerBuy\app"
