@@ -31,6 +31,11 @@
 ## 💻 快速安装
 
 方法一: 从 github 上[下载](https://github.com/mikumifa/biliTickerBuy/releases)
+Linux / macOS 也可以直接远程安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.sh | sh
+```
 
 方法二: 如果没有您使用系统的已构建版本，请前往[指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
 

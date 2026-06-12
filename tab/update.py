@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import html
+import os
+import platform
+import sys
 from pathlib import Path
 
 import gradio as gr
@@ -13,13 +16,13 @@ from app_update import (
     UPDATE_CHANNEL_STABLE,
     ReleaseInfo,
     UpdateError,
-    download_update_package,
     fetch_update,
 )
 from app_version import get_app_version
 from util import ConfigDB, EXE_PATH
 
 UPDATE_CHANNEL_KEY = "update_channel"
+PACKAGE_NAME = "bilitickerbuy"
 
 
 def _saved_channel() -> str:
@@ -47,6 +50,62 @@ def _format_update(release: ReleaseInfo | None, channel: str) -> str:
     )
 
 
+def _update_script_name() -> str:
+    return "update.bat" if os.name == "nt" else "update.sh"
+
+
+def _runtime_mode() -> str:
+    if getattr(sys, "frozen", False):
+        return "bundled"
+    if sys.argv and sys.argv[0].endswith(".py"):
+        return "source"
+    if (Path(EXE_PATH) / "pyproject.toml").exists():
+        return "source"
+    return "pip"
+
+
+def _source_update_hint() -> str:
+    repo_dir = html.escape(EXE_PATH)
+    return (
+        "当前是源码运行。"
+        f"<br>请先同步源码目录 <code>{repo_dir}</code>，再重新安装依赖或重新启动。"
+        "<br>如果你是用 Git 拉取的仓库，通常执行 <code>git pull</code> 即可。"
+    )
+
+
+def _pip_update_hint(channel: str) -> str:
+    command = f"python -m pip install -U {PACKAGE_NAME}"
+    if channel != UPDATE_CHANNEL_STABLE:
+        command += " --pre"
+    return (
+        f"当前是 `pip` 安装版本。<br>请在终端执行：<code>{html.escape(command)}</code>"
+    )
+
+
+def _bundled_update_hint() -> str:
+    script_name = _update_script_name()
+    script_path = html.escape(os.path.join(EXE_PATH, script_name))
+    system = platform.system().lower()
+    if system == "windows":
+        usage = "关闭程序后，双击运行该 bat，它会自动下载最新版本并覆盖当前目录。"
+    else:
+        usage = "关闭程序后，在终端执行该脚本，它会自动下载最新版本并覆盖当前目录。"
+    return (
+        "当前是打包版。"
+        f"<br>请使用安装目录中的 <code>{script_path}</code> 完成更新。"
+        f"<br>{usage}"
+    )
+
+
+def _update_hint(channel: str) -> str:
+    mode = _runtime_mode()
+    if mode == "bundled":
+        return _bundled_update_hint()
+    if mode == "source":
+        return _source_update_hint()
+    return _pip_update_hint(channel)
+
+
 def check_updates(channel: str):
     ConfigDB.insert(UPDATE_CHANNEL_KEY, channel)
     try:
@@ -58,30 +117,12 @@ def check_updates(channel: str):
             f"<span>{html.escape(str(exc))}</span>"
             "</div>"
         )
-        return message, None, gr.update(visible=False)
+        return message, None, gr.update(value=_update_hint(channel))
 
     return (
         _format_update(release, channel),
         release.to_dict() if release else None,
-        gr.update(visible=release is not None),
-    )
-
-
-def download_update(release_data: dict | None):
-    if not release_data:
-        return gr.update(value=None, visible=False), "请先检查更新。"
-
-    try:
-        release = ReleaseInfo.from_dict(release_data)
-        download_dir = Path(EXE_PATH) / "updates" / release.tag_name
-        package_path = download_update_package(release, download_dir)
-    except (UpdateError, requests.RequestException, OSError, ValueError) as exc:
-        return gr.update(value=None, visible=False), f"下载失败：{exc}"
-
-    return (
-        gr.update(value=str(package_path), visible=True),
-        "更新包下载完成且 SHA-256 校验通过。程序不会自动退出或覆盖文件，"
-        "请结束正在执行的任务后，再解压并替换旧版本。",
+        gr.update(value=_update_hint(channel)),
     )
 
 
@@ -99,21 +140,10 @@ def update_tab(demo: gr.Blocks):
 
     with gr.Row():
         check_button = gr.Button("立即检查", variant="secondary")
-        download_button = gr.Button(
-            "下载并校验更新包", variant="primary", visible=False
-        )
 
-    notice = gr.Markdown(
-        "更新不会静默安装。只有点击下载后才会获取更新包，且校验通过后仍需由你确认并手动替换。"
-    )
-    package_file = gr.File(label="已验证的更新包", visible=False, interactive=False)
+    notice = gr.Markdown(_update_hint(_saved_channel()))
 
-    check_outputs = [status, release_state, download_button]
+    check_outputs = [status, release_state, notice]
     demo.load(check_updates, inputs=channel, outputs=check_outputs)
     check_button.click(check_updates, inputs=channel, outputs=check_outputs)
     channel.change(check_updates, inputs=channel, outputs=check_outputs)
-    download_button.click(
-        download_update,
-        inputs=release_state,
-        outputs=[package_file, notice],
-    )
