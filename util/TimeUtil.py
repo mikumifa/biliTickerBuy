@@ -29,7 +29,7 @@ class TimeUtil:
         if response is None:
             logger.error("无法获取NTP时间")
             return "error"
-        logger.info("时间同步成功, 将使用" + self.ntp_server + "时间")
+        logger.info("使用" + self.ntp_server + "时间")
         # response.offset 为[NTP时钟源 - 设备时钟]的偏差, 使用时需要取反
         return format(-(response.offset), ".5f")
 
@@ -42,7 +42,6 @@ class TimeUtil:
             logger.warning("NTP时间同步失败, 使用本地时间")
         else:
             self.timeoffset = float(_timeoffset)
-        logger.info("设置时间偏差为: " + str(self.timeoffset) + "秒")
 
     def get_timeoffset(self) -> float:
         """

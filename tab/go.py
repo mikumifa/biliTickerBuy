@@ -3,19 +3,27 @@ import json
 import os
 import platform
 import time
+import uuid
 import gradio as gr
 from gradio import SelectData
 from loguru import logger
 import requests
 
-from interface.project import fetch_project_payload
 from task.buy import buy_new_terminal
-import util
-from util import ConfigDB, Endpoint, GlobalStatusInstance, time_service
+from util import ConfigDB, Endpoint, GlobalStatusInstance, LOG_DIR, time_service
 
 
 def withTimeString(string):
     return f"{datetime.datetime.now()}: {string}"
+
+
+def _build_task_log_path(filename: str) -> str:
+    filename_only = os.path.splitext(os.path.basename(filename))[0]
+    safe_name = "".join(
+        ch if ch.isalnum() or ch in "-_." else "_" for ch in filename_only
+    )
+    safe_name = safe_name.strip("._") or "task"
+    return os.path.join(LOG_DIR, f"{safe_name}_{uuid.uuid4().hex[:8]}.log")
 
 
 def _parse_sale_start(value) -> datetime.datetime | None:
@@ -27,26 +35,6 @@ def _parse_sale_start(value) -> datetime.datetime | None:
                 return datetime.datetime.strptime(value, fmt)
             except ValueError:
                 continue
-    return None
-
-
-def _fetch_project_detail(project_id: int) -> dict:
-    return fetch_project_payload(request=util.main_request, project_id=project_id)
-
-
-def _resolve_sale_start(project_detail: dict, sku_id: int) -> datetime.datetime | None:
-    for screen in project_detail.get("screen_list", []):
-        if not isinstance(screen, dict):
-            continue
-        for ticket in screen.get("ticket_list", []):
-            if not isinstance(ticket, dict):
-                continue
-            if int(ticket.get("id", 0)) != sku_id:
-                continue
-            sale_start = _parse_sale_start(ticket.get("sale_start"))
-            if sale_start is None:
-                sale_start = _parse_sale_start(ticket.get("saleStart"))
-            return sale_start
     return None
 
 
@@ -167,19 +155,12 @@ def go_tab(demo: gr.Blocks):
                 with open(filepath, "r", encoding="utf-8") as file:
                     config = json.load(file)
 
-                try:
-                    project_id = int(config["project_id"])
-                    sku_id = int(config["sku_id"])
-                except (KeyError, TypeError, ValueError) as exc:
-                    raise gr.Error(
-                        f"{os.path.basename(filepath)} 缺少 project_id 或 sku_id"
-                    ) from exc
-
-                project_detail = _fetch_project_detail(project_id)
-                sale_start = _resolve_sale_start(project_detail, sku_id)
+                sale_start = _parse_sale_start(
+                    config.get("sale_start", config.get("saleStart"))
+                )
                 if sale_start is None:
                     raise gr.Error(
-                        f"{os.path.basename(filepath)} 未找到对应票档的 sale_start，请重新生成该配置。"
+                        f"{os.path.basename(filepath)} 缺少有效的 sale_start，请重新生成该配置。"
                     )
                 sale_start_items.append((os.path.basename(filepath), sale_start))
 
@@ -187,33 +168,17 @@ def go_tab(demo: gr.Blocks):
             unique_sale_starts = sorted(
                 {sale_start for _, sale_start in sale_start_items}
             )
-            sale_start_lines = "\n".join(
-                f"{filename}: {sale_start.strftime('%Y-%m-%d %H:%M:%S')}"
-                for filename, sale_start in sale_start_items
-            )
-
             if latest_sale_start <= adjusted_now:
-                gr.Warning(
-                    "所有配置对应票档都已经过起售时间，不自动填写抢票时间。\n"
-                    f"当前校准后时间: {adjusted_now.strftime('%Y-%m-%d %H:%M:%S')}\n{sale_start_lines}"
-                )
+                gr.Warning("已经过起售时间，不需要填写抢票时间。\n")
                 return ""
 
             autofill_value = latest_sale_start.strftime("%Y-%m-%dT%H:%M:%S")
             if len(unique_sale_starts) == 1:
-                gr.Info(
-                    "已自动填写抢票时间。\n"
-                    f"自动填写值: {latest_sale_start.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"当前校准后时间: {adjusted_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"{sale_start_lines}"
-                )
+                gr.Info("已自动填写抢票时间。\n")
                 return autofill_value
 
             gr.Warning(
                 "抢票的起始时间不一样，已自动填写为最晚的起售时间，确保所有票档届时都已开始抢票。\n"
-                f"自动填写值: {latest_sale_start.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"当前校准后时间: {adjusted_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"{sale_start_lines}"
             )
             return autofill_value
 
@@ -351,13 +316,12 @@ def go_tab(demo: gr.Blocks):
                     🛠️ 追求高度自由/有自建服务器/需要在抢票成功时通过手机播放铃声时，建议用 **ntfy** 或 **Server酱³**
                     """
                 )
-                with gr.Row(elem_classes="btb-inline-actions !justify-end"):
-                    serverchan_ui = gr.Textbox(
-                        value=(ConfigDB.get("serverchanKey") or ""),
-                        label="Server酱ᵀᵘʳᵇᵒ的SendKey｜输入完成后，回车键保存",
-                        interactive=True,
-                        info="https://sct.ftqq.com/",
-                    )
+                serverchan_ui = gr.Textbox(
+                    value=(ConfigDB.get("serverchanKey") or ""),
+                    label="Server酱ᵀᵘʳᵇᵒ的SendKey｜输入完成后，回车键保存",
+                    interactive=True,
+                    info="https://sct.ftqq.com/",
+                )
 
                 serverchan3_ui = gr.Textbox(
                     value=(ConfigDB.get("serverchan3ApiUrl") or ""),
@@ -380,73 +344,77 @@ def go_tab(demo: gr.Blocks):
                     info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)；自托管服务请输入完整推送地址，例如: https://bark.example.app/jmGYK*****',
                 )
 
-            with gr.Accordion(
-                label="Ntfy配置",
-                open=False,
-                elem_classes="!rounded-2xl !border !border-slate-200 !bg-slate-50 !shadow-sm",
-            ):
-                ntfy_ui = gr.Textbox(
-                    value=(ConfigDB.get("ntfyUrl") or ""),
-                    label="Ntfy服务器URL｜输入完成后，回车键保存",
-                    interactive=True,
-                    info="例如: https://ntfy.sh/your-topic",
-                )
-
                 with gr.Accordion(
-                    label="Ntfy认证配置[可选]",
+                    label="Ntfy配置",
                     open=False,
-                    elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+                    elem_classes="!rounded-2xl !border !border-slate-200 !bg-slate-50 !shadow-sm",
                 ):
-                    with gr.Row(elem_classes="btb-inline-actions !justify-end"):
-                        ntfy_username_ui = gr.Textbox(
-                            value=(ConfigDB.get("ntfyUsername") or ""),
-                            label="Ntfy用户名",
-                            interactive=True,
-                            info="如果你的Ntfy服务器需要认证",
-                        )
-
-                        ntfy_password_ui = gr.Textbox(
-                            value=(ConfigDB.get("ntfyPassword") or ""),
-                            label="Ntfy密码",
-                            interactive=True,
-                            type="password",
-                        )
-
-                    def test_ntfy_connection():
-                        url = ConfigDB.get("ntfyUrl")
-                        username = ConfigDB.get("ntfyUsername")
-                        password = ConfigDB.get("ntfyPassword")
-
-                        if not url:
-                            return "错误: 请先设置Ntfy服务器URL"
-
-                        from util import NtfyUtil
-
-                        success, message = NtfyUtil.test_connection(
-                            url, username, password
-                        )
-
-                        if success:
-                            return f"成功: {message}"
-                        else:
-                            return f"错误: {message}"
-
-                    test_ntfy_button = gr.Button(
-                        "测试Ntfy连接",
-                        elem_classes="btb-soft-button",
-                    )
-                    test_ntfy_result = gr.Textbox(label="测试结果", interactive=False)
-                    test_ntfy_button.click(
-                        fn=test_ntfy_connection, inputs=[], outputs=test_ntfy_result
+                    ntfy_ui = gr.Textbox(
+                        value=(ConfigDB.get("ntfyUrl") or ""),
+                        label="Ntfy服务器URL｜输入完成后，回车键保存",
+                        interactive=True,
+                        info="例如: https://ntfy.sh/your-topic",
                     )
 
-            # 推送测试按钮区域
-            with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
-                test_all_push_button = gr.Button(
-                    "🧪 测试所有推送",
-                    elem_classes="!rounded-xl !border !border-slate-300 !bg-white !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
-                )
-                test_push_result = gr.Textbox(label="推送测试结果", interactive=False)
+                    with gr.Accordion(
+                        label="Ntfy认证配置[可选]",
+                        open=False,
+                        elem_classes="!rounded-2xl !border !border-slate-200 !bg-white !shadow-sm",
+                    ):
+                        with gr.Row(elem_classes="btb-inline-actions !justify-end"):
+                            ntfy_username_ui = gr.Textbox(
+                                value=(ConfigDB.get("ntfyUsername") or ""),
+                                label="Ntfy用户名",
+                                interactive=True,
+                                info="如果你的Ntfy服务器需要认证",
+                            )
+
+                            ntfy_password_ui = gr.Textbox(
+                                value=(ConfigDB.get("ntfyPassword") or ""),
+                                label="Ntfy密码",
+                                interactive=True,
+                                type="password",
+                            )
+
+                        def test_ntfy_connection():
+                            url = ConfigDB.get("ntfyUrl")
+                            username = ConfigDB.get("ntfyUsername")
+                            password = ConfigDB.get("ntfyPassword")
+
+                            if not url:
+                                return "错误: 请先设置Ntfy服务器URL"
+
+                            from util import NtfyUtil
+
+                            success, message = NtfyUtil.test_connection(
+                                url, username, password
+                            )
+
+                            if success:
+                                return f"成功: {message}"
+                            else:
+                                return f"错误: {message}"
+
+                        test_ntfy_button = gr.Button(
+                            "测试Ntfy连接",
+                            elem_classes="btb-soft-button",
+                        )
+                        test_ntfy_result = gr.Textbox(
+                            label="测试结果", interactive=False
+                        )
+                        test_ntfy_button.click(
+                            fn=test_ntfy_connection, inputs=[], outputs=test_ntfy_result
+                        )
+
+                # 推送测试按钮区域
+                with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
+                    test_all_push_button = gr.Button(
+                        "🧪 测试所有推送",
+                        elem_classes="!rounded-xl !border !border-slate-300 !bg-white !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
+                    )
+                    test_push_result = gr.Textbox(
+                        label="推送测试结果", interactive=False
+                    )
 
             def inner_input_serverchan(x):
                 ConfigDB.insert("serverchanKey", x)
@@ -630,7 +598,9 @@ def go_tab(demo: gr.Blocks):
                     left_task_num = len(files) - idx
                     assigned_proxies = split_proxies(https_proxy_list, left_task_num)
 
-                buy_new_terminal(
+                log_file_path = _build_task_log_path(filename_only)
+                logger.info(f"任务 {filename_only} 的日志文件：{log_file_path}")
+                proc = buy_new_terminal(
                     endpoint_url=demo.local_url,
                     tickets_info=content,
                     time_start=time_start,
@@ -646,6 +616,13 @@ def go_tab(demo: gr.Blocks):
                     https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
                     terminal_ui=terminal_ui,
                     show_random_message=not hide_random_message,
+                    log_file_path=log_file_path,
+                )
+                GlobalStatusInstance.register_task_log(
+                    title=filename_only,
+                    mode=terminal_ui,
+                    log_file=log_file_path,
+                    pid=proc.pid,
                 )
                 assigned_proxies_next_idx += 1
         gr.Info("正在启动，请等待抢票页面弹出。")

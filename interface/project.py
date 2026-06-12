@@ -136,7 +136,6 @@ def _fetch_project_payload_old(*, request: Any, project_id: int) -> dict[str, An
 
 
 def fetch_project_payload(
-    *,
     request: Any,
     project_id: int,
 ) -> dict[str, Any]:

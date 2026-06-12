@@ -105,9 +105,19 @@ Endpoint = namedtuple("Endpoint", ["endpoint", "detail", "update_at"])
 
 
 @dataclass
+class TaskLogEntry:
+    title: str
+    mode: str
+    log_file: str
+    created_at: float
+    pid: int | None = None
+
+
+@dataclass
 class GlobalStatus:
     nowTask: str = "none"
     endpoint_details: dict[str, Endpoint] = field(default_factory=dict)
+    task_logs: list[TaskLogEntry] = field(default_factory=list)
 
     def available_endpoints(self) -> list[Endpoint]:
         return [
@@ -115,6 +125,24 @@ class GlobalStatus:
             for endpoint, t in self.endpoint_details.items()
             if time.time() - t.update_at < 4
         ]
+
+    def register_task_log(
+        self, title: str, mode: str, log_file: str, pid: int | None = None
+    ) -> None:
+        self.task_logs.insert(
+            0,
+            TaskLogEntry(
+                title=title,
+                mode=mode,
+                log_file=log_file,
+                created_at=time.time(),
+                pid=pid,
+            ),
+        )
+        self.task_logs = self.task_logs[:50]
+
+    def get_task_logs(self) -> list[TaskLogEntry]:
+        return list(self.task_logs)
 
 
 GlobalStatusInstance = GlobalStatus()

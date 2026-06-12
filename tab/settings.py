@@ -14,7 +14,6 @@ import gradio as gr
 import qrcode
 import requests
 import util
-from gradio_calendar import Calendar
 from loguru import logger
 
 from interface.common import _format_sale_status
@@ -353,9 +352,9 @@ def on_submit_ticket_id(num):
                 ),
                 visible=True,
             ),
-            gr.update(visible=True, value=sales_dates[0])
+            gr.update(choices=sales_dates, visible=True, value=sales_dates[0])
             if sales_dates_show
-            else gr.update(visible=False),
+            else gr.update(choices=[], visible=False, value=None),
         ]
     except gr.Error as exc:
         gr.Warning(exc.message)
@@ -425,6 +424,7 @@ def on_submit_all(
             "project_id": ticket_cur["project_id"],
             "is_hot_project": ticket_cur["ticket"]["is_hot_project"],
             "sku_id": ticket_cur["ticket"]["id"],
+            "sale_start": ticket_cur["ticket"].get("sale_start", ""),
             "order_type": 1,
             "pay_money": ticket_cur["ticket"]["price"] * len(people_indices),
             "buyer_info": people_cur,
@@ -548,7 +548,7 @@ def setting_tab():
                     )
                     qr.add_data(url)
                     qr.make(fit=True)
-                    path = os.path.join(TEMP_PATH, "login_qrcode.png")
+                    path = os.path.join(TEMP_PATH, f"login_qrcode_{qrcode_key}.png")
                     qr.make_image(
                         fill_color="black", back_color="white"
                     ).get_image().save(path)
@@ -593,6 +593,23 @@ def setting_tab():
         def _get_account_choices():
             accounts = util.main_request.cookieManager.get_accounts()
             return [f"{a.uid} - {a.name} (Lv{a.level})" for a in accounts]
+
+        def _get_default_account_choice() -> str | None:
+            accounts = util.main_request.cookieManager.get_accounts()
+            if not accounts:
+                return None
+
+            active_uid = util.main_request.cookieManager.get_cookies_value("DedeUserID")
+            if active_uid is not None:
+                active_uid = str(active_uid)
+                for account in accounts:
+                    if account.uid == active_uid:
+                        return f"{account.uid} - {account.name} (Lv{account.level})"
+
+            first_account = accounts[0]
+            return (
+                f"{first_account.uid} - {first_account.name} (Lv{first_account.level})"
+            )
 
         def _find_uid_from_choice(choice: str) -> str:
             if not choice:
@@ -664,6 +681,7 @@ def setting_tab():
                     account_dropdown = gr.Dropdown(
                         label="当前账号",
                         choices=_get_account_choices(),
+                        value=_get_default_account_choice,
                         interactive=True,
                         allow_custom_value=False,
                         filterable=False,
@@ -720,7 +738,10 @@ def setting_tab():
                             gr.update(value=GLOBAL_COOKIE_PATH),
                             gr.update(visible=False),
                             gr.update(visible=False),
-                            gr.update(choices=new_choices, value=new_choices[-1]),
+                            gr.update(
+                                choices=new_choices,
+                                value=_get_default_account_choice(),
+                            ),
                             gr.update(),
                         ]
                     except Exception as exc:
@@ -803,7 +824,10 @@ def setting_tab():
                     )
                     return [
                         gr.update(),
-                        gr.update(choices=new_choices, value=None),
+                        gr.update(
+                            choices=new_choices,
+                            value=_get_default_account_choice(),
+                        ),
                         gr.update(),
                         gr.update(),
                     ]
@@ -898,9 +922,9 @@ def setting_tab():
                         type="index",
                         info="请仔细确认票档和起售时间",
                     )
-                    data_ui = Calendar(
-                        type="string",
+                    date_ui = gr.Dropdown(
                         label="选择日期",
+                        choices=[],
                         info="若活动有多日期场次，请先切换日期",
                         interactive=True,
                     )
@@ -967,7 +991,7 @@ def setting_tab():
                     address_ui,
                     inner,
                     info_ui,
-                    data_ui,
+                    date_ui,
                 ],
                 show_progress="hidden",
             )
@@ -987,7 +1011,7 @@ def setting_tab():
                     if not screens:
                         gr.Warning("该日期暂无票务信息。")
                         return [
-                            gr.update(value=_date, visible=True),
+                            gr.update(choices=sales_dates, value=_date, visible=True),
                             gr.update(choices=[]),
                             gr.update(value="", visible=False),
                         ]
@@ -1017,7 +1041,7 @@ def setting_tab():
                             )
 
                     return [
-                        gr.update(value=_date, visible=True),
+                        gr.update(choices=sales_dates, value=_date, visible=True),
                         gr.update(choices=ticket_str_list),
                         gr.update(
                             value=_render_ticket_info_html(
@@ -1042,8 +1066,8 @@ def setting_tab():
                         gr.update(value="", visible=False),
                     ]
 
-            data_ui.change(
+            date_ui.change(
                 fn=on_submit_data,
-                inputs=data_ui,
-                outputs=[data_ui, ticket_info_ui, info_ui],
+                inputs=date_ui,
+                outputs=[date_ui, ticket_info_ui, info_ui],
             )
