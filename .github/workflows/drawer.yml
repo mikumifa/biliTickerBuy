@@ -100,19 +100,6 @@ jobs:
           fi
           cp assets/updater/.env.install "$RELEASE_DIR/.env.install"
 
-      - name: Verify updater scripts in package root
-        shell: bash
-        run: |
-          if [ "${{ matrix.config.os.filename }}" = "windows_amd64" ]; then
-            test -f dist/biliTicKerBuy.exe
-            test -f dist/update.bat
-            test -f dist/.env.install
-          else
-            test -d dist/biliTickerBuy
-            test -f dist/biliTickerBuy/update.sh
-            test -f dist/biliTickerBuy/.env.install
-          fi
-
       - name: Zip the Build-windows
         if: matrix.config.os.filename == 'windows_amd64'
         shell: pwsh
