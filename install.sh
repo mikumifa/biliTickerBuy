@@ -3,17 +3,20 @@
 set -eu
 
 REPO="mikumifa/biliTickerBuy"
+
 UNAME_S="$(uname -s)"
 UNAME_M="$(uname -m)"
 
 # 未设置 GH_PROXY 时使用默认代理。
-# 显式设置 GH_PROXY="" 时禁用代理：
-# GH_PROXY="" sh install.sh
+#
+# 显式设置为空可禁用代理：
+#   GH_PROXY="" sh install.sh
 GH_PROXY="${GH_PROXY-https://gh-proxy.org}"
 
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/share/biliTickerBuy}"
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 LAUNCHER_PATH="$BIN_DIR/btb"
+
 API_URL="https://api.github.com/repos/$REPO/releases/latest"
 
 PATH_MARKER_BEGIN="# >>> biliTickerBuy PATH >>>"
@@ -67,53 +70,84 @@ http_get() {
 
   if command -v curl >/dev/null 2>&1; then
     if [ -n "$output" ]; then
-      curl \
+      partial_output="${output}.part"
+      rm -f "$partial_output"
+
+      if curl \
         --fail \
         --location \
         --progress-bar \
         --connect-timeout 15 \
         --retry 2 \
+        --header 'Accept: application/octet-stream' \
         --header 'User-Agent: biliTickerBuy-installer' \
-        --output "$output" \
+        --output "$partial_output" \
         "$url"
-    else
-      curl \
-        --fail \
-        --location \
-        --silent \
-        --show-error \
-        --connect-timeout 15 \
-        --retry 2 \
-        --header 'User-Agent: biliTickerBuy-installer' \
-        "$url"
+      then
+        mv -f "$partial_output" "$output"
+        return 0
+      fi
+
+      rm -f "$partial_output"
+      return 1
     fi
-  elif command -v wget >/dev/null 2>&1; then
-    if [ -n "$output" ]; then
-      wget \
-        --output-document="$output" \
-        --timeout=15 \
-        --tries=2 \
-        --header='User-Agent: biliTickerBuy-installer' \
-        "$url"
-    else
-      wget \
-        --quiet \
-        --output-document=- \
-        --timeout=15 \
-        --tries=2 \
-        --header='User-Agent: biliTickerBuy-installer' \
-        "$url"
-    fi
-  else
-    echo "缺少必要命令：curl 或 wget" >&2
-    return 1
+
+    curl \
+      --fail \
+      --location \
+      --silent \
+      --show-error \
+      --connect-timeout 15 \
+      --retry 2 \
+      --header 'Accept: application/vnd.github+json' \
+      --header 'User-Agent: biliTickerBuy-installer' \
+      "$url"
+
+    return $?
   fi
+
+  if command -v wget >/dev/null 2>&1; then
+    if [ -n "$output" ]; then
+      partial_output="${output}.part"
+      rm -f "$partial_output"
+
+      if wget \
+        --output-document="$partial_output" \
+        --timeout=15 \
+        --tries=2 \
+        --header='Accept: application/octet-stream' \
+        --header='User-Agent: biliTickerBuy-installer' \
+        "$url"
+      then
+        mv -f "$partial_output" "$output"
+        return 0
+      fi
+
+      rm -f "$partial_output"
+      return 1
+    fi
+
+    wget \
+      --quiet \
+      --output-document=- \
+      --timeout=15 \
+      --tries=2 \
+      --header='Accept: application/vnd.github+json' \
+      --header='User-Agent: biliTickerBuy-installer' \
+      "$url"
+
+    return $?
+  fi
+
+  echo "缺少必要命令：curl 或 wget" >&2
+  return 1
 }
 
 request_release_json() {
-  # GitHub API 必须优先直连。
-  # gh-proxy.org 等代理主要用于 github.com Release 文件下载，
-  # 通常不支持 api.github.com。
+  # GitHub API 必须直连。
+  #
+  # gh-proxy.org 等下载代理通常只支持 github.com 文件，
+  # 不支持 api.github.com。
   if release_json="$(http_get "$API_URL")"; then
     printf '%s' "$release_json"
     return 0
@@ -125,29 +159,99 @@ request_release_json() {
   return 1
 }
 
+is_valid_zip() {
+  zip_file="$1"
+
+  [ -s "$zip_file" ] || return 1
+
+  # ZIP 文件常见开头：
+  #
+  # 50 4b 03 04：普通 ZIP
+  # 50 4b 05 06：空 ZIP
+  # 50 4b 07 08：流式或分卷 ZIP
+  zip_signature="$(
+    LC_ALL=C od -An -tx1 -N4 "$zip_file" 2>/dev/null |
+      tr -d ' \n'
+  )"
+
+  case "$zip_signature" in
+    504b0304|504b0506|504b0708)
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  unzip -tq "$zip_file" >/dev/null 2>&1
+}
+
+print_invalid_download() {
+  downloaded_file="$1"
+  source_url="$2"
+
+  echo "下载到的文件不是有效 ZIP：$source_url" >&2
+
+  if [ -f "$downloaded_file" ]; then
+    file_size="$(
+      wc -c <"$downloaded_file" 2>/dev/null |
+        tr -d ' '
+    )"
+
+    echo "文件大小：${file_size:-未知} 字节" >&2
+
+    if command -v file >/dev/null 2>&1; then
+      file_type="$(file -b "$downloaded_file" 2>/dev/null || true)"
+      echo "文件类型：${file_type:-未知}" >&2
+    fi
+
+    echo "响应内容开头：" >&2
+
+    LC_ALL=C head -c 300 "$downloaded_file" 2>/dev/null |
+      tr '\000-\010\013\014\016-\037' ' ' >&2 || true
+
+    printf '\n' >&2
+  fi
+}
+
 download_release_asset() {
   asset_url="$1"
   output="$2"
 
-  # Release 文件优先通过 GH_PROXY 下载。
+  rm -f "$output" "${output}.part"
+
+  # Release 文件优先通过下载代理。
   if [ -n "${GH_PROXY:-}" ]; then
     proxy_url="$(resolve_url "$asset_url")"
 
-    echo "[biliTickerBuy] 正在通过代理下载..." >&2
+    echo "[biliTickerBuy] 正在通过代理下载..."
+    echo "[biliTickerBuy] 下载地址：$proxy_url"
 
     if http_get "$proxy_url" "$output"; then
+      if is_valid_zip "$output"; then
+        return 0
+      fi
+
+      print_invalid_download "$output" "$proxy_url"
+    else
+      echo "[biliTickerBuy] 代理请求失败。" >&2
+    fi
+
+    echo "[biliTickerBuy] 代理未返回有效安装包，正在尝试直连..."
+    rm -f "$output" "${output}.part"
+  fi
+
+  echo "[biliTickerBuy] 正在直连 GitHub 下载..."
+  echo "[biliTickerBuy] 下载地址：$asset_url"
+
+  if http_get "$asset_url" "$output"; then
+    if is_valid_zip "$output"; then
       return 0
     fi
 
-    echo "[biliTickerBuy] 代理下载失败，正在尝试直连..." >&2
-    rm -f "$output"
+    print_invalid_download "$output" "$asset_url"
   fi
 
-  if http_get "$asset_url" "$output"; then
-    return 0
-  fi
-
-  rm -f "$output"
+  rm -f "$output" "${output}.part"
   return 1
 }
 
@@ -197,17 +301,18 @@ find_package_binary() {
     head -n 1
 }
 
+cleanup() {
+  rm -rf "$TMP_DIR"
+}
+
 require_cmd unzip
+require_cmd od
 
 TMP_DIR="$(mktemp -d)"
 ZIP_PATH="$TMP_DIR/biliTickerBuy.zip"
 EXTRACT_DIR="$TMP_DIR/extract"
 
 mkdir -p "$EXTRACT_DIR"
-
-cleanup() {
-  rm -rf "$TMP_DIR"
-}
 
 trap cleanup EXIT HUP INT TERM
 
@@ -218,8 +323,9 @@ if ! RELEASE_JSON="$(request_release_json)"; then
   exit 1
 fi
 
-# 将各个 asset 对象拆分到独立行，然后匹配当前平台。
-# 这里保留轻量级 sed 解析方式，避免强制依赖 jq。
+# 将 JSON 中每个 asset 对象拆到单独一行，然后匹配当前平台。
+#
+# 不强制依赖 jq，兼容普通 Linux/macOS 环境。
 ASSET_URL="$(
   printf '%s' "$RELEASE_JSON" |
     tr -d '\n' |
@@ -248,7 +354,7 @@ if [ -z "$RELEASE_TAG" ]; then
 fi
 
 echo "[biliTickerBuy] 最新版本：$RELEASE_TAG"
-echo "[biliTickerBuy] 正在下载安装包..."
+echo "[biliTickerBuy] 当前平台：$PLATFORM_KEY"
 
 if ! download_release_asset "$ASSET_URL" "$ZIP_PATH"; then
   echo "安装包下载失败：$ASSET_URL" >&2
@@ -256,26 +362,29 @@ if ! download_release_asset "$ASSET_URL" "$ZIP_PATH"; then
   exit 1
 fi
 
-if [ ! -s "$ZIP_PATH" ]; then
-  echo "下载到的安装包为空：$ZIP_PATH" >&2
+if ! is_valid_zip "$ZIP_PATH"; then
+  echo "下载到的文件不是有效的 ZIP 安装包。" >&2
+  print_invalid_download "$ZIP_PATH" "$ASSET_URL"
   exit 1
 fi
 
 echo "[biliTickerBuy] 正在解压安装包..."
 
 if ! unzip -oq "$ZIP_PATH" -d "$EXTRACT_DIR"; then
-  echo "安装包解压失败。" >&2
+  echo "安装包解压失败：$ZIP_PATH" >&2
   exit 1
 fi
 
-# 兼容两种压缩包结构：
+# 兼容以下压缩包结构：
 #
-# 1. 文件位于压缩包根目录：
+# 1. 文件直接位于根目录：
+#
 #    biliTickerBuy
 #    update.sh
 #    .env.install
 #
 # 2. 文件位于顶层目录：
+#
 #    biliTickerBuy/
 #      biliTickerBuy
 #      update.sh
@@ -298,15 +407,20 @@ else
   PACKAGE_DIR="$(dirname "$BINARY_PATH")"
 fi
 
+echo "[biliTickerBuy] 找到安装文件：$PACKAGE_DIR"
+
 mkdir -p "$(dirname "$INSTALL_DIR")"
 mkdir -p "$BIN_DIR"
 
-# 先安装到临时目录，全部复制成功后再替换正式目录。
 INSTALL_DIR_NEW="${INSTALL_DIR}.new"
 INSTALL_DIR_OLD="${INSTALL_DIR}.old"
 
-rm -rf "$INSTALL_DIR_NEW" "$INSTALL_DIR_OLD"
+rm -rf "$INSTALL_DIR_NEW"
+rm -rf "$INSTALL_DIR_OLD"
+
 mkdir -p "$INSTALL_DIR_NEW"
+
+echo "[biliTickerBuy] 正在复制安装文件..."
 
 if ! cp -R "$PACKAGE_DIR/." "$INSTALL_DIR_NEW/"; then
   echo "复制安装文件失败。" >&2
@@ -326,10 +440,14 @@ if [ -f "$INSTALL_DIR_NEW/update.sh" ]; then
   chmod +x "$INSTALL_DIR_NEW/update.sh"
 fi
 
-# 将安装成功的 Release 版本写入安装目录，
-# 供 update.sh 后续判断是否需要更新。
-printf '%s\n' "$RELEASE_TAG" >"$INSTALL_DIR_NEW/.version"
+# 写入当前安装版本，供 update.sh 后续比较。
+if ! printf '%s\n' "$RELEASE_TAG" >"$INSTALL_DIR_NEW/.version"; then
+  echo "写入版本文件失败。" >&2
+  rm -rf "$INSTALL_DIR_NEW"
+  exit 1
+fi
 
+# 备份现有安装目录。
 if [ -e "$INSTALL_DIR" ]; then
   if ! mv "$INSTALL_DIR" "$INSTALL_DIR_OLD"; then
     echo "无法备份现有安装目录：$INSTALL_DIR" >&2
@@ -338,11 +456,16 @@ if [ -e "$INSTALL_DIR" ]; then
   fi
 fi
 
+# 使用新目录替换正式安装目录。
 if ! mv "$INSTALL_DIR_NEW" "$INSTALL_DIR"; then
   echo "无法替换安装目录：$INSTALL_DIR" >&2
 
+  rm -rf "$INSTALL_DIR_NEW"
+
   if [ -e "$INSTALL_DIR_OLD" ]; then
-    mv "$INSTALL_DIR_OLD" "$INSTALL_DIR" 2>/dev/null || true
+    if ! mv "$INSTALL_DIR_OLD" "$INSTALL_DIR"; then
+      echo "警告：恢复旧安装目录失败：$INSTALL_DIR_OLD" >&2
+    fi
   fi
 
   exit 1
@@ -350,7 +473,10 @@ fi
 
 rm -rf "$INSTALL_DIR_OLD"
 
+# 创建命令行启动器。
 LAUNCHER_NEW="${LAUNCHER_PATH}.new"
+
+rm -f "$LAUNCHER_NEW"
 
 cat >"$LAUNCHER_NEW" <<EOF
 #!/usr/bin/env sh
