@@ -141,15 +141,49 @@ http_get "$(resolve_url "$ASSET_URL")" "$ZIP_PATH"
 echo "[biliTickerBuy] 正在解压安装包..."
 unzip -oq "$ZIP_PATH" -d "$EXTRACT_DIR"
 
-if [ ! -d "$EXTRACT_DIR/biliTickerBuy" ]; then
-  echo "安装包内容不符合预期，缺少 biliTickerBuy 目录。" >&2
-  exit 1
+# 兼容以下两种压缩包结构：
+#
+# 1. 文件直接位于压缩包根目录：
+#    biliTickerBuy
+#    update.sh
+#
+# 2. 文件位于单独的顶层目录：
+#    biliTickerBuy/
+#      biliTickerBuy
+#      update.sh
+
+if [ -f "$EXTRACT_DIR/biliTickerBuy" ]; then
+  # 压缩包内容直接位于根目录
+  PACKAGE_DIR="$EXTRACT_DIR"
+elif [ -f "$EXTRACT_DIR/biliTickerBuy/biliTickerBuy" ]; then
+  # 顶层目录固定名为 biliTickerBuy
+  PACKAGE_DIR="$EXTRACT_DIR/biliTickerBuy"
+else
+  # 尝试查找位于任意一级目录下的可执行文件
+  BINARY_PATH="$(
+    find "$EXTRACT_DIR" \
+      -mindepth 1 \
+      -maxdepth 3 \
+      -type f \
+      -name biliTickerBuy \
+      -print \
+      | head -n 1
+  )"
+
+  if [ -z "$BINARY_PATH" ]; then
+    echo "安装包内容不符合预期，未找到 biliTickerBuy 可执行文件。" >&2
+    echo "安装包内容如下：" >&2
+    find "$EXTRACT_DIR" -maxdepth 3 -print >&2
+    exit 1
+  fi
+
+  PACKAGE_DIR="$(dirname "$BINARY_PATH")"
 fi
 
 mkdir -p "$(dirname "$INSTALL_DIR")" "$BIN_DIR"
 rm -rf "$INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
-cp -R "$EXTRACT_DIR/biliTickerBuy/." "$INSTALL_DIR/"
+cp -R "$PACKAGE_DIR/." "$INSTALL_DIR/"
 
 if [ -f "$INSTALL_DIR/update.sh" ]; then
   chmod +x "$INSTALL_DIR/update.sh"
