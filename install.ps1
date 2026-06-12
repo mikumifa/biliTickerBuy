@@ -4,46 +4,27 @@
     biliTickerBuy Windows 一键安装脚本。
 
 .DESCRIPTION
-    默认安装目录：
-      %LOCALAPPDATA%\biliTickerBuy\app
+    可通过以下方式直接安装：
 
-    默认命令目录：
-      %LOCALAPPDATA%\biliTickerBuy\bin
+        irm https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.ps1 | iex
 
-    默认 GitHub 代理：
-      https://gh-proxy.org
+    也可以下载后执行：
 
-    使用示例：
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
-      直接安装：
-        powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+    本地执行时支持参数：
 
-      禁用 GitHub 代理：
         .\install.ps1 -NoProxy
-
-      指定 GitHub 代理：
         .\install.ps1 -GhProxy "https://其他代理前缀"
-
-      自定义安装目录：
-        .\install.ps1 `
-          -InstallDir "D:\Apps\biliTickerBuy" `
-          -BinDir "D:\Apps\bin"
+        .\install.ps1 -InstallDir "D:\Apps\biliTickerBuy" -BinDir "D:\Apps\bin"
 #>
 
-[CmdletBinding()]
 param(
     [string]$GhProxy,
     [switch]$NoProxy,
     [string]$InstallDir,
     [string]$BinDir
 )
-
-\r?$', 2); if ($parts.Count -ne 2) { throw '安装脚本中缺少 PowerShell payload。' }; Invoke-Expression $parts[1]"
-
-set "BTB_EXIT_CODE=%ERRORLEVEL%"
-endlocal & exit /b %BTB_EXIT_CODE%
-
-# === POWERSHELL PAYLOAD ===
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
@@ -592,18 +573,18 @@ elseif (-not $PSBoundParameters.ContainsKey("GhProxy")) {
     }
 }
 
-if (-not $PSBoundParameters.ContainsKey("InstallDir")) {
-    $InstallDirectory = Get-EnvironmentValue -Name "INSTALL_DIR"
-}
-else {
+if ($PSBoundParameters.ContainsKey("InstallDir")) {
     $InstallDirectory = $InstallDir
 }
+else {
+    $InstallDirectory = Get-EnvironmentValue -Name "INSTALL_DIR"
+}
 
-if (-not $PSBoundParameters.ContainsKey("BinDir")) {
-    $BinDirectory = Get-EnvironmentValue -Name "BIN_DIR"
+if ($PSBoundParameters.ContainsKey("BinDir")) {
+    $BinDirectory = $BinDir
 }
 else {
-    $BinDirectory = $BinDir
+    $BinDirectory = Get-EnvironmentValue -Name "BIN_DIR"
 }
 
 if ([string]::IsNullOrWhiteSpace($InstallDirectory)) {
