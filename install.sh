@@ -9,15 +9,18 @@ UNAME_M="$(uname -m)"
 
 # 未设置 GH_PROXY 时使用默认代理。
 #
-# 显式设置为空可禁用代理：
+# 禁用代理：
 #   GH_PROXY="" sh install.sh
+#
+# 指定代理：
+#   GH_PROXY="https://gh-proxy.org" sh install.sh
 GH_PROXY="${GH_PROXY-https://gh-proxy.org}"
 
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/share/biliTickerBuy}"
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 LAUNCHER_PATH="$BIN_DIR/btb"
 
-API_URL="https://api.github.com/repos/$REPO/releases/latest"
+VERSION_INFO_URL="https://github.com/$REPO/releases/latest/download/version-info.json"
 
 PATH_MARKER_BEGIN="# >>> biliTickerBuy PATH >>>"
 PATH_MARKER_END="# <<< biliTickerBuy PATH <<<"
@@ -71,6 +74,7 @@ http_get() {
   if command -v curl >/dev/null 2>&1; then
     if [ -n "$output" ]; then
       partial_output="${output}.part"
+
       rm -f "$partial_output"
 
       if curl \
@@ -99,7 +103,7 @@ http_get() {
       --show-error \
       --connect-timeout 15 \
       --retry 2 \
-      --header 'Accept: application/vnd.github+json' \
+      --header 'Accept: application/json' \
       --header 'User-Agent: biliTickerBuy-installer' \
       "$url"
 
@@ -109,6 +113,7 @@ http_get() {
   if command -v wget >/dev/null 2>&1; then
     if [ -n "$output" ]; then
       partial_output="${output}.part"
+
       rm -f "$partial_output"
 
       if wget \
@@ -132,7 +137,7 @@ http_get() {
       --output-document=- \
       --timeout=15 \
       --tries=2 \
-      --header='Accept: application/vnd.github+json' \
+      --header='Accept: application/json' \
       --header='User-Agent: biliTickerBuy-installer' \
       "$url"
 
@@ -143,20 +148,150 @@ http_get() {
   return 1
 }
 
-request_release_json() {
-  # GitHub API 必须直连。
-  #
-  # gh-proxy.org 等下载代理通常只支持 github.com 文件，
-  # 不支持 api.github.com。
-  if release_json="$(http_get "$API_URL")"; then
-    printf '%s' "$release_json"
+request_version_info() {
+  # version-info.json 优先直连。
+  if version_info_json="$(http_get "$VERSION_INFO_URL" 2>/dev/null)"; then
+    printf '%s' "$version_info_json"
     return 0
   fi
 
-  echo "获取 GitHub Release 信息失败：$API_URL" >&2
-  echo "GitHub 下载代理通常无法代理 api.github.com。" >&2
-  echo "请检查当前网络是否能够访问 GitHub API。" >&2
+  if [ -n "${GH_PROXY:-}" ]; then
+    proxy_url="$(resolve_url "$VERSION_INFO_URL")"
+
+    echo "[biliTickerBuy] 版本信息直连失败，正在尝试代理..." >&2
+
+    if version_info_json="$(http_get "$proxy_url")"; then
+      printf '%s' "$version_info_json"
+      return 0
+    fi
+  fi
+
+  echo "获取版本信息失败：$VERSION_INFO_URL" >&2
   return 1
+}
+
+parse_version_info() {
+  version_info_json="$1"
+  platform_key="$2"
+
+  RELEASE_TAG="$(
+    printf '%s\n' "$version_info_json" |
+      sed -n \
+        's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+      head -n 1
+  )"
+
+  platform_block="$(
+    printf '%s\n' "$version_info_json" |
+      awk -v target="\"${platform_key}\"" '
+        index($0, target) {
+          in_block = 1
+        }
+
+        in_block {
+          print
+
+          if ($0 ~ /^[[:space:]]*}[,]?[[:space:]]*$/) {
+            exit
+          }
+        }
+      '
+  )"
+
+  ASSET_NAME="$(
+    printf '%s\n' "$platform_block" |
+      sed -n \
+        's/^[[:space:]]*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+      head -n 1
+  )"
+
+  ASSET_SHA256="$(
+    printf '%s\n' "$platform_block" |
+      sed -n \
+        's/^[[:space:]]*"sha256"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+      head -n 1
+  )"
+
+  ASSET_SIZE="$(
+    printf '%s\n' "$platform_block" |
+      sed -n \
+        's/^[[:space:]]*"size"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' |
+      head -n 1
+  )"
+
+  if [ -z "$RELEASE_TAG" ]; then
+    echo "version-info.json 中缺少 version 字段。" >&2
+    return 1
+  fi
+
+  if [ -z "$platform_block" ]; then
+    echo "version-info.json 中未找到平台：$platform_key" >&2
+    return 1
+  fi
+
+  if [ -z "$ASSET_NAME" ]; then
+    echo "version-info.json 中缺少 ${platform_key}.name。" >&2
+    return 1
+  fi
+
+  if [ -z "$ASSET_SHA256" ]; then
+    echo "version-info.json 中缺少 ${platform_key}.sha256。" >&2
+    return 1
+  fi
+
+  if [ -z "$ASSET_SIZE" ]; then
+    echo "version-info.json 中缺少 ${platform_key}.size。" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+validate_version_info() {
+  case "$RELEASE_TAG" in
+    ""|*[!0-9A-Za-z._+-]*)
+      echo "version-info.json 中的版本号格式无效：$RELEASE_TAG" >&2
+      return 1
+      ;;
+  esac
+
+  case "$ASSET_NAME" in
+    *.zip)
+      ;;
+    *)
+      echo "安装包文件名不是 ZIP：$ASSET_NAME" >&2
+      return 1
+      ;;
+  esac
+
+  # 防止路径穿越。
+  case "$ASSET_NAME" in
+    */*|*\\*|.|..)
+      echo "version-info.json 中的文件名不安全：$ASSET_NAME" >&2
+      return 1
+      ;;
+  esac
+
+  case "$ASSET_SHA256" in
+    *[!0-9a-fA-F]*)
+      echo "SHA256 格式无效：$ASSET_SHA256" >&2
+      return 1
+      ;;
+  esac
+
+  if [ "${#ASSET_SHA256}" -ne 64 ]; then
+    echo "SHA256 长度无效：$ASSET_SHA256" >&2
+    return 1
+  fi
+
+  case "$ASSET_SIZE" in
+    ""|*[!0-9]*)
+      echo "安装包大小格式无效：$ASSET_SIZE" >&2
+      return 1
+      ;;
+  esac
+
+  return 0
 }
 
 is_valid_zip() {
@@ -164,11 +299,6 @@ is_valid_zip() {
 
   [ -s "$zip_file" ] || return 1
 
-  # ZIP 文件常见开头：
-  #
-  # 50 4b 03 04：普通 ZIP
-  # 50 4b 05 06：空 ZIP
-  # 50 4b 07 08：流式或分卷 ZIP
   zip_signature="$(
     LC_ALL=C od -An -tx1 -N4 "$zip_file" 2>/dev/null |
       tr -d ' \n'
@@ -191,26 +321,28 @@ print_invalid_download() {
 
   echo "下载到的文件不是有效 ZIP：$source_url" >&2
 
-  if [ -f "$downloaded_file" ]; then
-    file_size="$(
-      wc -c <"$downloaded_file" 2>/dev/null |
-        tr -d ' '
-    )"
-
-    echo "文件大小：${file_size:-未知} 字节" >&2
-
-    if command -v file >/dev/null 2>&1; then
-      file_type="$(file -b "$downloaded_file" 2>/dev/null || true)"
-      echo "文件类型：${file_type:-未知}" >&2
-    fi
-
-    echo "响应内容开头：" >&2
-
-    LC_ALL=C head -c 300 "$downloaded_file" 2>/dev/null |
-      tr '\000-\010\013\014\016-\037' ' ' >&2 || true
-
-    printf '\n' >&2
+  if [ ! -f "$downloaded_file" ]; then
+    return 0
   fi
+
+  file_size="$(
+    wc -c <"$downloaded_file" 2>/dev/null |
+      tr -d ' '
+  )"
+
+  echo "文件大小：${file_size:-未知} 字节" >&2
+
+  if command -v file >/dev/null 2>&1; then
+    file_type="$(file -b "$downloaded_file" 2>/dev/null || true)"
+    echo "文件类型：${file_type:-未知}" >&2
+  fi
+
+  echo "响应内容开头：" >&2
+
+  LC_ALL=C head -c 300 "$downloaded_file" 2>/dev/null |
+    tr '\000-\010\013\014\016-\037' ' ' >&2 || true
+
+  printf '\n' >&2
 }
 
 download_release_asset() {
@@ -219,7 +351,6 @@ download_release_asset() {
 
   rm -f "$output" "${output}.part"
 
-  # Release 文件优先通过下载代理。
   if [ -n "${GH_PROXY:-}" ]; then
     proxy_url="$(resolve_url "$asset_url")"
 
@@ -233,7 +364,7 @@ download_release_asset() {
 
       print_invalid_download "$output" "$proxy_url"
     else
-      echo "[biliTickerBuy] 代理请求失败。" >&2
+      echo "[biliTickerBuy] 代理下载失败。" >&2
     fi
 
     echo "[biliTickerBuy] 代理未返回有效安装包，正在尝试直连..."
@@ -255,13 +386,78 @@ download_release_asset() {
   return 1
 }
 
-print_network_help() {
-  echo "请根据网络情况尝试取消 GH_PROXY，或更换其他可用加速前缀。" >&2
-  echo "禁用代理：" >&2
-  echo '  GH_PROXY="" sh install.sh' >&2
-  echo "指定代理：" >&2
-  echo '  GH_PROXY="https://gh-proxy.org" sh install.sh' >&2
-  echo "可用前缀可前往 https://ghproxy.link/ 查找。" >&2
+get_file_size() {
+  file_path="$1"
+
+  case "$UNAME_S" in
+    Darwin)
+      stat -f '%z' "$file_path"
+      ;;
+    *)
+      stat -c '%s' "$file_path"
+      ;;
+  esac
+}
+
+calculate_sha256() {
+  file_path="$1"
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file_path" |
+      awk '{print $1}'
+    return 0
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$file_path" |
+      awk '{print $1}'
+    return 0
+  fi
+
+  if command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 "$file_path" |
+      sed 's/^.*= //'
+    return 0
+  fi
+
+  echo "缺少 SHA256 校验命令：sha256sum、shasum 或 openssl。" >&2
+  return 1
+}
+
+verify_download() {
+  downloaded_file="$1"
+  expected_size="$2"
+  expected_sha256="$3"
+
+  actual_size="$(get_file_size "$downloaded_file")"
+
+  if [ "$actual_size" != "$expected_size" ]; then
+    echo "安装包大小校验失败。" >&2
+    echo "预期大小：$expected_size 字节" >&2
+    echo "实际大小：$actual_size 字节" >&2
+    return 1
+  fi
+
+  actual_sha256="$(calculate_sha256 "$downloaded_file")" || return 1
+
+  actual_sha256="$(
+    printf '%s' "$actual_sha256" |
+      tr 'A-F' 'a-f'
+  )"
+
+  expected_sha256="$(
+    printf '%s' "$expected_sha256" |
+      tr 'A-F' 'a-f'
+  )"
+
+  if [ "$actual_sha256" != "$expected_sha256" ]; then
+    echo "安装包 SHA256 校验失败。" >&2
+    echo "预期 SHA256：$expected_sha256" >&2
+    echo "实际 SHA256：$actual_sha256" >&2
+    return 1
+  fi
+
+  return 0
 }
 
 append_path_block() {
@@ -301,12 +497,25 @@ find_package_binary() {
     head -n 1
 }
 
+print_network_help() {
+  echo "请根据网络情况尝试取消 GH_PROXY，或更换其他可用加速前缀。" >&2
+  echo "禁用代理：" >&2
+  echo '  GH_PROXY="" sh install.sh' >&2
+  echo "指定代理：" >&2
+  echo '  GH_PROXY="https://gh-proxy.org" sh install.sh' >&2
+  echo "可用前缀可前往 https://ghproxy.link/ 查找。" >&2
+}
+
 cleanup() {
   rm -rf "$TMP_DIR"
 }
 
 require_cmd unzip
 require_cmd od
+require_cmd awk
+require_cmd sed
+require_cmd grep
+require_cmd find
 
 TMP_DIR="$(mktemp -d)"
 ZIP_PATH="$TMP_DIR/biliTickerBuy.zip"
@@ -318,43 +527,25 @@ trap cleanup EXIT HUP INT TERM
 
 echo "[biliTickerBuy] 正在检查最新版本..."
 
-if ! RELEASE_JSON="$(request_release_json)"; then
+if ! VERSION_INFO_JSON="$(request_version_info)"; then
   print_network_help
   exit 1
 fi
 
-# 将 JSON 中每个 asset 对象拆到单独一行，然后匹配当前平台。
-#
-# 不强制依赖 jq，兼容普通 Linux/macOS 环境。
-ASSET_URL="$(
-  printf '%s' "$RELEASE_JSON" |
-    tr -d '\n' |
-    sed 's/},{/},\
-{/g' |
-    grep "\"name\":\"[^\"]*_${PLATFORM_KEY}_[^\"]*\"" |
-    sed -n 's/.*"browser_download_url":"\([^"]*\)".*/\1/p' |
-    head -n 1
-)" || true
-
-RELEASE_TAG="$(
-  printf '%s' "$RELEASE_JSON" |
-    tr -d '\n' |
-    sed -n 's/.*"tag_name":"\([^"]*\)".*/\1/p' |
-    head -n 1
-)" || true
-
-if [ -z "$ASSET_URL" ]; then
-  echo "最新版本中未找到当前平台 ${PLATFORM_KEY} 对应的安装包。" >&2
+if ! parse_version_info "$VERSION_INFO_JSON" "$PLATFORM_KEY"; then
   exit 1
 fi
 
-if [ -z "$RELEASE_TAG" ]; then
-  echo "解析最新版本号失败。" >&2
+if ! validate_version_info; then
   exit 1
 fi
+
+ASSET_URL="https://github.com/$REPO/releases/download/$RELEASE_TAG/$ASSET_NAME"
 
 echo "[biliTickerBuy] 最新版本：$RELEASE_TAG"
 echo "[biliTickerBuy] 当前平台：$PLATFORM_KEY"
+echo "[biliTickerBuy] 安装包：$ASSET_NAME"
+echo "[biliTickerBuy] 预期大小：$ASSET_SIZE 字节"
 
 if ! download_release_asset "$ASSET_URL" "$ZIP_PATH"; then
   echo "安装包下载失败：$ASSET_URL" >&2
@@ -362,12 +553,21 @@ if ! download_release_asset "$ASSET_URL" "$ZIP_PATH"; then
   exit 1
 fi
 
-if ! is_valid_zip "$ZIP_PATH"; then
-  echo "下载到的文件不是有效的 ZIP 安装包。" >&2
-  print_invalid_download "$ZIP_PATH" "$ASSET_URL"
+echo "[biliTickerBuy] 正在校验安装包..."
+
+if ! verify_download "$ZIP_PATH" "$ASSET_SIZE" "$ASSET_SHA256"; then
+  rm -f "$ZIP_PATH"
+  echo "安装包完整性校验失败，已删除下载文件。" >&2
   exit 1
 fi
 
+if ! is_valid_zip "$ZIP_PATH"; then
+  rm -f "$ZIP_PATH"
+  echo "下载到的文件不是有效 ZIP 安装包。" >&2
+  exit 1
+fi
+
+echo "[biliTickerBuy] 安装包校验通过。"
 echo "[biliTickerBuy] 正在解压安装包..."
 
 if ! unzip -oq "$ZIP_PATH" -d "$EXTRACT_DIR"; then
@@ -375,7 +575,7 @@ if ! unzip -oq "$ZIP_PATH" -d "$EXTRACT_DIR"; then
   exit 1
 fi
 
-# 兼容以下压缩包结构：
+# 兼容以下两种压缩包结构：
 #
 # 1. 文件直接位于根目录：
 #
@@ -440,14 +640,12 @@ if [ -f "$INSTALL_DIR_NEW/update.sh" ]; then
   chmod +x "$INSTALL_DIR_NEW/update.sh"
 fi
 
-# 写入当前安装版本，供 update.sh 后续比较。
 if ! printf '%s\n' "$RELEASE_TAG" >"$INSTALL_DIR_NEW/.version"; then
   echo "写入版本文件失败。" >&2
   rm -rf "$INSTALL_DIR_NEW"
   exit 1
 fi
 
-# 备份现有安装目录。
 if [ -e "$INSTALL_DIR" ]; then
   if ! mv "$INSTALL_DIR" "$INSTALL_DIR_OLD"; then
     echo "无法备份现有安装目录：$INSTALL_DIR" >&2
@@ -456,7 +654,6 @@ if [ -e "$INSTALL_DIR" ]; then
   fi
 fi
 
-# 使用新目录替换正式安装目录。
 if ! mv "$INSTALL_DIR_NEW" "$INSTALL_DIR"; then
   echo "无法替换安装目录：$INSTALL_DIR" >&2
 
@@ -473,7 +670,6 @@ fi
 
 rm -rf "$INSTALL_DIR_OLD"
 
-# 创建命令行启动器。
 LAUNCHER_NEW="${LAUNCHER_PATH}.new"
 
 rm -f "$LAUNCHER_NEW"
