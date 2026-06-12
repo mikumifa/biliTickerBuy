@@ -192,35 +192,117 @@ if not errorlevel 1 (
 :REPLACE_APP
 echo [biliTickerBuy] 正在替换本地文件...
 
+set "SOURCE_EXE=%TEMP_EXTRACT%\biliTickerBuy.exe"
+set "TARGET_EXE=%INSTALL_DIR%\biliTickerBuy.exe"
 set "NEW_EXE=%INSTALL_DIR%\biliTickerBuy.exe.new"
 set "OLD_EXE=%INSTALL_DIR%\biliTickerBuy.exe.old"
+
+if not exist "%SOURCE_EXE%" (
+  echo 解压后的更新包中缺少 biliTickerBuy.exe。
+  pause
+  exit /b 1
+)
+
+echo [DEBUG] 更新来源：%SOURCE_EXE%
+echo [DEBUG] 更新目标：%TARGET_EXE%
+
+set "SOURCE_HASH="
+set "TARGET_HASH_BEFORE="
+set "TARGET_HASH_AFTER="
+
+for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command ^
+  "(Get-FileHash -LiteralPath '%SOURCE_EXE%' -Algorithm SHA256).Hash"`) do (
+  set "SOURCE_HASH=%%H"
+)
+
+if exist "%TARGET_EXE%" (
+  for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command ^
+    "(Get-FileHash -LiteralPath '%TARGET_EXE%' -Algorithm SHA256).Hash"`) do (
+    set "TARGET_HASH_BEFORE=%%H"
+  )
+)
+
+echo [DEBUG] 更新包哈希：!SOURCE_HASH!
+if defined TARGET_HASH_BEFORE (
+  echo [DEBUG] 当前版本哈希：!TARGET_HASH_BEFORE!
+)
+
+if defined TARGET_HASH_BEFORE if /i "!SOURCE_HASH!"=="!TARGET_HASH_BEFORE!" (
+  echo [biliTickerBuy] 当前程序与更新包完全相同，无需替换。
+  goto UPDATE_SUCCESS
+)
 
 if exist "%NEW_EXE%" del /f /q "%NEW_EXE%" >nul 2>nul
 if exist "%OLD_EXE%" del /f /q "%OLD_EXE%" >nul 2>nul
 
-copy /y "%TEMP_EXTRACT%\biliTickerBuy.exe" "%NEW_EXE%" >nul
+copy /b /y "%SOURCE_EXE%" "%NEW_EXE%" >nul
 if errorlevel 1 (
-  echo 无法将新版程序复制到安装目录。
+  echo 无法把新版程序复制到安装目录。
   pause
   exit /b 1
 )
 
-if exist "%INSTALL_DIR%\biliTickerBuy.exe" (
-  move /y "%INSTALL_DIR%\biliTickerBuy.exe" "%OLD_EXE%" >nul
+set /a REPLACE_COUNT=0
+
+:RETRY_REPLACE
+set /a REPLACE_COUNT+=1
+
+if exist "%TARGET_EXE%" (
+  move /y "%TARGET_EXE%" "%OLD_EXE%" >nul 2>nul
+
   if errorlevel 1 (
-    echo 无法移动旧版 biliTickerBuy.exe，文件可能仍被占用。
-    del /f /q "%NEW_EXE%" >nul 2>nul
-    pause
-    exit /b 1
+    if !REPLACE_COUNT! geq 10 (
+      echo 无法移动旧版程序，文件可能仍被占用。
+      echo 请手动确认 biliTickerBuy.exe 是否已完全退出。
+      del /f /q "%NEW_EXE%" >nul 2>nul
+      pause
+      exit /b 1
+    )
+
+    echo [biliTickerBuy] 程序仍被占用，正在重试 !REPLACE_COUNT!/10...
+    taskkill /f /im biliTickerBuy.exe >nul 2>nul
+    timeout /t 1 /nobreak >nul
+    goto RETRY_REPLACE
   )
 )
 
-move /y "%NEW_EXE%" "%INSTALL_DIR%\biliTickerBuy.exe" >nul
+move /y "%NEW_EXE%" "%TARGET_EXE%" >nul 2>nul
 if errorlevel 1 (
-  echo 无法启用新版 biliTickerBuy.exe。
+  echo 无法启用新版 biliTickerBuy.exe，正在恢复旧版本...
 
   if exist "%OLD_EXE%" (
-    move /y "%OLD_EXE%" "%INSTALL_DIR%\biliTickerBuy.exe" >nul
+    move /y "%OLD_EXE%" "%TARGET_EXE%" >nul 2>nul
+  )
+
+  pause
+  exit /b 1
+)
+
+if not exist "%TARGET_EXE%" (
+  echo 替换后目标程序不存在，正在恢复旧版本...
+
+  if exist "%OLD_EXE%" (
+    move /y "%OLD_EXE%" "%TARGET_EXE%" >nul 2>nul
+  )
+
+  pause
+  exit /b 1
+)
+
+for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command ^
+  "(Get-FileHash -LiteralPath '%TARGET_EXE%' -Algorithm SHA256).Hash"`) do (
+  set "TARGET_HASH_AFTER=%%H"
+)
+
+echo [DEBUG] 替换后哈希：!TARGET_HASH_AFTER!
+
+if /i not "!SOURCE_HASH!"=="!TARGET_HASH_AFTER!" (
+  echo 替换后的文件与更新包不一致，正在回滚...
+
+  del /f /q "%TARGET_EXE%" >nul 2>nul
+
+  if exist "%OLD_EXE%" (
+    move /y "%OLD_EXE%" "%TARGET_EXE%" >nul 2>nul
   )
 
   pause
@@ -228,11 +310,21 @@ if errorlevel 1 (
 )
 
 if exist "%OLD_EXE%" del /f /q "%OLD_EXE%" >nul 2>nul
-if exist "%TEMP_EXTRACT%\update.bat" copy /y "%TEMP_EXTRACT%\update.bat" "%INSTALL_DIR%\update.bat" >nul
-if exist "%TEMP_EXTRACT%\.env.install" copy /y "%TEMP_EXTRACT%\.env.install" "%INSTALL_DIR%\.env.install" >nul
+
+:UPDATE_SUCCESS
+if exist "%TEMP_EXTRACT%\update.bat" (
+  copy /y "%TEMP_EXTRACT%\update.bat" "%INSTALL_DIR%\update.bat.next" >nul 2>nul
+)
+
+if exist "%TEMP_EXTRACT%\.env.install" (
+  copy /y "%TEMP_EXTRACT%\.env.install" "%INSTALL_DIR%\.env.install" >nul 2>nul
+)
+
 if exist "%TEMP_ZIP%" del /f /q "%TEMP_ZIP%" >nul 2>nul
 if exist "%META_FILE%" del /f /q "%META_FILE%" >nul 2>nul
 if exist "%TEMP_EXTRACT%" rmdir /s /q "%TEMP_EXTRACT%" >nul 2>nul
 
-echo [biliTickerBuy] 已更新到 !RELEASE_TAG!。
+echo [biliTickerBuy] 已成功更新到 !RELEASE_TAG!。
+echo [biliTickerBuy] 当前程序：%TARGET_EXE%
 pause
+exit /b 0
