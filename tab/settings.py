@@ -239,7 +239,9 @@ def on_submit_ticket_id(num):
         try:
             data = fetch_project_payload(request=util.main_request, project_id=num)
         except Exception as exc:
-            raise gr.Error(str(exc) or "票务信息返回异常，当前活动页暂时不可用。") from exc
+            raise gr.Error(
+                str(exc) or "票务信息返回异常，当前活动页暂时不可用。"
+            ) from exc
 
         ticket_str_list = []
         project_id = data["id"]
