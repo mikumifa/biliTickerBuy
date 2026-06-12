@@ -90,21 +90,30 @@ jobs:
         run: |
           RELEASE_DIR="release/biliTickerBuy"
           mkdir -p "$RELEASE_DIR"
+
           if [ "${{ matrix.config.os.filename }}" = "windows_amd64" ]; then
             cp dist/biliTickerBuy.exe "$RELEASE_DIR/biliTickerBuy.exe"
             cp assets/updater/update.bat "$RELEASE_DIR/update.bat"
           else
             cp dist/biliTickerBuy "$RELEASE_DIR/biliTickerBuy"
             cp assets/updater/update.sh "$RELEASE_DIR/update.sh"
+            chmod +x "$RELEASE_DIR/biliTickerBuy"
             chmod +x "$RELEASE_DIR/update.sh"
           fi
+
           cp assets/updater/.env.install "$RELEASE_DIR/.env.install"
 
       - name: Zip the Build-windows
         if: matrix.config.os.filename == 'windows_amd64'
         shell: pwsh
         run: |
-          Compress-Archive -Path ./dist/biliTicKerBuy/biliTicKerBuy.exe,./dist/biliTicKerBuy/update.bat,./dist/biliTicKerBuy/.env.install -DestinationPath tmp.zip -Force
+          $releaseDir = "./release/biliTickerBuy"
+          Compress-Archive `
+            -Path "$releaseDir/biliTickerBuy.exe",
+                  "$releaseDir/update.bat",
+                  "$releaseDir/.env.install" `
+            -DestinationPath "./tmp.zip" `
+            -Force
 
       - name: Zip the Build-linux-macos
         if: matrix.config.os.filename != 'windows_amd64'
