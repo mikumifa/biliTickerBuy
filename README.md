@@ -30,26 +30,7 @@
 
 ## 💻 快速安装
 
-方法一: 从 github 上 [下载](https://github.com/mikumifa/biliTickerBuy/releases)
-
-> Linux / macOS 也可以直接远程安装：
->
-> ```bash
-> curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.sh | sh
-> ```
->
-> 安装脚本默认启用加速前缀 `https://gh-proxy.org/`，如失效请前往 [ghproxy.link](https://ghproxy.link/) 查找其他可用前缀。
-
-方法二: 如果没有您使用系统的已构建版本，请前往[指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
-
-方法三: 仓库支持通过 `pip install bilitickerbuy` 安装(推荐python3.11)，安装后可以直接使用 `btb` 命令运行。示例：
-
-```bash
-# 直接启动ui
-btb
-# 根据配置文件购票
-btb buy ./your_config.json
-```
+请查看完整的 [安装指南](./docs/installation.md)。
 
 ## 👀 使用说明书
 
