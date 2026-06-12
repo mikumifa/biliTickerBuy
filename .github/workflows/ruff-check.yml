@@ -4,7 +4,16 @@ on:
   push:
     branches:
       - main
+
   pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
   workflow_dispatch:
 
 permissions:
@@ -12,23 +21,18 @@ permissions:
 
 jobs:
   ruff-check:
-    name: Lint And Format Check
+    name: Ruff Check
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Run ruff lint
+      - name: Run Ruff lint
         run: uv tool run --from ruff==0.12.0 ruff check .
 
-      - name: Run ruff format check
+      - name: Run Ruff format check
         run: uv tool run --from ruff==0.12.0 ruff format --check .
