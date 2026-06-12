@@ -8,6 +8,7 @@ from gradio import SelectData
 from loguru import logger
 import requests
 
+from interface.project import fetch_project_payload
 from task.buy import buy_new_terminal
 import util
 from util import ConfigDB, Endpoint, GlobalStatusInstance, time_service
@@ -30,20 +31,7 @@ def _parse_sale_start(value) -> datetime.datetime | None:
 
 
 def _fetch_project_detail(project_id: int) -> dict:
-    response = util.main_request.get(
-        url=(
-            "https://show.bilibili.com/api/ticket/project/getV2"
-            f"?version=134&id={project_id}&project_id={project_id}&requestSource=pc-new"
-        )
-    )
-    payload = response.json()
-    errno = payload.get("errno", payload.get("code"))
-    if errno != 0:
-        raise RuntimeError(payload.get("msg", payload.get("message", "未知错误")))
-    data = payload.get("data")
-    if not isinstance(data, dict):
-        raise RuntimeError("项目详情返回为空")
-    return data
+    return fetch_project_payload(request=util.main_request, project_id=project_id)
 
 
 def _resolve_sale_start(project_detail: dict, sku_id: int) -> datetime.datetime | None:

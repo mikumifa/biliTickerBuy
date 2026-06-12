@@ -17,6 +17,8 @@ import util
 from gradio_calendar import Calendar
 from loguru import logger
 
+from interface.common import _format_sale_status
+from interface.project import fetch_project_payload
 from util import ConfigDB
 from util import GLOBAL_COOKIE_PATH
 from util import TEMP_PATH
@@ -57,7 +59,7 @@ def _fetch_screens_by_date(
     request: BiliRequest, project_id: int, date_str: str
 ) -> list[dict]:
     response = request.get(
-        url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={date_str}"
+        url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={date_str}",
     )
     payload = response.json()
     errno = payload.get("errno", payload.get("code"))
@@ -110,24 +112,6 @@ def _screen_matches_date(screen: dict[str, Any], date_str: str) -> bool:
     )
 
 
-def _fetch_project_payload(request: BiliRequest, project_id: int) -> dict[str, Any]:
-    response = request.get(
-        url=(
-            "https://show.bilibili.com/api/ticket/project/getV2"
-            f"?version=134&id={project_id}&project_id={project_id}&requestSource=pc-new"
-        )
-    )
-    payload = response.json()
-    errno = payload.get("errno", payload.get("code"))
-    if errno != 0:
-        raise RuntimeError(payload.get("msg", payload.get("message", "unknown error")))
-
-    data = payload.get("data")
-    if not isinstance(data, dict):
-        raise RuntimeError("project payload is empty")
-    return data
-
-
 def _fetch_screens_by_date_with_fallback(
     request: BiliRequest, project_id: int, date_str: str
 ) -> list[dict]:
@@ -135,7 +119,7 @@ def _fetch_screens_by_date_with_fallback(
     if screens:
         return screens
 
-    project_payload = _fetch_project_payload(request, project_id)
+    project_payload = fetch_project_payload(request=request, project_id=project_id)
     fallback_screens: list[dict] = []
     for screen in project_payload.get("screen_list", []):
         if not isinstance(screen, dict):
@@ -161,23 +145,6 @@ def _merge_screens(base_screens: list[dict], extra_screens: list[dict]) -> list[
         merged.append(screen)
 
     return merged
-
-
-sales_flag_number_map = {
-    1: "不可售",
-    2: "预售",
-    3: "停售",
-    4: "售罄",
-    5: "不可用",
-    6: "库存紧张",
-    8: "暂时售罄",
-    9: "不在白名单",
-    101: "未开始",
-    102: "已结束",
-    103: "未完成",
-    105: "已下架",
-    106: "已取消",
-}
 
 
 def filename_filter(filename):
@@ -233,22 +200,12 @@ def _empty_ticket_info_updates():
     ]
 
 
-def _format_ticket_option(screen_name: str, ticket: dict, express_fee: int) -> str:
+def _format_ticket_option(screen_name: str, ticket: dict, ticket_price: int) -> str:
     ticket_desc = ticket.get("desc", "")
     sale_start = str(ticket.get("sale_start", "未知"))
-    ticket_price = int(ticket.get("price", 0)) + express_fee
-    # sale_flag_number may be None or non-int; coerce to int safely for dict lookup
-    sale_flag_number_raw = ticket.get("sale_flag_number")
-    try:
-        sale_flag_number = (
-            int(sale_flag_number_raw) if sale_flag_number_raw is not None else 0
-        )
-    except (TypeError, ValueError):
-        sale_flag_number = 0
-    ticket_can_buy = sales_flag_number_map.get(sale_flag_number, "未知")
     return (
         f"{screen_name} - {ticket_desc} - {_format_price(ticket_price)} - "
-        f"{ticket_can_buy} - 【起售时间：{sale_start}】"
+        f"{_format_sale_status(ticket)} - 【起售时间：{sale_start}】"
     )
 
 
@@ -279,19 +236,10 @@ def on_submit_ticket_id(num):
         else:
             raise gr.Error("请输入活动详情页链接，或直接输入纯数字票务 ID。")
 
-        res = util.main_request.get(
-            url=f"https://show.bilibili.com/api/ticket/project/getV2?version=134&id={num}&project_id={num}"
-        )
-        ret = res.json()
-
-        if ret.get("errno", ret.get("code")) == 100001:
-            raise gr.Error("没有找到对应票务，请检查链接或票务 ID 是否正确。")
-        if ret.get("errno", ret.get("code")) != 0:
-            raise gr.Error(ret.get("msg", ret.get("message", "未知错误")))
-
-        data = ret.get("data")
-        if not isinstance(data, dict):
-            raise gr.Error("票务信息返回异常，当前活动页暂时不可用。")
+        try:
+            data = fetch_project_payload(request=util.main_request, project_id=num)
+        except Exception as exc:
+            raise gr.Error(str(exc) or "票务信息返回异常，当前活动页暂时不可用。") from exc
 
         ticket_str_list = []
         project_id = data["id"]
@@ -355,14 +303,15 @@ def on_submit_ticket_id(num):
             )
 
             for ticket in screen["ticket_list"]:
-                ticket["price"] = int(ticket.get("price", 0)) + express_fee
+                ticket_price = int(ticket.get("price", 0)) + express_fee
+                ticket["price"] = ticket_price
                 ticket["screen"] = screen_name
                 ticket["screen_id"] = screen_id
                 ticket["is_hot_project"] = is_hot_project
                 if "link_id" in screen:
                     ticket["link_id"] = screen["link_id"]
                 ticket_str_list.append(
-                    _format_ticket_option(screen_name, ticket, express_fee)
+                    _format_ticket_option(screen_name, ticket, ticket_price)
                 )
                 ticket_value.append(
                     {"project_id": current_project_id, "ticket": ticket}
@@ -1049,20 +998,18 @@ def setting_tab():
                         screen_id = screen["id"]
                         express_fee = int(screen.get("express_fee", 0))
                         for ticket in screen["ticket_list"]:
-                            sale_start = ticket["sale_start"]
                             ticket_price = int(ticket["price"]) + express_fee
                             ticket["price"] = ticket_price
                             ticket["screen"] = screen_name
                             ticket["screen_id"] = screen_id
                             ticket["is_hot_project"] = is_hot_project
-                            ticket_can_buy = (
-                                "可购买" if ticket.get("clickable") else "不可购买"
+                            ticket_str_list.append(
+                                _format_ticket_option(
+                                    screen_name,
+                                    ticket,
+                                    ticket_price,
+                                )
                             )
-                            ticket_str = (
-                                f"{screen_name} - {ticket['desc']} - {_format_price(ticket_price)} - "
-                                f"{ticket_can_buy} - 【起售时间：{sale_start}】"
-                            )
-                            ticket_str_list.append(ticket_str)
                             ticket_value.append(
                                 {"project_id": project_id, "ticket": ticket}
                             )

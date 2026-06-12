@@ -10,6 +10,7 @@ class BiliRequest:
         self, headers=None, cookies=None, cookies_config_path=None, proxy: str = "none"
     ):
         self.session = requests.Session()
+        self.session.verify = False  # 禁用 SSL 验证，便于抓包测试
         self.proxy_list = (
             [v.strip() for v in proxy.split(",") if len(v.strip()) != 0]
             if proxy
@@ -46,10 +47,10 @@ class BiliRequest:
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
         if isJson:
             self.headers["Content-Type"] = "application/json"
-            data = json.dumps(data)
+            response = self.session.get(url, json=data, headers=self.headers, timeout=10)
         else:
             self.headers["Content-Type"] = "application/x-www-form-urlencoded"
-        response = self.session.get(url, data=data, headers=self.headers, timeout=10)
+            response = self.session.get(url, params=data, headers=self.headers, timeout=10)
         if response.status_code == 412:
             self.count_and_sleep()
             self.switch_proxy()
@@ -78,11 +79,11 @@ class BiliRequest:
     def post(self, url, data=None, isJson=False):
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
         if isJson:
-            self.headers["content-type"] = "application/json"
-            data = json.dumps(data)
+            self.headers["Content-Type"] = "application/json"
+            response = self.session.post(url, json=data, headers=self.headers, timeout=10)
         else:
-            self.headers["content-type"] = "application/x-www-form-urlencoded"
-        response = self.session.post(url, data=data, headers=self.headers, timeout=10)
+            self.headers["Content-Type"] = "application/x-www-form-urlencoded"
+            response = self.session.post(url, data=data, headers=self.headers, timeout=10)
         if response.status_code == 412:
             self.count_and_sleep()
             self.switch_proxy()
