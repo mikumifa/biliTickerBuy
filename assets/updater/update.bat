@@ -53,7 +53,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "if ($proxy) { if (-not $proxy.EndsWith('/')) { $proxy += '/' }; $assetUrl = $proxy + $assetUrl }" ^
   "$content = 'RELEASE_TAG=' + $release.tag_name + '|' + 'ASSET_URL=' + $assetUrl;" ^
   "[System.IO.File]::WriteAllText('%META_FILE%', $content, [System.Text.Encoding]::ASCII)"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  echo 获取版本信息失败。
+  echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/
+  exit /b 1
+)
 
 if not exist "%META_FILE%" (
   echo 生成版本信息失败。
@@ -81,11 +85,19 @@ if exist "%TEMP_ZIP%" (
   where curl.exe >nul 2>nul
   if not errorlevel 1 (
     curl.exe -L --progress-bar -H "User-Agent: biliTickerBuy-updater" -o "%TEMP_ZIP%" "%ASSET_URL%"
-    if errorlevel 1 exit /b 1
+    if errorlevel 1 (
+      echo 下载失败：%ASSET_URL%
+      echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/
+      exit /b 1
+    )
   ) else (
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
       "$ErrorActionPreference='Stop'; Invoke-WebRequest -Headers @{ 'User-Agent'='biliTickerBuy-updater' } -Uri '%ASSET_URL%' -OutFile '%TEMP_ZIP%'"
-    if errorlevel 1 exit /b 1
+    if errorlevel 1 (
+      echo 下载失败：%ASSET_URL%
+      echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/
+      exit /b 1
+    )
   )
 )
 

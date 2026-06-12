@@ -52,15 +52,31 @@ http_get() {
   output="${2:-}"
   if command -v curl >/dev/null 2>&1; then
     if [ -n "$output" ]; then
-      curl --fail --location --progress-bar -H 'User-Agent: biliTickerBuy-updater' -o "$output" "$url"
+      if ! curl --fail --location --progress-bar -H 'User-Agent: biliTickerBuy-updater' -o "$output" "$url"; then
+        echo "下载失败：$url" >&2
+        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/" >&2
+        exit 1
+      fi
     else
-      curl --fail --location --silent --show-error -H 'User-Agent: biliTickerBuy-updater' "$url"
+      if ! curl --fail --location --silent --show-error -H 'User-Agent: biliTickerBuy-updater' "$url"; then
+        echo "请求失败：$url" >&2
+        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/" >&2
+        exit 1
+      fi
     fi
   elif command -v wget >/dev/null 2>&1; then
     if [ -n "$output" ]; then
-      wget -O "$output" --header='User-Agent: biliTickerBuy-updater' "$url"
+      if ! wget -O "$output" --header='User-Agent: biliTickerBuy-updater' "$url"; then
+        echo "下载失败：$url" >&2
+        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/" >&2
+        exit 1
+      fi
     else
-      wget -qO- --header='User-Agent: biliTickerBuy-updater' "$url"
+      if ! wget -qO- --header='User-Agent: biliTickerBuy-updater' "$url"; then
+        echo "请求失败：$url" >&2
+        echo "请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀，例如 https://ghproxy.link/" >&2
+        exit 1
+      fi
     fi
   else
     echo "缺少必要命令：curl 或 wget" >&2
