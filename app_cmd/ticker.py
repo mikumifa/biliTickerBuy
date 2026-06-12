@@ -17,10 +17,10 @@ def exit_app_ui():
 
 
 def ticker_cmd(args: Namespace):
-    from tab.go import go_tab
+    from tab.go import go_settings_tab, go_start_tab
     from tab.log import log_tab
     from tab.problems import problems_tab
-    from tab.settings import setting_tab
+    from tab.settings import login_tab, setting_tab
     from tab.update import update_tab
     from util import LOG_DIR
     from util.LogConfig import loguru_config
@@ -43,7 +43,7 @@ def ticker_cmd(args: Namespace):
         <div class="btb-hero__eyebrow">BiliTickerBuy · v{app_version}</div>
         <div class="btb-hero__grid">
             <div>
-                <h1>B站会员购抢票</h1>
+                <h1>biliTickerBuy</h1>  
             </div>
             <div class="btb-hero__logo" aria-label="biliTickerBuy logo">
                 <img class="btb-hero__logo-image" src="{icon_url}" alt="biliTickerBuy icon">
@@ -53,9 +53,9 @@ def ticker_cmd(args: Namespace):
         <div class="btb-hero__notice">
             <span class="btb-hero__notice-mark">!</span>
             <span>
-                此项目完全开源免费，
-                <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">项目地址</a>。
-                请勿用于盈利，使用后果自负。
+                此项目完全开源免费。开源地址：
+                <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">https://github.com/mikumifa/biliTickerBuy</a>。
+                请勿用于盈利，否则后果自负。
             </span>
         </div>
     </section>
@@ -122,10 +122,14 @@ def ticker_cmd(args: Namespace):
         with gr.Column(elem_classes="btb-app-shell"):
             gr.HTML(header)
             with gr.Tabs(elem_classes="btb-top-tabs"):
+                with gr.Tab("账号登录"):
+                    login_tab()
                 with gr.Tab("生成配置"):
                     setting_tab()
                 with gr.Tab("操作抢票"):
-                    go_tab(demo)
+                    go_start_tab(demo, args.server_name)
+                with gr.Tab("高级设置"):
+                    go_settings_tab()
                 with gr.Tab("项目说明"):
                     problems_tab()
                 with gr.Tab("软件更新"):

@@ -696,6 +696,10 @@ select,
   gap: 14px;
 }
 
+.btb-mini-grid--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .btb-mini-card,
 .btb-subcard,
 .btb-ticket-panel {
@@ -730,6 +734,10 @@ select,
 .btb-ticket-panel {
   width: 100%;
   padding: 18px;
+}
+
+.btb-ticket-panel__delivery {
+  margin-top: 14px;
 }
 
 .btb-ticket-panel__head {

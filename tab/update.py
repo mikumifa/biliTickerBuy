@@ -67,7 +67,7 @@ def _runtime_mode() -> str:
 def _source_update_hint() -> str:
     repo_dir = html.escape(EXE_PATH)
     return (
-        "当前是源码运行。"
+        "当前是<strong>源码运行</strong>。"
         f"<br>请先同步源码目录 <code>{repo_dir}</code>，再重新安装依赖或重新启动。"
         "<br>如果你是用 Git 拉取的仓库，通常执行 <code>git pull</code> 即可。"
     )
@@ -78,7 +78,7 @@ def _pip_update_hint(channel: str) -> str:
     if channel != UPDATE_CHANNEL_STABLE:
         command += " --pre"
     return (
-        f"当前是 `pip` 安装版本。<br>请在终端执行：<code>{html.escape(command)}</code>"
+        f"当前是 <strong>pip</strong> 安装版本。<br>请在终端执行：<code>{html.escape(command)}</code>"
     )
 
 
@@ -91,7 +91,7 @@ def _bundled_update_hint() -> str:
     else:
         usage = "关闭程序后，在终端执行该脚本，它会自动下载最新版本并覆盖当前目录。"
     return (
-        "当前是打包版。"
+        "当前是 <strong>打包版</strong>。"
         f"<br>请使用安装目录中的 <code>{script_path}</code> 完成更新。"
         f"<br>{usage}"
     )

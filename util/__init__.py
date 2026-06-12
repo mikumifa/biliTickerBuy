@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import time
+from urllib.parse import urlsplit, urlunsplit
 import loguru
 from util.BiliRequest import BiliRequest
 from util.KVDatabase import KVDatabase
@@ -71,6 +72,7 @@ __all__ = [
     "TEMP_PATH",
     "EXE_PATH",
     "ERRNO_DICT",
+    "build_public_url",
     "ConfigDB",
     "GLOBAL_COOKIE_PATH",
     "main_request",
@@ -101,6 +103,36 @@ time_service = TimeUtil()
 time_service.set_timeoffset(time_service.compute_timeoffset())
 
 
+def build_public_url(local_url: str, server_name: str | None = None) -> str:
+    if not local_url:
+        return local_url
+
+    if not server_name or not str(server_name).strip():
+        return local_url
+
+    parsed_local = urlsplit(local_url)
+    if not parsed_local.scheme or not parsed_local.netloc:
+        return local_url
+
+    raw_server_name = str(server_name).strip()
+    parsed_server = urlsplit(raw_server_name)
+    host = parsed_server.hostname or raw_server_name
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+
+    port = parsed_local.port
+    netloc = host if port is None else f"{host}:{port}"
+    return urlunsplit(
+        (
+            parsed_local.scheme,
+            netloc,
+            parsed_local.path,
+            parsed_local.query,
+            parsed_local.fragment,
+        )
+    )
+
+
 Endpoint = namedtuple("Endpoint", ["endpoint", "detail", "update_at"])
 
 
@@ -116,6 +148,7 @@ class TaskLogEntry:
 @dataclass
 class GlobalStatus:
     nowTask: str = "none"
+    master_endpoint_url: str = ""
     endpoint_details: dict[str, Endpoint] = field(default_factory=dict)
     task_logs: list[TaskLogEntry] = field(default_factory=list)
 

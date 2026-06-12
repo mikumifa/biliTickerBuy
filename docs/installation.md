@@ -53,6 +53,12 @@ curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install
 btb
 ```
 
+如果是在服务器上运行，为了让其他设备能够访问 Web 界面，`server_name` 应配置为服务器对外访问的 IP，例如：
+
+```bash
+btb --server_name 服务器对外访问的IP
+```
+
 ---
 
 ## GitHub 下载代理

@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import threading
 import loguru
 import time
-from dataclasses import dataclass
 from typing import Optional
 
 
@@ -172,6 +172,7 @@ class NotifierManager:
         content: str,
         interval_seconds: int = 10,
         duration_minutes: int = 10,
+        include_audio: bool = True,
     ) -> "NotifierManager":
         """通过配置创建NotifierManager，统一的工厂方法"""
         manager = NotifierManager()
@@ -287,7 +288,7 @@ class NotifierManager:
                 loguru.logger.error(f"MeoW创建失败: {e}")
 
         # Audio
-        if config.audio_path:
+        if include_audio and config.audio_path:
             try:
                 from util.AudioUtil import AudioNotifier
 
@@ -307,14 +308,17 @@ class NotifierManager:
         return manager
 
     @staticmethod
-    def test_all_notifiers() -> str:
+    def test_all_notifiers(include_audio: bool = True) -> str:
         """测试所有已配置的推送渠道"""
         config = NotifierConfig.from_config_db()
         results = []
 
         # 使用统一的工厂方法创建测试管理器
         test_manager = NotifierManager.create_from_config(
-            config=config, title="抢票提醒", content="测试推送"
+            config=config,
+            title="抢票提醒",
+            content="测试推送",
+            include_audio=include_audio,
         )
 
         # 测试每个已配置的推送渠道
@@ -325,8 +329,9 @@ class NotifierManager:
             ("Bark", config.bark_token, "Bark"),
             ("Ntfy", config.ntfy_url, "Ntfy"),
             ("MeoW", config.meow_nickname, "MeoW"),
-            ("Audio", config.audio_path, "音频通知"),
         ]
+        if include_audio:
+            test_cases.append(("Audio", config.audio_path, "音频通知"))
 
         for notifier_name, config_value, display_name in test_cases:
             if not config_value:

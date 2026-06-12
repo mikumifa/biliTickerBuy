@@ -1,8 +1,9 @@
 from argparse import Namespace
 import os
 import re
+import threading
 
-from util import GlobalStatusInstance, get_application_path
+from util import GlobalStatusInstance, build_public_url, get_application_path
 
 
 def buy_cmd(args: Namespace):
@@ -84,10 +85,11 @@ def buy_cmd(args: Namespace):
         )
         client = gradio_client.Client(args.endpoint_url)
         assert demo.local_url
+        self_url = build_public_url(demo.local_url, args.server_name)
         GlobalStatusInstance.nowTask = filename_only
         start_heartbeat_thread(
             client,
-            self_url=demo.local_url,
+            self_url=self_url,
             to_url=args.endpoint_url,
         )
     else:
@@ -109,4 +111,7 @@ def buy_cmd(args: Namespace):
         args.meowNickname,
         not args.hide_random_message,
     )
+    if getattr(args, "web", False):
+        logger.info("抢票流程已结束，网页将保持运行，直到用户点击关闭程序。")
+        threading.Event().wait()
     logger.info("抢票完成后退出程序。。。。。")
