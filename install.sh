@@ -19,8 +19,7 @@ INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/share/biliTickerBuy}"
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 LAUNCHER_PATH="$BIN_DIR/btb"
 
-VERSION_INFO_URL="https://github.com/$REPO/releases/latest/download/version-info.json"
-VERSION_INFO_URL="$(resolve_url "$VERSION_INFO_URL")"
+
 
 PATH_MARKER_BEGIN="# >>> biliTickerBuy PATH >>>"
 PATH_MARKER_END="# <<< biliTickerBuy PATH <<<"
@@ -67,7 +66,8 @@ resolve_url() {
   esac
 }
 
-
+VERSION_INFO_URL="https://github.com/$REPO/releases/latest/download/version-info.json"
+VERSION_INFO_URL="$(resolve_url "$VERSION_INFO_URL")"
 
 http_get() {
   url="$1"
