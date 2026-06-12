@@ -104,7 +104,7 @@ jobs:
         if: matrix.config.os.filename == 'windows_amd64'
         shell: pwsh
         run: |
-          Compress-Archive -Path ./dist/biliTicKerBuy.exe,./dist/update.bat,./dist/.env.install -DestinationPath tmp.zip -Force
+          Compress-Archive -Path ./dist/biliTicKerBuy/biliTicKerBuy.exe,./dist/biliTicKerBuy/update.bat,./dist/biliTicKerBuy/.env.install -DestinationPath tmp.zip -Force
 
       - name: Zip the Build-linux-macos
         if: matrix.config.os.filename != 'windows_amd64'
