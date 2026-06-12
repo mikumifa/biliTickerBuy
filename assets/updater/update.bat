@@ -324,7 +324,6 @@ if exist "%TEMP_ZIP%" del /f /q "%TEMP_ZIP%" >nul 2>nul
 if exist "%META_FILE%" del /f /q "%META_FILE%" >nul 2>nul
 if exist "%TEMP_EXTRACT%" rmdir /s /q "%TEMP_EXTRACT%" >nul 2>nul
 
-echo [biliTickerBuy] 已成功更新到 !RELEASE_TAG!。
-echo [biliTickerBuy] 当前程序：%TARGET_EXE%
+echo [biliTickerBuy] 已成功更新到 !RELEASE_TAG!
 pause
 exit /b 0
