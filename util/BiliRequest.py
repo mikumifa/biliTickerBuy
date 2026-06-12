@@ -1,4 +1,3 @@
-import json
 import time
 import loguru
 import requests
@@ -47,10 +46,14 @@ class BiliRequest:
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
         if isJson:
             self.headers["Content-Type"] = "application/json"
-            response = self.session.get(url, json=data, headers=self.headers, timeout=10)
+            response = self.session.get(
+                url, json=data, headers=self.headers, timeout=10
+            )
         else:
             self.headers["Content-Type"] = "application/x-www-form-urlencoded"
-            response = self.session.get(url, params=data, headers=self.headers, timeout=10)
+            response = self.session.get(
+                url, params=data, headers=self.headers, timeout=10
+            )
         if response.status_code == 412:
             self.count_and_sleep()
             self.switch_proxy()
@@ -80,10 +83,14 @@ class BiliRequest:
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
         if isJson:
             self.headers["Content-Type"] = "application/json"
-            response = self.session.post(url, json=data, headers=self.headers, timeout=10)
+            response = self.session.post(
+                url, json=data, headers=self.headers, timeout=10
+            )
         else:
             self.headers["Content-Type"] = "application/x-www-form-urlencoded"
-            response = self.session.post(url, data=data, headers=self.headers, timeout=10)
+            response = self.session.post(
+                url, data=data, headers=self.headers, timeout=10
+            )
         if response.status_code == 412:
             self.count_and_sleep()
             self.switch_proxy()
