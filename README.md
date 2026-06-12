@@ -38,7 +38,7 @@
 > curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install.sh | sh
 > ```
 >
-> 上述命令使用了[加速前缀](https://gh-proxy.org/)，如失效请更换其他[可用链接](https://ghproxy.link/)。
+> 安装脚本默认启用加速前缀 `https://gh-proxy.org/`，如失效请前往 [ghproxy.link](https://ghproxy.link/) 查找其他可用前缀。
 
 方法二: 如果没有您使用系统的已构建版本，请前往[指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
 
