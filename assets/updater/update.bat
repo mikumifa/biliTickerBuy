@@ -81,30 +81,81 @@ if not defined ASSET_URL (
 )
 
 if exist "%TEMP_ZIP%" (
-  echo [biliTickerBuy] 检测到已下载的更新包，跳过下载："%TEMP_ZIP%"
-) else (
+  echo [biliTickerBuy] 检测到已下载的更新包，正在校验...
+
+  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ErrorActionPreference='Stop';" ^
+    "Add-Type -AssemblyName System.IO.Compression.FileSystem;" ^
+    "$zip = [System.IO.Compression.ZipFile]::OpenRead('%TEMP_ZIP%');" ^
+    "$zip.Dispose()"
+    
+  if errorlevel 1 (
+    echo [biliTickerBuy] 已下载的文件不是有效 ZIP，将重新下载。
+    del /f /q "%TEMP_ZIP%" >nul 2>nul
+  ) else (
+    echo [biliTickerBuy] 已下载的更新包校验通过，跳过下载。
+  )
+)
+
+if not exist "%TEMP_ZIP%" (
   echo [biliTickerBuy] 正在下载 !RELEASE_TAG!...
+
   where curl.exe >nul 2>nul
   if not errorlevel 1 (
-    curl.exe -L --progress-bar -H "User-Agent: biliTickerBuy-updater" -o "%TEMP_ZIP%" "%ASSET_URL%"
+    curl.exe ^
+      --fail ^
+      --location ^
+      --retry 3 ^
+      --retry-delay 2 ^
+      --progress-bar ^
+      -H "User-Agent: biliTickerBuy-updater" ^
+      -H "Accept: application/octet-stream" ^
+      -o "%TEMP_ZIP%" ^
+      "%ASSET_URL%"
+
     if errorlevel 1 (
       echo 下载失败：%ASSET_URL%
-      echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀。
-      echo 可在安装目录的 .env.install 中配置，例如：GH_PROXY=https://gh-proxy.org
-      echo 可用前缀可前往 https://ghproxy.link/ 查找。
+      if exist "%TEMP_ZIP%" del /f /q "%TEMP_ZIP%" >nul 2>nul
       exit /b 1
     )
   ) else (
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-      "$ErrorActionPreference='Stop'; Invoke-WebRequest -Headers @{ 'User-Agent'='biliTickerBuy-updater' } -Uri '%ASSET_URL%' -OutFile '%TEMP_ZIP%'"
+      "$ErrorActionPreference='Stop';" ^
+      "Invoke-WebRequest -UseBasicParsing -Headers @{ 'User-Agent'='biliTickerBuy-updater'; 'Accept'='application/octet-stream' } -Uri '%ASSET_URL%' -OutFile '%TEMP_ZIP%'"
+
     if errorlevel 1 (
       echo 下载失败：%ASSET_URL%
-      echo 请根据网络情况尝试取消 GH_PROXY，或更换为其他可用加速前缀。
-      echo 可在安装目录的 .env.install 中配置，例如：GH_PROXY=https://gh-proxy.org
-      echo 可用前缀可前往 https://ghproxy.link/ 查找。
+      if exist "%TEMP_ZIP%" del /f /q "%TEMP_ZIP%" >nul 2>nul
       exit /b 1
     )
   )
+)
+
+echo [biliTickerBuy] 正在验证更新包...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ErrorActionPreference='Stop';" ^
+  "Add-Type -AssemblyName System.IO.Compression.FileSystem;" ^
+  "$zip = [System.IO.Compression.ZipFile]::OpenRead('%TEMP_ZIP%');" ^
+  "if ($zip.Entries.Count -eq 0) { throw 'ZIP archive is empty.' };" ^
+  "$zip.Dispose()"
+
+if errorlevel 1 (
+  echo 更新包不是有效的 ZIP 文件。
+  echo 下载地址：%ASSET_URL%
+  echo 这通常是因为 GitHub 代理返回了错误页面。
+  del /f /q "%TEMP_ZIP%" >nul 2>nul
+  exit /b 1
+)
+
+echo [biliTickerBuy] 正在解压更新包...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ErrorActionPreference='Stop';" ^
+  "Expand-Archive -LiteralPath '%TEMP_ZIP%' -DestinationPath '%TEMP_EXTRACT%' -Force"
+
+if errorlevel 1 (
+  echo 解压更新包失败。
+  del /f /q "%TEMP_ZIP%" >nul 2>nul
+  exit /b 1
 )
 
 echo [biliTickerBuy] 正在解压更新包...
@@ -117,14 +168,66 @@ if not exist "%TEMP_EXTRACT%\biliTickerBuy.exe" (
   exit /b 1
 )
 
+echo [biliTickerBuy] 正在等待主程序退出...
+
+set /a WAIT_COUNT=0
+
+:WAIT_APP_EXIT
+tasklist /fi "imagename eq biliTickerBuy.exe" /nh 2>nul | find /i "biliTickerBuy.exe" >nul
+
+if not errorlevel 1 (
+  set /a WAIT_COUNT+=1
+
+  if !WAIT_COUNT! geq 30 (
+    echo 主程序长时间未退出，尝试强制关闭...
+    taskkill /f /im biliTickerBuy.exe >nul 2>nul
+    timeout /t 2 /nobreak >nul
+    goto REPLACE_APP
+  )
+
+  timeout /t 1 /nobreak >nul
+  goto WAIT_APP_EXIT
+)
+
+:REPLACE_APP
 echo [biliTickerBuy] 正在替换本地文件...
-copy /y "%TEMP_EXTRACT%\biliTickerBuy.exe" "%INSTALL_DIR%\biliTickerBuy.exe" >nul
+
+set "NEW_EXE=%INSTALL_DIR%\biliTickerBuy.exe.new"
+set "OLD_EXE=%INSTALL_DIR%\biliTickerBuy.exe.old"
+
+if exist "%NEW_EXE%" del /f /q "%NEW_EXE%" >nul 2>nul
+if exist "%OLD_EXE%" del /f /q "%OLD_EXE%" >nul 2>nul
+
+copy /y "%TEMP_EXTRACT%\biliTickerBuy.exe" "%NEW_EXE%" >nul
 if errorlevel 1 (
-  echo 无法替换 biliTickerBuy.exe。
-  echo 请先关闭正在运行的 biliTickerBuy，然后重新执行 update.bat。
+  echo 无法将新版程序复制到安装目录。
   pause
   exit /b 1
 )
+
+if exist "%INSTALL_DIR%\biliTickerBuy.exe" (
+  move /y "%INSTALL_DIR%\biliTickerBuy.exe" "%OLD_EXE%" >nul
+  if errorlevel 1 (
+    echo 无法移动旧版 biliTickerBuy.exe，文件可能仍被占用。
+    del /f /q "%NEW_EXE%" >nul 2>nul
+    pause
+    exit /b 1
+  )
+)
+
+move /y "%NEW_EXE%" "%INSTALL_DIR%\biliTickerBuy.exe" >nul
+if errorlevel 1 (
+  echo 无法启用新版 biliTickerBuy.exe。
+
+  if exist "%OLD_EXE%" (
+    move /y "%OLD_EXE%" "%INSTALL_DIR%\biliTickerBuy.exe" >nul
+  )
+
+  pause
+  exit /b 1
+)
+
+if exist "%OLD_EXE%" del /f /q "%OLD_EXE%" >nul 2>nul
 if exist "%TEMP_EXTRACT%\update.bat" copy /y "%TEMP_EXTRACT%\update.bat" "%INSTALL_DIR%\update.bat" >nul
 if exist "%TEMP_EXTRACT%\.env.install" copy /y "%TEMP_EXTRACT%\.env.install" "%INSTALL_DIR%\.env.install" >nul
 if exist "%TEMP_ZIP%" del /f /q "%TEMP_ZIP%" >nul 2>nul
