@@ -85,11 +85,36 @@ jobs:
         run: |
           pyinstaller main.spec
 
+      - name: Stage updater scripts
+        shell: bash
+        run: |
+          if [ "${{ matrix.config.os.filename }}" = "windows_amd64" ]; then
+            cp assets/updater/update.bat dist/update.bat
+            cp assets/updater/.env.install dist/.env.install
+          else
+            cp assets/updater/update.sh dist/biliTickerBuy/update.sh
+            cp assets/updater/.env.install dist/biliTickerBuy/.env.install
+            chmod +x dist/biliTickerBuy/update.sh
+          fi
+
+      - name: Verify updater scripts in package root
+        shell: bash
+        run: |
+          if [ "${{ matrix.config.os.filename }}" = "windows_amd64" ]; then
+            test -f dist/biliTicKerBuy.exe
+            test -f dist/update.bat
+            test -f dist/.env.install
+          else
+            test -d dist/biliTickerBuy
+            test -f dist/biliTickerBuy/update.sh
+            test -f dist/biliTickerBuy/.env.install
+          fi
+
       - name: Zip the Build-windows
         if: matrix.config.os.filename == 'windows_amd64'
         shell: pwsh
         run: |
-          Compress-Archive -Path ./dist/biliTicKerBuy.exe -DestinationPath tmp.zip -Force
+          Compress-Archive -Path ./dist/biliTicKerBuy.exe,./dist/update.bat,./dist/.env.install -DestinationPath tmp.zip -Force
 
       - name: Zip the Build-linux-macos
         if: matrix.config.os.filename != 'windows_amd64'
