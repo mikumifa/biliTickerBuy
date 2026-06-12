@@ -1,4 +1,3 @@
-```sh
 #!/usr/bin/env sh
 set -eu
 
@@ -308,4 +307,3 @@ rm -rf "$TEMP_EXTRACT"
 
 echo "[biliTickerBuy] 已更新到 ${RELEASE_TAG}。"
 echo "请手动重新启动程序。"
-```
