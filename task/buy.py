@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import time
+import uuid
 from random import randint
 from datetime import datetime
 from json import JSONDecodeError
@@ -43,7 +44,7 @@ def _wait_until_start(time_start: str):
 
     timeoffset = time_service.get_timeoffset()
     yield "0) 等待开始时间"
-    yield f"时间偏差已被设置为: {timeoffset}s"
+    yield f"时间偏差已被设置为: {timeoffset}秒"
 
     for fmt in (
         "%Y-%m-%dT%H:%M:%S",
@@ -294,6 +295,7 @@ def buy_new_terminal(
     meowNickname=None,
     show_random_message=True,
     terminal_ui="网页",
+    log_file_path: str | None = None,
 ) -> subprocess.Popen:
     command = None
 
@@ -344,11 +346,16 @@ def buy_new_terminal(
     if terminal_ui == "网页":
         command.append("--web")
     command.extend(["--endpoint_url", endpoint_url])
+    env = os.environ.copy()
+    if log_file_path:
+        env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)
+    else:
+        env.setdefault("BTB_APP_LOG_NAME", f"{uuid.uuid4()}.log")
     if terminal_ui == "网页":
-        proc = subprocess.Popen(command)
+        proc = subprocess.Popen(command, env=env)
     else:
         kwargs = {}
         if os.name == "nt":
             kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
-        proc = subprocess.Popen(command, **kwargs)
+        proc = subprocess.Popen(command, env=env, **kwargs)
     return proc
