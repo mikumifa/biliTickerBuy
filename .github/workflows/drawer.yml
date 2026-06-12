@@ -98,18 +98,118 @@ jobs:
           cd ./dist
           zip -r ../tmp.zip biliTickerBuy
 
-      - name: Upload binaries to draft release
+      - name: Prepare release bundle metadata
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRAFT_TAG: ${{ needs.update_release_draft.outputs.tag_name }}
           RELEASE_ZIP_NAME: ${{ secrets.ReleaseZipName }}
+          PLATFORM_KEY: ${{ matrix.config.os.filename }}
         run: |
-          ASSET_NAME="${RELEASE_ZIP_NAME}_${{ matrix.config.os.filename }}_${DRAFT_TAG}.zip"
+          ASSET_NAME="${RELEASE_ZIP_NAME}_${PLATFORM_KEY}_${DRAFT_TAG}.zip"
 
           echo "Draft tag: ${DRAFT_TAG}"
           echo "Asset name: ${ASSET_NAME}"
 
           mv tmp.zip "$ASSET_NAME"
 
+          export ASSET_NAME
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          asset_path = Path(os.environ["ASSET_NAME"])
+          digest = hashlib.sha256()
+          with asset_path.open("rb") as fh:
+              for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                  if chunk:
+                      digest.update(chunk)
+
+          payload = {
+              os.environ["PLATFORM_KEY"]: {
+                  "name": asset_path.name,
+                  "sha256": digest.hexdigest(),
+                  "size": asset_path.stat().st_size,
+              }
+          }
+          Path("release-manifest-entry.json").write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload binaries to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRAFT_TAG: ${{ needs.update_release_draft.outputs.tag_name }}
+        run: |
+          ASSET_NAME="$(python -c "import json; print(json.load(open('release-manifest-entry.json', encoding='utf-8')).popitem()[1]['name'])")"
           gh release upload "$DRAFT_TAG" "$ASSET_NAME" --clobber
+
+      - name: Upload manifest inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest-${{ matrix.config.os.filename }}
+          path: |
+            *.zip
+            release-manifest-entry.json
+          if-no-files-found: error
+
+  upload_release_manifest:
+    name: Upload Release Manifest
+    needs:
+      - update_release_draft
+      - build_and_upload_draft_assets
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.update_release_draft.outputs.tag_name != ''
+    permissions:
+      contents: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download manifest inputs
+        uses: actions/download-artifact@v4
+        with:
+          path: release-manifest
+          pattern: release-manifest-*
+
+      - name: Build version-info.json
+        shell: bash
+        env:
+          DRAFT_TAG: ${{ needs.update_release_draft.outputs.tag_name }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("release-manifest")
+          files = {}
+          for metadata_path in sorted(root.rglob("release-manifest-entry.json")):
+              payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+              if not isinstance(payload, dict):
+                  raise SystemExit(f"Invalid metadata file: {metadata_path}")
+              files.update(payload)
+
+          if not files:
+              raise SystemExit("No release metadata found.")
+
+          manifest = {
+              "version": os.environ["DRAFT_TAG"],
+              "files": files,
+          }
+          Path("version-info.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload version manifest to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRAFT_TAG: ${{ needs.update_release_draft.outputs.tag_name }}
+        run: |
+          gh release upload "$DRAFT_TAG" version-info.json --clobber
