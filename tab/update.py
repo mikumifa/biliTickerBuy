@@ -77,9 +77,7 @@ def _pip_update_hint(channel: str) -> str:
     command = f"python -m pip install -U {PACKAGE_NAME}"
     if channel != UPDATE_CHANNEL_STABLE:
         command += " --pre"
-    return (
-        f"当前是 <strong>pip</strong> 安装版本。<br>请在终端执行：<code>{html.escape(command)}</code>"
-    )
+    return f"当前是 <strong>pip</strong> 安装版本。<br>请在终端执行：<code>{html.escape(command)}</code>"
 
 
 def _bundled_update_hint() -> str:

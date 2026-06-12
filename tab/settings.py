@@ -767,7 +767,9 @@ def login_tab():
                         gr.update(),
                     ]
                 if was_active:
-                    set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
+                    set_main_request(
+                        BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH)
+                    )
                     util.main_request.cookieManager.db.delete("cookie")
                     gr.Info(
                         f"已删除最后一个账号 {account.name if account else uid}，当前无活跃账号",

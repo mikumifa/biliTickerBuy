@@ -25,7 +25,9 @@ BEIJING_TZ = datetime.timezone(datetime.timedelta(hours=8), name="Asia/Shanghai"
 
 
 def withTimeString(string):
-    return f"{datetime.datetime.now(BEIJING_TZ).strftime('%Y-%m-%d %H:%M:%S')}: {string}"
+    return (
+        f"{datetime.datetime.now(BEIJING_TZ).strftime('%Y-%m-%d %H:%M:%S')}: {string}"
+    )
 
 
 def _build_task_log_path(filename: str) -> str:
@@ -222,8 +224,7 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
             return _render_ticket_preview(content)
         except Exception as e:
             return (
-                '<div class="btb-card-note">配置预览失败：'
-                f"{html.escape(str(e))}</div>"
+                f'<div class="btb-card-note">配置预览失败：{html.escape(str(e))}</div>'
             )
 
     def auto_fill_time(files):
@@ -245,9 +246,7 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
                 config.get("sale_start", config.get("saleStart"))
             )
             if sale_start is None:
-                raise gr.Error(
-                    f"缺少有效的 sale_start，请重新生成该配置。"
-                )
+                raise gr.Error("缺少有效的 sale_start，请重新生成该配置。")
             sale_start_items.append((os.path.basename(filepath), sale_start))
 
         latest_sale_start = max(sale_start for _, sale_start in sale_start_items)
@@ -369,6 +368,7 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
         gr.Info("正在启动，请等待抢票页面弹出。")
 
     upload_ui.upload(fn=upload, inputs=upload_ui, outputs=ticket_ui)
+
     def maybe_auto_fill_time(files):
         if not ConfigDB.get("autoFillTime"):
             return ""
@@ -755,7 +755,9 @@ def go_settings_tab():
                                 interactive=False,
                             )
 
-                    with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
+                    with gr.Column(
+                        elem_classes="btb-card btb-card-sky btb-layout-card"
+                    ):
                         test_all_push_button = gr.Button(
                             "🧪 测试所有推送",
                             elem_classes="!rounded-xl !border !border-slate-300 !bg-white !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
@@ -779,14 +781,18 @@ def go_settings_tab():
                         info="关闭后，抢票失败时将不再显示有趣的语录",
                     )
 
-    https_proxy_ui.submit(fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui)
+    https_proxy_ui.submit(
+        fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
+    )
     test_proxy_btn.click(
         fn=test_proxy_connectivity,
         inputs=[https_proxy_ui, test_timeout_ui],
         outputs=test_result_ui,
     )
 
-    serverchan_ui.submit(fn=inner_input_serverchan, inputs=serverchan_ui, outputs=serverchan_ui)
+    serverchan_ui.submit(
+        fn=inner_input_serverchan, inputs=serverchan_ui, outputs=serverchan_ui
+    )
     serverchan3_ui.submit(
         fn=inner_input_serverchan3,
         inputs=serverchan3_ui,
