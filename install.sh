@@ -66,7 +66,7 @@ resolve_url() {
 }
 
 VERSION_INFO_URL="https://github.com/$REPO/releases/latest/download/version-info.json"
-VERSION_INFO_DOWNLOAD_URL="$(resolve_url "$VERSION_INFO_URL")"
+VERSION_INFO_URL="$(resolve_url "$VERSION_INFO_URL")"
 
 http_get() {
   url="$1"
