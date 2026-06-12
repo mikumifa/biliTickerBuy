@@ -169,6 +169,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
       - name: Download manifest inputs
         uses: actions/download-artifact@v4
         with:
