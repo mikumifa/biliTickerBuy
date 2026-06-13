@@ -2,6 +2,7 @@ import gradio as gr
 import html
 import os
 import signal
+import subprocess
 import time
 from datetime import datetime
 
@@ -56,11 +57,39 @@ def terminate_task(pid: int) -> str:
     if not is_task_running(pid):
         return "任务进程已结束。"
 
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        except OSError:
+            return "停止任务进程失败。"
+
+        deadline = time.time() + 3
+        while time.time() < deadline:
+            if not is_task_running(pid):
+                return "已停止任务进程。"
+            time.sleep(0.1)
+
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        except OSError:
+            return "强制停止任务进程失败。"
+
+        if not is_task_running(pid):
+            return "已强制停止任务进程。"
+        return "停止任务进程失败。"
+
     try:
-        if os.name == "nt":
-            os.kill(pid, signal.SIGTERM)
-        else:
-            os.killpg(pid, signal.SIGTERM)
+        os.killpg(pid, signal.SIGTERM)
     except ProcessLookupError:
         return "任务进程已结束。"
 
@@ -71,10 +100,7 @@ def terminate_task(pid: int) -> str:
         time.sleep(0.1)
 
     try:
-        if os.name == "nt":
-            os.kill(pid, signal.SIGKILL)
-        else:
-            os.killpg(pid, signal.SIGKILL)
+        os.killpg(pid, signal.SIGKILL)
     except ProcessLookupError:
         return "已停止任务进程。"
 
