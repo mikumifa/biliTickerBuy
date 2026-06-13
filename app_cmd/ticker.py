@@ -28,7 +28,7 @@ def ticker_cmd(args: Namespace):
     from tab.settings import login_tab, setting_tab
     from tab.update import update_tab
     from util.log_web import attach_log_routes
-    from util import LOG_DIR
+    from util import ConfigDB, LOG_DIR
     from util.LogConfig import loguru_config
 
     loguru_config(LOG_DIR, "app.log", enable_console=True, file_colorize=False)
@@ -43,6 +43,9 @@ def ticker_cmd(args: Namespace):
             ).decode("ascii")
 
     app_version = get_app_version()
+    hide_header = ConfigDB.get("hideHeader")
+    if hide_header is None:
+        hide_header = False
 
     header = f"""
     <section class="btb-hero">
@@ -167,7 +170,7 @@ def ticker_cmd(args: Namespace):
         """,
     ) as demo:
         with gr.Column(elem_classes="btb-app-shell"):
-            gr.HTML(header)
+            header_ui = gr.HTML(header, visible=not hide_header)
             with gr.Tabs(elem_id="btb-main-tabs", elem_classes="btb-top-tabs"):
                 with gr.Tab("账号登录", id="login", elem_id="btb-tab-login"):
                     login_tab()
@@ -176,7 +179,7 @@ def ticker_cmd(args: Namespace):
                 with gr.Tab("操作抢票", id="go", elem_id="btb-tab-go"):
                     go_task_refresh_token, go_task_panel = go_start_tab()
                 with gr.Tab("高级设置", id="advanced", elem_id="btb-tab-advanced"):
-                    go_settings_tab()
+                    go_settings_tab(header_ui)
                 with gr.Tab("项目说明", id="guide", elem_id="btb-tab-guide"):
                     problems_tab()
                 with gr.Tab("软件更新", id="update", elem_id="btb-tab-update"):

@@ -423,7 +423,7 @@ def go_start_tab():
     return task_refresh_token, task_panel
 
 
-def go_settings_tab():
+def go_settings_tab(header_ui):
     def _split_proxy_lines(proxy_text: str | None) -> list[str]:
         if not proxy_text:
             return []
@@ -548,6 +548,13 @@ def go_settings_tab():
         ConfigDB.insert("hideRandomMessage", value)
         return gr.update(value=ConfigDB.get("hideRandomMessage"))
 
+    def update_hide_header(value):
+        ConfigDB.insert("hideHeader", value)
+        return (
+            gr.update(value=ConfigDB.get("hideHeader")),
+            gr.update(visible=not value),
+        )
+
     def update_auto_fill_time(value):
         ConfigDB.insert("autoFillTime", value)
         return gr.update(value=ConfigDB.get("autoFillTime"))
@@ -559,6 +566,9 @@ def go_settings_tab():
     hide_random_message_default = ConfigDB.get("hideRandomMessage")
     if hide_random_message_default is None:
         hide_random_message_default = True
+    hide_header_default = ConfigDB.get("hideHeader")
+    if hide_header_default is None:
+        hide_header_default = False
     auto_fill_time_default = ConfigDB.get("autoFillTime")
     if auto_fill_time_default is None:
         auto_fill_time_default = True
@@ -747,6 +757,11 @@ def go_settings_tab():
                         value=hide_random_message_default,
                         info="关闭后，抢票失败时将不再显示有趣的语录",
                     )
+                    hide_header_ui = gr.Checkbox(
+                        label="隐藏顶部大 Header",
+                        value=hide_header_default,
+                        info="默认显示。开启后将隐藏顶部包含项目地址和图标的区域。",
+                    )
                     notify_proxy_exhausted_ui = gr.Checkbox(
                         label="无可用代理时发送提醒",
                         value=notify_proxy_exhausted_default,
@@ -796,6 +811,11 @@ def go_settings_tab():
         fn=update_hide_random_message,
         inputs=show_random_message_ui,
         outputs=show_random_message_ui,
+    )
+    hide_header_ui.change(
+        fn=update_hide_header,
+        inputs=hide_header_ui,
+        outputs=[hide_header_ui, header_ui],
     )
     auto_fill_time_ui.change(
         fn=update_auto_fill_time,
