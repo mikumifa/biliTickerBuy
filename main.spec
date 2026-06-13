@@ -7,6 +7,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 datas = []
 datas.append(("assets/*", "assets"))
 datas.append(("pyproject.toml", "."))
+datas += collect_data_files("gradio_client")
 datas += collect_data_files("gradio")
 datas += collect_data_files("gradio_calendar")
 
@@ -41,6 +42,7 @@ a = Analysis(
     module_collection_mode={
         "gradio": "py",  # Collect gradio package as source .py files
         "gradio_calendar": "py",  # Collect'
+        "gradio_log": "py",  # Collect'
     },
     hookspath=[],
     hooksconfig={},
