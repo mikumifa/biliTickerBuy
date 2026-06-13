@@ -1125,6 +1125,37 @@ select,
   align-items: center;
 }
 
+.btb-task-action-html {
+  display: flex;
+  align-items: center;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.btb-task-action-html > div {
+  display: flex;
+  align-items: center;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.btb-task-action-html .html-container,
+.btb-task-action-html .prose,
+.btb-task-action-html .gradio-html {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 .btb-task-card__actions .gradio-html,
 .btb-task-card__actions .gradio-button {
   min-width: 0 !important;
@@ -1177,6 +1208,14 @@ select,
   white-space: nowrap;
 }
 
+.btb-task-link.btb-task-button {
+  padding: 0 14px !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em !important;
+}
+
 .btb-task-link:hover {
   border-color: var(--border-hover);
   text-decoration: none;
@@ -1206,6 +1245,26 @@ select,
 
 .btb-task-button:hover {
   transform: translateY(-1px);
+}
+
+.btb-task-button--view {
+  color: var(--semantic-brand-text) !important;
+  background: var(--semantic-brand-bg) !important;
+  border: 1px solid var(--semantic-brand-ring) !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+.btb-task-button--view:hover {
+  background: color-mix(
+    in srgb,
+    var(--semantic-brand-bg) 82%,
+    var(--semantic-brand-ring)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--semantic-brand-ring) 88%,
+    var(--semantic-brand-text)
+  ) !important;
 }
 
 .btb-task-button--stop {

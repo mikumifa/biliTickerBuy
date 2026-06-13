@@ -16,6 +16,13 @@ TASK_STATUS_STOPPED = "已主动终止"
 TASK_STATUS_COMPLETED = "已完成"
 TASK_STATUS_EXITED = "已结束"
 TASK_COMPLETED_MARKER = "抢票完成后退出程序。。。。。"
+OPEN_LOG_JS = """
+(url) => {
+    if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
+}
+"""
 
 
 def _status_class(status: str) -> str:
@@ -45,6 +52,12 @@ def _render_log_path(path: str) -> str:
       <code>{path}</code>
     </div>
     """.format(path=html.escape(path))
+
+
+def _render_log_view_action(path: str) -> str:
+    return """
+    <a class="btb-task-link btb-task-button" href="{log_view_url}" target="_blank" rel="noopener noreferrer">查看</a>
+    """.format(log_view_url=html.escape(build_log_view_url(path)))
 
 
 def _list_log_files() -> list[str]:
@@ -291,6 +304,7 @@ def read_task_log_locations():
               <div class="btb-task-card__meta">创建于 {created_at}</div>
               {log_path}
               <div class="btb-task-card__actions">
+                {log_action}
               </div>
             </article>
             """.format(
@@ -299,6 +313,7 @@ def read_task_log_locations():
                 status=html.escape(entry.status),
                 status_class=html.escape(status_class),
                 log_path=_render_log_path(entry.log_file),
+                log_action=_render_log_view_action(entry.log_file),
             )
         )
     items.append("</div>")
@@ -355,6 +370,18 @@ def render_task_manager_panel(task_panel):
                                 fn=lambda pid=entry.pid: stop_task(pid),
                                 outputs=[refresh_token, task_panel],
                             )
+                        view_btn = gr.Button(
+                            "查看",
+                            elem_classes="btb-soft-button btb-task-button btb-task-button--view",
+                            scale=0,
+                            min_width=84,
+                        )
+                        view_btn.click(
+                            fn=None,
+                            inputs=gr.State(build_log_view_url(entry.log_file)),
+                            outputs=None,
+                            js=OPEN_LOG_JS,
+                        )
                         remove_btn = gr.Button(
                             "移除",
                             elem_classes="btb-soft-button btb-task-button btb-task-button--remove",
@@ -447,14 +474,17 @@ def log_tab():
                                 log_path=_render_log_path(log_file),
                             )
                         )
-                        gr.HTML(
-                            """
-                            <div class="btb-task-card__actions">
-                              <a class="btb-task-link btb-task-link--primary" href="{log_view_url}" target="_blank" rel="noopener noreferrer">查看</a>
-                            </div>
-                            """.format(
-                                log_view_url=html.escape(build_log_view_url(log_file))
-                            )
+                        view_btn = gr.Button(
+                            "查看",
+                            elem_classes="btb-soft-button btb-task-button btb-task-button--view",
+                            scale=0,
+                            min_width=84,
+                        )
+                        view_btn.click(
+                            fn=None,
+                            inputs=gr.State(build_log_view_url(log_file)),
+                            outputs=None,
+                            js=OPEN_LOG_JS,
                         )
 
         refresh_btn.click(
