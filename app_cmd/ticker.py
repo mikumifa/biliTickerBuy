@@ -23,7 +23,7 @@ def shutdown_app_process(delay_seconds: float = 1.0) -> None:
 
 def ticker_cmd(args: Namespace):
     from tab.go import go_settings_tab, go_start_tab
-    from tab.log import log_tab, refresh_task_panel
+    from tab.log import log_tab, refresh_log_panel, refresh_task_panel
     from tab.problems import problems_tab
     from tab.settings import login_tab, setting_tab
     from tab.update import update_tab
@@ -60,7 +60,7 @@ def ticker_cmd(args: Namespace):
             <span class="btb-hero__notice-mark">!</span>
             <span>
                 此项目完全开源免费。开源地址：
-                <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">https://github.com/mikumifa/biliTickerBuy</a>。
+                <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">link</a>。
                 请勿用于盈利，否则后果自负。
             </span>
         </div>
@@ -69,7 +69,7 @@ def ticker_cmd(args: Namespace):
 
     def refresh_all_task_panels():
         go_refresh_token, go_panel_update = refresh_task_panel()
-        log_refresh_token, log_panel_update = refresh_task_panel()
+        log_refresh_token, log_panel_update = refresh_log_panel()
         return (
             go_refresh_token,
             go_panel_update,
@@ -155,6 +155,37 @@ def ticker_cmd(args: Namespace):
                     setTimeout(openTabFromHash, 0);
                 });
             }
+            function isMobileLike() {
+                return window.matchMedia('(max-width: 768px)').matches ||
+                    window.matchMedia('(pointer: coarse)').matches;
+            }
+            function enhanceDropdownNoKeyboard() {
+                if (!isMobileLike()) return;
+                var inputs = document.querySelectorAll(
+                    '.gradio-container [data-testid="dropdown"] input,' +
+                    '.gradio-container .gradio-dropdown input,' +
+                    '.gradio-container .dropdown input,' +
+                    '.gradio-container .choices input'
+                );
+                inputs.forEach(function(input) {
+                    if (input.dataset.mobileNoKeyboard === '1') return;
+                    input.dataset.mobileNoKeyboard = '1';
+                    input.readOnly = true;
+                    input.setAttribute('readonly', 'readonly');
+                    input.setAttribute('inputmode', 'none');
+                    input.setAttribute('autocomplete', 'off');
+                    input.setAttribute('autocorrect', 'off');
+                    input.setAttribute('autocapitalize', 'off');
+                    input.setAttribute('spellcheck', 'false');
+                });
+            }
+            function watchDropdownEnhance() {
+                enhanceDropdownNoKeyboard();
+                var observer = new MutationObserver(function() {
+                    enhanceDropdownNoKeyboard();
+                });
+                observer.observe(document.body, {childList: true, subtree: true});
+            }
             function enhance(){
                 var root=document.getElementById('btb-time-start');
                 if(!root){setTimeout(enhance,300);return;}
@@ -197,8 +228,8 @@ def ticker_cmd(args: Namespace):
                 });
             }
             if(document.readyState==='loading')
-                document.addEventListener('DOMContentLoaded',function(){enhance();wireTabRouting();});
-            else {setTimeout(enhance,500);setTimeout(wireTabRouting,300);}
+                document.addEventListener('DOMContentLoaded',function(){enhance();wireTabRouting();watchDropdownEnhance();});
+            else {setTimeout(enhance,500);setTimeout(wireTabRouting,300);setTimeout(watchDropdownEnhance,300);}
         })();
         </script>
         """,
@@ -238,6 +269,7 @@ def ticker_cmd(args: Namespace):
         server_name=args.server_name,
         server_port=args.port,
         prevent_thread_lock=True,
+        show_api=False,
     )
     attach_log_routes(demo.app)
     try:

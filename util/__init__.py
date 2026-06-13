@@ -209,6 +209,14 @@ class GlobalStatus:
     def remove_task_log(self, pid: int) -> None:
         self.task_logs = [entry for entry in self.task_logs if entry.pid != pid]
 
+    def remove_task_logs_by_paths(self, log_files: list[str] | set[str]) -> None:
+        normalized = {os.path.abspath(path) for path in log_files}
+        self.task_logs = [
+            entry
+            for entry in self.task_logs
+            if os.path.abspath(entry.log_file) not in normalized
+        ]
+
     def update_task_log_status(self, pid: int, status: str) -> None:
         for entry in self.task_logs:
             if entry.pid == pid:

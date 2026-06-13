@@ -108,14 +108,7 @@ def _render_ticket_preview(config: dict) -> str:
         for label, value in items
     )
     return f"""
-    <div class="btb-ticket-panel">
-        <div class="btb-ticket-panel__head">
-            <div>
-                <div class="btb-card-head__eyebrow">Config Preview</div>
-                <h4>抢票配置预览</h4>
-            </div>
-            <span class="btb-badge-pink">已解析</span>
-        </div>
+    <div class="btb-ticket-panel btb-ticket-panel--compact">
         <div class="btb-mini-grid btb-mini-grid--triple">{item_html}</div>
         <div class="btb-mini-card btb-ticket-panel__delivery">
             <strong>收货信息</strong>
@@ -153,7 +146,7 @@ def go_start_tab():
         with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
             with gr.Row(elem_classes="!items-stretch !gap-3"):
                 upload_ui = gr.Files(
-                    label="上传多个配置文件,每一个上传的文件都会启动一个抢票程序",
+                    label="每一个上传的文件都会启动一个抢票程序",
                     file_count="multiple",
                     value=_get_session_upload_files,
                     scale=5,
@@ -170,12 +163,9 @@ def go_start_tab():
                         <div>
                             <h4>选择抢票时间</h3>
                             <p>
-                                程序已经提前帮你校准时间，请设置成<strong>开票时间</strong>。
-                                切勿设置为开票前时间，否则有封号风险。
                                 这里的时间按<strong>北京时间（UTC+8）</strong>填写。
                             </p>
                         </div>
-                        <span class="btb-badge-pink">精确到秒</span>
                     </div>
                     """,
                     label="选择抢票的时间",
@@ -209,7 +199,7 @@ def go_start_tab():
                 label="抢票间隔",
                 value=1000,
                 minimum=1,
-                info="设置抢票请求之间的时间间隔（单位：毫秒），建议不要设置太小",
+                info="抢票请求之间的时间间隔（单位：毫秒）",
             )
 
     @runtime_state_writer(GO_UPLOADED_FILES_STATE_KEY, kind="path_list")
@@ -577,32 +567,14 @@ def go_settings_tab():
         notify_proxy_exhausted_default = False
 
     with gr.Column(elem_classes="btb-page-section"):
-        with gr.Column(elem_classes="btb-card btb-layout-card"):
-            gr.Markdown(
-                """
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <p class="text-base font-semibold text-slate-900">高级设置</p>
-                        <p class="mt-1 text-sm leading-6 text-slate-600">
-                            这里包含代理、成功提醒、提示音和杂项选项，进入标签页后会直接显示。
-                        </p>
-                    </div>
-                    <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
-                        可选配置
-                    </span>
-                </div>
-                """,
-                elem_classes="!p-0",
-            )
         with gr.Tabs(elem_classes="btb-top-tabs"):
-            with gr.Tab("代理设置"):
+            with gr.Tab("代理"):
                 with gr.Column(elem_classes="btb-card btb-layout-card"):
                     gr.Markdown("### 填写你的代理服务器")
                     https_proxy_ui = gr.Textbox(
                         label="代理服务器地址",
                         lines=4,
-                        placeholder="推荐每行填写一个代理地址，留空表示只使用直连\n例如：\nhttp://127.0.0.1:8080\nsocks5://127.0.0.1:1080\nhttp://proxyuser:proxypass@xx.xx.xx.xx:8080",
-                        info="支持每行一个，也支持逗号分隔。例如：\nhttp://127.0.0.1:8080\nhttps://127.0.0.1:8081\nsocks5://127.0.0.1:1080",
+                        placeholder="每行填写一个代理地址，留空表示只使用直连\n例如：\nhttp://127.0.0.1:8080\nsocks5://127.0.0.1:1080\nhttp://proxyuser:proxypass@xx.xx.xx.xx:8080",
                         value=get_latest_proxy(),
                     )
                     with gr.Row(elem_classes="btb-inline-actions !justify-end"):
@@ -648,7 +620,7 @@ def go_settings_tab():
                         """
                     )
 
-            with gr.Tab("音乐设置"):
+            with gr.Tab("音乐"):
                 with gr.Column(elem_classes="btb-card btb-layout-card"):
                     gr.Markdown("### 配置抢票成功后播放音乐")
                     gr.Markdown(
@@ -671,7 +643,7 @@ def go_settings_tab():
                         interactive=False,
                     )
 
-            with gr.Tab("推送设置"):
+            with gr.Tab("推送"):
                 with gr.Column(elem_classes="btb-card btb-layout-card"):
                     gr.Markdown("### 配置抢票推送消息")
                     gr.Markdown(
@@ -697,6 +669,7 @@ def go_settings_tab():
                         🛠️ 追求高度自由/有自建服务器/需要在抢票成功时通过手机播放铃声时，建议用 **ntfy** 或 **Server酱³**
                         """
                     )
+                    gr.Markdown("#### Server酱")
                     serverchan_ui = gr.Textbox(
                         value=(ConfigDB.get("serverchanKey") or ""),
                         label="Server酱ᵀᵘʳᵇᵒ的SendKey｜输入完成后，回车键保存",
@@ -709,65 +682,59 @@ def go_settings_tab():
                         interactive=True,
                         info="https://sc3.ft07.com/",
                     )
+                    gr.Markdown("#### PushPlus")
                     pushplus_ui = gr.Textbox(
                         value=(ConfigDB.get("pushplusToken") or ""),
                         label="PushPlus的Token｜输入完成后，回车键保存",
                         interactive=True,
                         info="https://www.pushplus.plus/",
                     )
+                    gr.Markdown("#### Bark")
                     bark_ui = gr.Textbox(
                         value=(ConfigDB.get("barkToken") or ""),
                         label="Bark的Token｜输入完成后，回车键保存",
                         interactive=True,
                         info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)；自托管服务请输入完整推送地址，例如: https://bark.example.app/jmGYK*****',
                     )
-
-                    with gr.Column(elem_classes="btb-card btb-layout-card"):
-                        gr.Markdown("#### Ntfy配置")
-                        ntfy_ui = gr.Textbox(
-                            value=(ConfigDB.get("ntfyUrl") or ""),
-                            label="Ntfy服务器URL｜输入完成后，回车键保存",
+                    gr.Markdown("#### Ntfy")
+                    ntfy_ui = gr.Textbox(
+                        value=(ConfigDB.get("ntfyUrl") or ""),
+                        label="Ntfy服务器URL｜输入完成后，回车键保存",
+                        interactive=True,
+                        info="例如: https://ntfy.sh/your-topic",
+                    )
+                    with gr.Row(elem_classes="btb-inline-actions !justify-end"):
+                        ntfy_username_ui = gr.Textbox(
+                            value=(ConfigDB.get("ntfyUsername") or ""),
+                            label="Ntfy用户名",
                             interactive=True,
-                            info="例如: https://ntfy.sh/your-topic",
+                            info="如果你的Ntfy服务器需要认证",
                         )
-
-                        with gr.Column(elem_classes="btb-card btb-layout-card"):
-                            gr.Markdown("#### Ntfy认证")
-                            with gr.Row(elem_classes="btb-inline-actions !justify-end"):
-                                ntfy_username_ui = gr.Textbox(
-                                    value=(ConfigDB.get("ntfyUsername") or ""),
-                                    label="Ntfy用户名",
-                                    interactive=True,
-                                    info="如果你的Ntfy服务器需要认证",
-                                )
-                                ntfy_password_ui = gr.Textbox(
-                                    value=(ConfigDB.get("ntfyPassword") or ""),
-                                    label="Ntfy密码",
-                                    interactive=True,
-                                    type="password",
-                                )
-                            test_ntfy_button = gr.Button(
-                                "测试Ntfy连接",
-                                elem_classes="btb-soft-button",
-                            )
-                            test_ntfy_result = gr.Textbox(
-                                label="测试结果",
-                                interactive=False,
-                            )
-
-                    with gr.Column(
-                        elem_classes="btb-card btb-card-sky btb-layout-card"
-                    ):
-                        test_all_push_button = gr.Button(
-                            "🧪 测试所有推送",
-                            elem_classes="!rounded-xl !border !border-slate-300 !bg-white !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
+                        ntfy_password_ui = gr.Textbox(
+                            value=(ConfigDB.get("ntfyPassword") or ""),
+                            label="Ntfy密码",
+                            interactive=True,
+                            type="password",
                         )
-                        test_push_result = gr.Textbox(
-                            label="推送测试结果",
-                            interactive=False,
-                        )
+                    test_ntfy_button = gr.Button(
+                        "测试Ntfy连接",
+                        elem_classes="btb-soft-button",
+                    )
+                    test_ntfy_result = gr.Textbox(
+                        label="测试结果",
+                        interactive=False,
+                    )
+                    gr.Markdown("#### 测试")
+                    test_all_push_button = gr.Button(
+                        "🧪 测试所有推送",
+                        elem_classes="!rounded-xl !border !border-slate-300 !bg-white !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
+                    )
+                    test_push_result = gr.Textbox(
+                        label="推送测试结果",
+                        interactive=False,
+                    )
 
-            with gr.Tab("杂项设置"):
+            with gr.Tab("杂项"):
                 with gr.Column(elem_classes="btb-card btb-layout-card"):
                     gr.Markdown("### 杂项配置")
                     auto_fill_time_ui = gr.Checkbox(

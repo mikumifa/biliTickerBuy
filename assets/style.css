@@ -165,6 +165,14 @@ body.gradio-body {
   color: var(--text-primary) !important;
 }
 
+body.gradio-body .app,
+body.gradio-body .app.svelte-wpkpf6.svelte-wpkpf6,
+.gradio-container.app,
+.gradio-container[class~="app"] {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
 body,
 button,
 input,
@@ -216,6 +224,12 @@ select,
 .gradio-container .gradio-html,
 .gradio-container .gradio-markdown {
   border-radius: var(--radius-lg) !important;
+}
+
+.gradio-container footer,
+.gradio-container .built-with,
+.gradio-container .prose .built-with {
+  display: none !important;
 }
 
 /* ---------- Buttons ---------- */
@@ -353,6 +367,68 @@ select,
   color: var(--brand-primary) !important;
   border-color: var(--border-hover) !important;
   box-shadow: var(--shadow-subtle) !important;
+}
+
+#btb-main-tabs,
+#btb-main-tabs > .tabs {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+#btb-main-tabs [role="tablist"] {
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-subtle) !important;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  width: 100%;
+}
+
+#btb-main-tabs [role="tabpanel"],
+#btb-main-tabs .tabitem {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin-top: 18px !important;
+}
+
+#btb-main-tabs button[role="tab"],
+#btb-main-tabs [role="tab"] {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  padding: 0.85rem 0.9rem !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+/* ---------- Nested Card Flattening ---------- */
+
+#btb-main-tabs [role="tabpanel"] .btb-card .btb-card,
+#btb-main-tabs [role="tabpanel"] .btb-card .btb-card-sky,
+#btb-main-tabs [role="tabpanel"] .btb-card .btb-card-rose,
+#btb-main-tabs [role="tabpanel"] .btb-card .btb-card-amber,
+#btb-main-tabs [role="tabpanel"] .btb-detail-shell .btb-card,
+#btb-main-tabs [role="tabpanel"] .btb-action-band .btb-card {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+#btb-main-tabs [role="tabpanel"] .btb-card .btb-card + .btb-card,
+#btb-main-tabs [role="tabpanel"] .btb-detail-shell .btb-card + .btb-card,
+#btb-main-tabs [role="tabpanel"] .btb-action-band .btb-card + .btb-card {
+  margin-top: 16px !important;
 }
 
 /* ---------- File Upload ---------- */
@@ -745,6 +821,15 @@ select,
   margin-bottom: 14px;
 }
 
+.btb-ticket-panel--compact .btb-mini-card {
+  gap: 4px;
+}
+
+.btb-ticket-panel--compact .btb-mini-card strong,
+.btb-ticket-panel--compact .btb-mini-card span {
+  word-break: break-word;
+}
+
 .btb-ticket-summary,
 .btb-people-grid,
 .btb-preview-panel,
@@ -995,6 +1080,21 @@ select,
   color: var(--text-tertiary);
   font-size: 12px;
   padding-left: 4px;
+}
+
+.btb-task-card__path {
+  margin-top: 6px;
+  padding-left: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.btb-task-card__path code {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .btb-task-card__grid {
@@ -1327,6 +1427,11 @@ select,
    ========================================================= */
 
 @media (max-width: 960px) {
+  .btb-app-shell {
+    padding: 20px 0 40px;
+    gap: 18px !important;
+  }
+
   .btb-hero,
   .btb-card {
     padding: 22px !important;
@@ -1344,29 +1449,312 @@ select,
   }
 
   .btb-mini-grid,
-  .btb-flow-cards {
+  .btb-flow-cards,
+  .btb-task-card__grid {
     grid-template-columns: 1fr;
+  }
+
+  .btb-hero__logo {
+    justify-content: flex-start;
+  }
+
+  .btb-hero__logo-image {
+    width: 84px;
+    height: 84px;
   }
 }
 
 @media (max-width: 768px) {
+  body.gradio-body {
+    margin: 0 !important;
+  }
+
+  body.gradio-body .app,
+  body.gradio-body .app.svelte-wpkpf6.svelte-wpkpf6,
+  body.gradio-body main,
+  .gradio-container main {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .gradio-container.app,
+  .gradio-container[class~="app"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
   .gradio-container {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .btb-top-tabs,
+  .btb-top-tabs > div,
+  .btb-top-tabs [role="tablist"],
+  .btb-top-tabs [role="tabpanel"] {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .btb-top-tabs,
+  .btb-top-tabs > div,
+  .btb-top-tabs [role="tabpanel"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .gradio-container
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .gradio-container textarea,
+  .gradio-container select,
+  .gradio-container .gr-text-input,
+  .gradio-container .gr-textarea,
+  .gradio-container .gr-select,
+  .gradio-container .gr-number input {
+    font-size: 16px !important;
   }
 
   .btb-card {
     padding: 1rem !important;
   }
 
+  .btb-hero {
+    display: none;
+  }
+
+  .btb-page-section {
+    gap: 16px !important;
+  }
+
+  .btb-hero {
+    padding: 20px !important;
+    border-radius: var(--radius-xl);
+  }
+
+  .btb-hero h1 {
+    font-size: clamp(1.8rem, 8vw, 2.4rem);
+  }
+
+  .btb-section-head h2,
+  .btb-card-head h3 {
+    font-size: 22px;
+  }
+
+  .btb-hero__notice {
+    align-items: flex-start;
+  }
+
+  .btb-hero__notice-mark {
+    flex: 0 0 auto;
+  }
+
   .gradio-container .tabs,
   .gradio-container [role="tablist"] {
     border-radius: var(--radius-lg);
+    padding: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap !important;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gradio-container .tabs::-webkit-scrollbar,
+  .gradio-container [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gradio-container button[role="tab"],
+  .gradio-container [role="tab"] {
+    flex: 0 0 auto !important;
+    min-width: max-content !important;
+    padding: 0.72rem 1rem !important;
+    scroll-snap-align: start;
+  }
+
+  .btb-badge-pink,
+  .btb-badge-blue,
+  .btb-badge-amber {
+    align-self: flex-start;
+  }
+
+  .btb-mini-grid,
+  .btb-mini-grid--triple,
+  .btb-flow-cards,
+  .btb-task-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .btb-ticket-panel--compact .btb-mini-grid--triple {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .btb-ticket-panel--compact {
+    padding: 10px !important;
+  }
+
+  .btb-ticket-panel--compact .btb-mini-card {
+    padding: 10px 10px 9px !important;
+  }
+
+  .btb-ticket-panel--compact .btb-mini-card strong {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .btb-ticket-panel--compact .btb-mini-card span {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .btb-ticket-panel--compact .btb-ticket-panel__delivery {
+    margin-top: 8px;
+  }
+
+  .btb-subcard,
+  .btb-ticket-panel,
+  .btb-mini-card,
+  .btb-action-band,
+  .btb-detail-shell {
+    padding: 14px !important;
+  }
+
+  .btb-task-card {
+    padding: 16px 16px 14px;
+  }
+
+  .btb-task-card__head,
+  .btb-task-toolbar-row,
+  .btb-task-card__actions {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .btb-task-card__actions > div,
+  .btb-task-card__actions .gradio-html,
+  .btb-task-card__actions .gradio-button {
+    width: 100%;
+    flex: 1 1 auto !important;
+  }
+
+  .btb-task-link,
+  .btb-task-button {
+    width: 100%;
+    min-height: 40px !important;
+    justify-content: center;
+  }
+
+  .btb-inline-actions,
+  .btb-action-band,
+  .btb-output-band,
+  .btb-split-grid {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .btb-inline-actions > *,
+  .btb-action-band > *,
+  .btb-output-band > *,
+  .btb-split-grid > * {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .btb-inline-actions .gradio-button,
+  .btb-action-band .gradio-button,
+  .btb-output-band .gradio-button,
+  .btb-split-grid .gradio-button {
+    width: 100%;
+  }
+
+  #btb-log-output,
+  #btb-log-output textarea {
+    min-height: 20rem !important;
+    max-height: 20rem !important;
   }
 
   .gradio-container .options,
   .gradio-container .choices__list--dropdown,
   .gradio-container .choices__list[role="listbox"] {
     max-width: calc(100vw - 32px) !important;
+  }
+}
+
+@media (max-width: 560px) {
+  body.gradio-body .app,
+  body.gradio-body .app.svelte-wpkpf6.svelte-wpkpf6,
+  body.gradio-body main,
+  .gradio-container main {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .gradio-container.app,
+  .gradio-container[class~="app"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .gradio-container {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .btb-app-shell {
+    padding-top: 16px;
+  }
+
+  .btb-card,
+  .btb-hero {
+    padding: 14px !important;
+  }
+
+  .btb-card-head h3,
+  .btb-section-head h2 {
+    font-size: 20px;
+  }
+
+  .btb-card-note,
+  .btb-mini-card span,
+  .btb-flow-card span,
+  .btb-task-card__meta {
+    font-size: 12px;
+  }
+
+  .btb-ticket-panel--compact {
+    padding: 8px !important;
+  }
+
+  .btb-ticket-panel--compact .btb-mini-grid--triple {
+    gap: 6px;
+  }
+
+  .btb-ticket-panel--compact .btb-mini-card {
+    padding: 8px 8px 7px !important;
+    gap: 3px;
+  }
+
+  .btb-ticket-panel--compact .btb-mini-card strong {
+    font-size: 11px;
+  }
+
+  .btb-ticket-panel--compact .btb-mini-card span {
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .btb-hero__notice {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .btb-hero__logo-image {
+    width: 72px;
+    height: 72px;
   }
 }

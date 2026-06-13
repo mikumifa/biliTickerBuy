@@ -160,9 +160,6 @@ def _render_ticket_info_html(
     badge: str | None = None,
     hint: str | None = None,
 ) -> str:
-    badge_html = (
-        f'<span class="btb-badge-pink">{html.escape(badge)}</span>' if badge else ""
-    )
     items_html = "".join(
         (
             '<div class="btb-mini-card">'
@@ -172,18 +169,9 @@ def _render_ticket_info_html(
         )
         for label, value in lines
     )
-    hint_html = f'<p class="btb-card-note">{html.escape(hint)}</p>' if hint else ""
     return f"""
     <div class="btb-ticket-panel">
-        <div class="btb-ticket-panel__head">
-            <div>
-                <div class="btb-card-head__eyebrow">Ticket Snapshot</div>
-                <h4>{html.escape(title)}</h4>
-            </div>
-            {badge_html}
-        </div>
         <div class="btb-mini-grid">{items_html}</div>
-        {hint_html}
     </div>
     """
 
@@ -484,18 +472,6 @@ def upload_file(filepath):
 
 def login_tab():
     with gr.Column(elem_classes="btb-page-section"):
-        gr.HTML(
-            """
-            <section class="btb-section-head">
-                <div>
-                    <div class="btb-section-head__eyebrow">STEP 00</div>
-                    <h2>账号登录</h2>
-                    <p>先登录或导入会员购账号，再回到生成配置继续填写票务信息。</p>
-                </div>
-            </section>
-            """
-        )
-
         def generate_qrcode():
             headers = {
                 "user-agent": (
@@ -823,44 +799,6 @@ def login_tab():
 
 def setting_tab():
     with gr.Column(elem_classes="btb-page-section"):
-        gr.HTML(
-            """
-            <section class="btb-section-head">
-                <div>
-                    <div class="btb-section-head__eyebrow">STEP 01</div>
-                    <h2>生成抢票配置</h2>
-                    <p>先完成账号授权，再补齐联系人、票务和配送信息，最后导出配置文件。</p>
-                </div>
-            </section>
-            """
-        )
-
-        gr.HTML(
-            """
-            <div class="btb-card btb-card-amber">
-                <div class="btb-card-head">
-                    <div>
-                        <div class="btb-card-head__eyebrow">Before You Start</div>
-                        <h3>使用前必读</h3>
-                        <p>请先在会员购中心补齐基础资料，否则生成配置时可能没有可选项。</p>
-                    </div>
-                    <span class="btb-badge-amber">准备检查</span>
-                </div>
-                <div class="btb-mini-grid">
-                    <div class="btb-mini-card">
-                        <strong>收货地址</strong>
-                        <span>会员购中心 → 地址管理</span>
-                    </div>
-                    <div class="btb-mini-card">
-                        <strong>购票人信息</strong>
-                        <span>会员购中心 → 购票人信息</span>
-                    </div>
-                </div>
-                <p class="btb-card-note">建议提前补齐资料，避免开抢前还要回到会员购手动修改。</p>
-            </div>
-            """
-        )
-
         with gr.Accordion(
             label="填写当前账号绑定的手机号（可选）",
             open=False,
@@ -882,20 +820,17 @@ def setting_tab():
                 """
                 <div class="btb-card-head">
                     <div>
-                        <div class="btb-card-head__eyebrow">Ticket Config</div>
                         <h3>票务配置</h3>
                         <p>输入活动链接获取票档，然后依次完成联系人、地址和实名购票人配置。</p>
                     </div>
-                    <span class="btb-badge-pink">生成配置</span>
                 </div>
                 """
             )
-
             with gr.Row(elem_classes="btb-action-band !items-end"):
                 ticket_id_ui = gr.Textbox(
                     label="想抢票的活动链接",
                     interactive=True,
-                    info="例如 https://show.bilibili.com/platform/detail.html?id=84096",
+                    placeholder="https://show.bilibili.com/platform/detail.html?id=xxxx",
                     scale=5,
                 )
                 ticket_id_btn = gr.Button(
@@ -914,13 +849,15 @@ def setting_tab():
                         label="选择票档",
                         interactive=True,
                         type="index",
-                        info="请仔细确认票档和起售时间",
+                        allow_custom_value=False,
+                        filterable=False,
                     )
                     date_ui = gr.Dropdown(
                         label="选择日期",
                         choices=[],
-                        info="若活动有多日期场次，请先切换日期",
                         interactive=True,
+                        allow_custom_value=False,
+                        filterable=False,
                     )
 
                 with gr.Row(elem_classes="btb-split-grid !items-end"):
@@ -929,27 +866,27 @@ def setting_tab():
                         label="联系人姓名",
                         placeholder="请输入姓名",
                         interactive=True,
-                        info="必填",
                     )
                     people_buyer_phone = gr.Textbox(
                         value=lambda: ConfigDB.get("people_buyer_phone") or "",
                         label="联系人电话",
                         placeholder="请输入电话",
                         interactive=True,
-                        info="必填",
                     )
                     address_ui = gr.Dropdown(
                         label="收货地址",
                         interactive=True,
                         type="index",
-                        info="如果为空，请先在会员购补充地址",
+                        info="请提前在b站手机端填写地址",
+                        allow_custom_value=False,
+                        filterable=False,
                     )
 
                 people_ui = gr.CheckboxGroup(
                     label="实名购票人",
                     interactive=True,
                     type="index",
-                    info="勾选几位，就会生成几张票的配置",
+                    info="选中几位购票人，就相当于购买几张票。",
                     elem_classes="btb-people-grid",
                 )
 
