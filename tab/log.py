@@ -1,10 +1,10 @@
 import gradio as gr
 import html
 import os
-from pathlib import Path
 from datetime import datetime
 
 from util import GlobalStatusInstance, LOG_DIR
+from util.log_web import build_log_view_url
 
 
 def read_last_logs(n=1000):
@@ -14,13 +14,6 @@ def read_last_logs(n=1000):
     with open(app_log_paht, "r", encoding="utf-8") as f:
         lines = f.readlines()
     return "".join(lines[-n:])
-
-
-def _path_to_file_uri(path: str) -> str:
-    try:
-        return Path(path).resolve().as_uri()
-    except ValueError:
-        return ""
 
 
 def read_task_log_locations():
@@ -34,7 +27,7 @@ def read_task_log_locations():
             "%Y-%m-%d %H:%M:%S"
         )
         file_link = (
-            f'<a href="{entry.log_file}" target="_blank" rel="noopener noreferrer">'
+            f'<a href="{build_log_view_url(entry.log_file)}" target="_blank" rel="noopener noreferrer">'
             f"{html.escape(entry.log_file)}"
             "</a>"
         )

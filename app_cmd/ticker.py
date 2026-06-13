@@ -22,6 +22,7 @@ def ticker_cmd(args: Namespace):
     from tab.problems import problems_tab
     from tab.settings import login_tab, setting_tab
     from tab.update import update_tab
+    from util.log_web import attach_log_routes
     from util import LOG_DIR
     from util.LogConfig import loguru_config
 
@@ -136,6 +137,8 @@ def ticker_cmd(args: Namespace):
                     update_tab(demo)
                 with gr.Tab("日志查看"):
                     log_tab()
+
+    attach_log_routes(demo.app)
 
     is_docker = os.path.exists("/.dockerenv") or os.environ.get("BTB_DOCKER") == "1"
     demo.launch(
