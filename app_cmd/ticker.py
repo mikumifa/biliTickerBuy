@@ -1,6 +1,7 @@
 import base64
 import os
 import threading
+import time
 from argparse import Namespace
 
 import gradio as gr
@@ -235,4 +236,9 @@ def ticker_cmd(args: Namespace):
         prevent_thread_lock=True,
     )
     attach_log_routes(demo.app)
-    threading.Event().wait()
+    try:
+        while True:
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        loguru.logger.info("收到 Ctrl+C，正在关闭主进程...")
+        demo.close()
