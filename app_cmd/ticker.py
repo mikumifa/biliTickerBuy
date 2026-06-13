@@ -17,6 +17,10 @@ def exit_app_ui():
     gr.Info("程序将在弹出提示后退出")
 
 
+def shutdown_app_process(delay_seconds: float = 1.0) -> None:
+    threading.Timer(delay_seconds, lambda: os._exit(0)).start()
+
+
 def ticker_cmd(args: Namespace):
     from tab.go import go_settings_tab, go_start_tab
     from tab.log import log_tab, refresh_task_panel
@@ -241,4 +245,6 @@ def ticker_cmd(args: Namespace):
             time.sleep(0.5)
     except KeyboardInterrupt:
         loguru.logger.info("收到 Ctrl+C，正在关闭主进程...")
+        shutdown_app_process()
         demo.close()
+        return
