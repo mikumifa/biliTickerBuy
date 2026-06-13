@@ -710,7 +710,6 @@ def buy_new_terminal(
     if not show_random_message:
         command.extend(["--hide_random_message"])
     env = os.environ.copy()
-    env["BTB_CHILD_PROCESS"] = "1"
     if log_file_path:
         env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)
     else:
@@ -718,10 +717,21 @@ def buy_new_terminal(
     kwargs = {}
     if os.name == "nt":
         kwargs["creationflags"] = (
-            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NEW_CONSOLE
         )
+        env["BTB_HOLD_TERMINAL"] = "1"
     else:
+        env["BTB_CHILD_PROCESS"] = "1"
         kwargs["start_new_session"] = True
+
+    if os.name == "nt":
+        proc = subprocess.Popen(
+            command,
+            env=env,
+            **kwargs,
+        )
+        return proc
+
     with open(os.devnull, "r") as devnull_in, open(os.devnull, "a") as devnull_out:
         proc = subprocess.Popen(
             command,

@@ -35,20 +35,28 @@ def buy_cmd(args: Namespace):
             return re.sub(r"[^\w.\-]", "_", os.path.basename(configured_name))
         return f"{uuid.uuid4()}.log"
 
-    def hold_terminal_after_interrupt():
+    def hold_terminal(message: str) -> None:
         try:
             if os.name == "nt":
                 import msvcrt
 
-                print("已停止当前抢票流程。按任意键关闭此窗口...", flush=True)
+                print(message, flush=True)
                 msvcrt.getwch()
                 return
 
             if not sys.stdin or not sys.stdin.isatty():
                 return
-            input("已停止当前抢票流程。按回车关闭此窗口...")
+            input(message)
         except (EOFError, KeyboardInterrupt):
             pass
+
+    def hold_terminal_after_interrupt():
+        hold_terminal("已停止当前抢票流程。按任意键关闭此窗口...")
+
+    def hold_terminal_after_finish() -> None:
+        if os.environ.get("BTB_HOLD_TERMINAL", "") != "1":
+            return
+        hold_terminal("抢票流程已结束。按任意键关闭此窗口...")
 
     def exit_immediately_if_child_process() -> None:
         if child_process_mode:
@@ -132,4 +140,5 @@ def buy_cmd(args: Namespace):
         hold_terminal_after_interrupt()
         return
     logger.info("抢票完成后退出程序。。。。。")
+    hold_terminal_after_finish()
     exit_immediately_if_child_process()

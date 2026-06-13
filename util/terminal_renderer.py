@@ -53,6 +53,89 @@ class BaseTerminalRenderer:
         return None
 
 
+class PlainTerminalRenderer(BaseTerminalRenderer):
+    """Stable fallback for terminals where Textual cannot render reliably."""
+
+    def __init__(self, context: TerminalRenderContext):
+        super().__init__(context)
+        self.state = TerminalViewState()
+        self._last_snapshot: tuple[str, str, str, str] | None = None
+
+    def render_header(self) -> None:
+        print(
+            f"[抢票终端] 配置: {self.context.config_name} | 日志: {self.context.log_file}",
+            flush=True,
+        )
+        self._print_snapshot(force=True)
+
+    def render_message(self, message: str) -> None:
+        self._update_state_from_message(message)
+        self._print_snapshot()
+        print(message, flush=True)
+
+    def render_state(self, state) -> None:
+        self.state.stage = getattr(state, "stage", self.state.stage)
+        self.state.countdown = getattr(state, "countdown", self.state.countdown)
+        self.state.current_proxy = getattr(
+            state, "current_proxy", self.state.current_proxy
+        )
+        cooldown_remaining = getattr(state, "cooldown_remaining", None)
+        self.state.cooldown = (
+            f"{cooldown_remaining} 秒"
+            if isinstance(cooldown_remaining, int) and cooldown_remaining > 0
+            else "-"
+        )
+        self._print_snapshot()
+
+    def _update_state_from_message(self, message: str) -> None:
+        if message.startswith("0)"):
+            self.state.stage = "等待开票"
+        elif message.startswith("1）"):
+            self.state.stage = "订单准备"
+        elif message.startswith("2）"):
+            self.state.stage = "创建订单"
+        elif message.startswith("3）"):
+            self.state.stage = "抢票成功"
+
+        if message.startswith("距离开始抢票还有:"):
+            self.state.countdown = message.split(":", 1)[1].strip()
+
+        if message.startswith("当前代理:"):
+            match = re.search(r"^当前代理:\s*(.+)$", message)
+            if match:
+                self.state.current_proxy = match.group(1).strip()
+        elif message.startswith("切换代理到 "):
+            match = re.search(r"^切换代理到\s+(.+)$", message)
+            if match:
+                self.state.current_proxy = match.group(1).strip()
+        elif message.startswith("所有代理当前不可用，休息 "):
+            match = re.search(r"休息\s+(\d+)\s+秒后再试", message)
+            if match:
+                self.state.cooldown = f"{match.group(1)} 秒"
+
+    def _print_snapshot(self, *, force: bool = False) -> None:
+        snapshot = (
+            self.state.stage,
+            self.state.countdown,
+            self.state.current_proxy,
+            self.state.cooldown,
+        )
+        if not force and snapshot == self._last_snapshot:
+            return
+
+        print(
+            (
+                "[状态] "
+                f"阶段: {self.state.stage} | "
+                f"倒计时: {self.state.countdown} | "
+                f"代理: {self.state.current_proxy} | "
+                f"冷却: {self.state.cooldown}"
+            ),
+            flush=True,
+        )
+        self._last_snapshot = snapshot
+
+
 def _parse_attempt(message: str) -> tuple[int, int, str] | None:
     match = _ATTEMPT_RE.match(message)
     if not match:
@@ -440,13 +523,21 @@ def create_terminal_renderer(
     *,
     prefer_rich: bool = True,
 ) -> BaseTerminalRenderer:
+    if context.platform_name == "nt":
+        try:
+            if prefer_rich:
+                return TextualTerminalRenderer(context)
+        except Exception:
+            pass
+        return PlainTerminalRenderer(context)
+
     if prefer_rich:
         try:
             return TextualTerminalRenderer(context)
         except Exception:
             pass
 
-    return None
+    return PlainTerminalRenderer(context)
 
 
 def render_message_stream(
