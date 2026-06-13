@@ -106,9 +106,7 @@ def clear_log_files():
                 f"已清空 {len(truncated_files)} 个当前使用中的应用日志文件"
             )
         if skipped_running:
-            message_parts.append(
-                f"跳过 {len(skipped_running)} 个运行中任务日志"
-            )
+            message_parts.append(f"跳过 {len(skipped_running)} 个运行中任务日志")
         gr.Info("，".join(message_parts) + "。")
     elif skipped_running:
         gr.Warning("存在运行中的任务日志，已跳过清除。")
@@ -420,13 +418,13 @@ def log_tab():
                 for log_file in log_files:
                     entry = _find_task_entry_by_log_file(log_file)
                     title = (
-                        entry.title
-                        if entry is not None
-                        else os.path.basename(log_file)
+                        entry.title if entry is not None else os.path.basename(log_file)
                     )
                     status = entry.status if entry is not None else "日志文件"
                     status_class = (
-                        _status_class(entry.status) if entry is not None else "is-exited"
+                        _status_class(entry.status)
+                        if entry is not None
+                        else "is-exited"
                     )
                     created_at = datetime.fromtimestamp(
                         os.path.getmtime(log_file)

@@ -60,7 +60,7 @@ def ticker_cmd(args: Namespace):
             <span class="btb-hero__notice-mark">!</span>
             <span>
                 此项目完全开源免费。开源地址：
-                <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">link</a>。
+                <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">https://github.com/mikumifa/biliTickerBuy</a>。
                 请勿用于盈利，否则后果自负。
             </span>
         </div>
@@ -87,74 +87,6 @@ def ticker_cmd(args: Namespace):
         <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
         <script>
         (function(){
-            var TAB_ROUTE_MAP = {
-                login: 'btb-tab-login-button',
-                config: 'btb-tab-config-button',
-                go: 'btb-tab-go-button',
-                advanced: 'btb-tab-advanced-button',
-                guide: 'btb-tab-guide-button',
-                update: 'btb-tab-update-button',
-                logs: 'btb-tab-logs-button'
-            };
-            function normalizeTabHash() {
-                return (window.location.hash || '').replace(/^#\\/?/, '').trim();
-            }
-            function findSelectedTabKey() {
-                for (var key in TAB_ROUTE_MAP) {
-                    var button = document.getElementById(TAB_ROUTE_MAP[key]);
-                    if (button && button.getAttribute('aria-selected') === 'true') {
-                        return key;
-                    }
-                }
-                return '';
-            }
-            function syncHashToCurrentTab(useReplace) {
-                var key = findSelectedTabKey();
-                if (!key) return;
-                var nextHash = '#' + key;
-                if (window.location.hash === nextHash) return;
-                if (useReplace) {
-                    window.history.replaceState(null, '', nextHash);
-                } else {
-                    window.history.replaceState(null, '', nextHash);
-                }
-            }
-            function openTabFromHash() {
-                var key = normalizeTabHash();
-                if (!key || !TAB_ROUTE_MAP[key]) return false;
-                var button = document.getElementById(TAB_ROUTE_MAP[key]);
-                if (!button) return false;
-                if (button.getAttribute('aria-selected') !== 'true') {
-                    button.click();
-                }
-                return true;
-            }
-            function wireTabRouting() {
-                var tabsRoot = document.getElementById('btb-main-tabs');
-                if (!tabsRoot) {
-                    setTimeout(wireTabRouting, 250);
-                    return;
-                }
-                if (tabsRoot.dataset.routeBound === '1') {
-                    return;
-                }
-                tabsRoot.dataset.routeBound = '1';
-                Object.keys(TAB_ROUTE_MAP).forEach(function(key) {
-                    var button = document.getElementById(TAB_ROUTE_MAP[key]);
-                    if (!button) return;
-                    button.addEventListener('click', function() {
-                        window.history.replaceState(null, '', '#' + key);
-                    });
-                });
-                setTimeout(function() {
-                    if (!openTabFromHash()) {
-                        syncHashToCurrentTab(true);
-                    }
-                }, 60);
-                window.addEventListener('hashchange', function() {
-                    setTimeout(openTabFromHash, 0);
-                });
-            }
             function isMobileLike() {
                 return window.matchMedia('(max-width: 768px)').matches ||
                     window.matchMedia('(pointer: coarse)').matches;
@@ -228,8 +160,8 @@ def ticker_cmd(args: Namespace):
                 });
             }
             if(document.readyState==='loading')
-                document.addEventListener('DOMContentLoaded',function(){enhance();wireTabRouting();watchDropdownEnhance();});
-            else {setTimeout(enhance,500);setTimeout(wireTabRouting,300);setTimeout(watchDropdownEnhance,300);}
+                document.addEventListener('DOMContentLoaded',function(){enhance();watchDropdownEnhance();});
+            else {setTimeout(enhance,500);setTimeout(watchDropdownEnhance,300);}
         })();
         </script>
         """,
