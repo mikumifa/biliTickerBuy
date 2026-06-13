@@ -2,7 +2,6 @@ import datetime
 import html
 import json
 import os
-import platform
 import re
 import time
 import uuid

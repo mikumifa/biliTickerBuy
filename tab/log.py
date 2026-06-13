@@ -5,7 +5,7 @@ import signal
 import time
 from datetime import datetime
 
-from util import GlobalStatusInstance, LOG_DIR
+from util import GlobalStatusInstance
 from util.log_web import build_log_view_url
 
 TASK_STATUS_RUNNING = "运行中"
