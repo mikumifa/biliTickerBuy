@@ -8,21 +8,22 @@ import time
 import uuid
 
 import gradio as gr
-import requests
 from gradio import SelectData
 from loguru import logger
 
+from tab.log import refresh_task_panel, render_task_manager_panel, visible_task_entries
 from task.buy import buy_new_terminal
 from util import (
     ConfigDB,
-    Endpoint,
     GlobalStatusInstance,
     LOG_DIR,
-    build_public_url,
+    runtime_state_reader,
+    runtime_state_writer,
     time_service,
 )
 
 BEIJING_TZ = datetime.timezone(datetime.timedelta(hours=8), name="Asia/Shanghai")
+GO_UPLOADED_FILES_STATE_KEY = "go.uploaded_config_files"
 
 
 def withTimeString(string):
@@ -125,7 +126,27 @@ def _render_ticket_preview(config: dict) -> str:
     """
 
 
-def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
+@runtime_state_reader(GO_UPLOADED_FILES_STATE_KEY, kind="path_list")
+def _get_session_upload_files() -> list[str]:
+    return []
+
+
+def _build_session_ticket_preview() -> str:
+    files = _get_session_upload_files()
+    if not files:
+        return _render_ticket_preview({})
+    try:
+        with open(files[0], "r", encoding="utf-8") as file:
+            content = json.load(file)
+        return _render_ticket_preview(content)
+    except Exception as e:
+        return (
+            '<div class="btb-card-note">配置预览恢复失败：'
+            f"{html.escape(str(e))}</div>"
+        )
+
+
+def go_start_tab():
     auto_fill_time_default = ConfigDB.get("autoFillTime")
     if auto_fill_time_default is None:
         auto_fill_time_default = True
@@ -136,11 +157,12 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
                 upload_ui = gr.Files(
                     label="上传多个配置文件,每一个上传的文件都会启动一个抢票程序",
                     file_count="multiple",
+                    value=_get_session_upload_files,
                     scale=5,
                 )
                 with gr.Column(scale=4):
                     ticket_ui = gr.HTML(
-                        value=_render_ticket_preview({}),
+                        value=_build_session_ticket_preview,
                         visible=True,
                     )
             with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
@@ -191,18 +213,8 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
                 minimum=1,
                 info="设置抢票请求之间的时间间隔（单位：毫秒），建议不要设置太小",
             )
-            choices = ["网页"]
-            if platform.system() == "Windows":
-                choices.insert(0, "终端")
-            terminal_ui = gr.Radio(
-                label="日志显示方式",
-                choices=choices,
-                value=choices[0],
-                info="日志显示的方式,非windows用戶只支持網頁",
-                type="value",
-                interactive=True,
-            )
 
+    @runtime_state_writer(GO_UPLOADED_FILES_STATE_KEY, kind="path_list")
     def upload(filepath):
         try:
             with open(filepath[0], "r", encoding="utf-8") as file:
@@ -266,35 +278,16 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
         )
         return autofill_value
 
-    def try_assign_endpoint(endpoint_url, payload):
-        try:
-            response = requests.post(f"{endpoint_url}/buy", json=payload, timeout=5)
-            if response.status_code == 200:
-                return True
-            if response.status_code == 409:
-                logger.info(f"{endpoint_url} 已经占用")
-                return False
-            return False
-        except Exception as e:
-            logger.exception(e)
-            raise e
-
     def split_proxies(https_proxy_list: list[str], task_num: int) -> list[list[str]]:
         assigned_proxies: list[list[str]] = [[] for _ in range(task_num)]
         for i, proxy in enumerate(https_proxy_list):
             assigned_proxies[i % task_num].append(proxy)
         return assigned_proxies
 
-    def start_go(files, time_start, interval, terminal_ui):
+    def start_go(files, time_start, interval):
         if not files:
-            return [gr.update(value=withTimeString("未提交抢票配置"), visible=True)]
-        yield [
-            gr.update(value=withTimeString("开始多开抢票,详细查看终端"), visible=True)
-        ]
-
-        master_endpoint_url = build_public_url(demo.local_url or "", server_name)
-        endpoints = GlobalStatusInstance.available_endpoints()
-        endpoints_next_idx = 0
+            gr.Warning("未提交抢票配置。")
+            return gr.update(visible=False)
 
         https_proxys = ConfigDB.get("https_proxy") or ""
         https_proxy_list = ["none"] + https_proxys.split(",")
@@ -314,66 +307,53 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
                 content = file.read()
             filename_only = os.path.basename(filename)
             logger.info(f"启动 {filename_only}")
+            if assigned_proxies == []:
+                left_task_num = len(files) - idx
+                assigned_proxies = split_proxies(https_proxy_list, left_task_num)
 
-            while endpoints_next_idx < len(endpoints) and terminal_ui == "网页":
-                success = try_assign_endpoint(
-                    endpoints[endpoints_next_idx].endpoint,
-                    payload={
-                        "force": True,
-                        "train_info": content,
-                        "time_start": time_start,
-                        "interval": interval,
-                        "audio_path": audio_path,
-                        "pushplusToken": ConfigDB.get("pushplusToken"),
-                        "serverchanKey": ConfigDB.get("serverchanKey"),
-                        "serverchan3ApiUrl": ConfigDB.get("serverchan3ApiUrl"),
-                        "barkToken": ConfigDB.get("barkToken"),
-                        "ntfy_url": ConfigDB.get("ntfyUrl"),
-                        "ntfy_username": ConfigDB.get("ntfyUsername"),
-                        "ntfy_password": ConfigDB.get("ntfyPassword"),
-                        "notify_proxy_exhausted": notify_proxy_exhausted,
-                    },
-                )
-                endpoints_next_idx += 1
-                if success:
-                    break
-            else:
-                if assigned_proxies == []:
-                    left_task_num = len(files) - idx
-                    assigned_proxies = split_proxies(https_proxy_list, left_task_num)
+            log_file_path = _build_task_log_path(filename_only)
+            logger.info(f"任务 {filename_only} 的日志文件：{log_file_path}")
+            proc = buy_new_terminal(
+                tickets_info=content,
+                time_start=time_start,
+                interval=interval,
+                audio_path=audio_path,
+                pushplusToken=ConfigDB.get("pushplusToken"),
+                serverchanKey=ConfigDB.get("serverchanKey"),
+                serverchan3ApiUrl=ConfigDB.get("serverchan3ApiUrl"),
+                barkToken=ConfigDB.get("barkToken"),
+                ntfy_url=ConfigDB.get("ntfyUrl"),
+                ntfy_username=ConfigDB.get("ntfyUsername"),
+                ntfy_password=ConfigDB.get("ntfyPassword"),
+                notify_proxy_exhausted=notify_proxy_exhausted,
+                https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
+                show_random_message=not hide_random_message,
+                log_file_path=log_file_path,
+            )
+            GlobalStatusInstance.register_task_log(
+                title=filename_only,
+                mode="终端",
+                log_file=log_file_path,
+                pid=proc.pid,
+            )
+            assigned_proxies_next_idx += 1
+        gr.Info("抢票任务已启动，下面可以直接查看日志链接或停止任务。")
+        return gr.update(visible=True)
 
-                log_file_path = _build_task_log_path(filename_only)
-                logger.info(f"任务 {filename_only} 的日志文件：{log_file_path}")
-                proc = buy_new_terminal(
-                    endpoint_url=master_endpoint_url or demo.local_url,
-                    tickets_info=content,
-                    time_start=time_start,
-                    interval=interval,
-                    audio_path=audio_path,
-                    pushplusToken=ConfigDB.get("pushplusToken"),
-                    serverchanKey=ConfigDB.get("serverchanKey"),
-                    serverchan3ApiUrl=ConfigDB.get("serverchan3ApiUrl"),
-                    barkToken=ConfigDB.get("barkToken"),
-                    ntfy_url=ConfigDB.get("ntfyUrl"),
-                    ntfy_username=ConfigDB.get("ntfyUsername"),
-                    ntfy_password=ConfigDB.get("ntfyPassword"),
-                    notify_proxy_exhausted=notify_proxy_exhausted,
-                    https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
-                    terminal_ui=terminal_ui,
-                    show_random_message=not hide_random_message,
-                    server_name=server_name,
-                    log_file_path=log_file_path,
-                )
-                GlobalStatusInstance.register_task_log(
-                    title=filename_only,
-                    mode=terminal_ui,
-                    log_file=log_file_path,
-                    pid=proc.pid,
-                )
-                assigned_proxies_next_idx += 1
-        gr.Info("正在启动，请等待抢票页面弹出。")
+    @runtime_state_writer(GO_UPLOADED_FILES_STATE_KEY, kind="path_list")
+    def sync_uploaded_files(files):
+        return None
+
+    @runtime_state_writer(
+        GO_UPLOADED_FILES_STATE_KEY,
+        kind="path_list",
+        value_getter=lambda args, kwargs, result: [],
+    )
+    def clear_uploaded_files(_files):
+        return gr.update(value=_render_ticket_preview({}), visible=True)
 
     upload_ui.upload(fn=upload, inputs=upload_ui, outputs=ticket_ui)
+    upload_ui.change(fn=sync_uploaded_files, inputs=upload_ui, outputs=None)
 
     def maybe_auto_fill_time(files):
         if not ConfigDB.get("autoFillTime"):
@@ -381,7 +361,7 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
         return auto_fill_time(files)
 
     upload_ui.clear(
-        fn=lambda x: gr.update("", visible=False),
+        fn=clear_uploaded_files,
         inputs=upload_ui,
         outputs=ticket_ui,
     )
@@ -391,6 +371,11 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
         "开始抢票",
         elem_classes="btb-strong-button",
     )
+    with gr.Column(
+        visible=bool(visible_task_entries()),
+        elem_classes="btb-card btb-card-sky btb-layout-card",
+    ) as task_panel:
+        task_refresh_token = render_task_manager_panel(task_panel)
 
     _time_tmp = gr.Textbox(visible=False)
     _auto_fill_time_tmp = gr.Textbox(visible=False)
@@ -437,55 +422,17 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
         js='(x) => document.getElementById("datetime").value',
     )
 
-    _report_tmp = gr.Button(visible=False)
-    _report_tmp.api_info
-    _end_point_tinput = gr.Textbox(visible=False)
-
-    def report(end_point, detail):
-        now = time.time()
-        GlobalStatusInstance.endpoint_details[end_point] = Endpoint(
-            endpoint=end_point, detail=detail, update_at=now
-        )
-
-    _report_tmp.click(
-        fn=report,
-        inputs=[_end_point_tinput, _time_tmp],
-        api_name="report",
-    )
-
-    def tick():
-        return f"当前时间戳：{int(time.time())}"
-
-    timer = gr.Textbox(label="定时更新", interactive=False, visible=False)
-    demo.load(fn=tick, inputs=None, outputs=timer, every=1)
-
-    @gr.render(inputs=timer)
-    def show_split(text):
-        endpoints = GlobalStatusInstance.available_endpoints()
-        if len(endpoints) != 0:
-            gr.Markdown("## 当前运行终端列表")
-            for endpoint in endpoints:
-                link = html.escape(endpoint.endpoint, quote=True)
-                detail = html.escape(endpoint.detail)
-                gr.HTML(
-                    f"""
-                    <div class="btb-inline-actions !justify-end">
-                        <a
-                            class="btb-soft-button"
-                            href="{link}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            点击跳转 🚀 {link} {detail}
-                        </a>
-                    </div>
-                    """
-                )
-
     go_btn.click(
         fn=start_go,
-        inputs=[upload_ui, _time_tmp, interval_ui, terminal_ui],
+        inputs=[upload_ui, _time_tmp, interval_ui],
+        outputs=task_panel,
+    ).then(
+        fn=refresh_task_panel,
+        inputs=None,
+        outputs=[task_refresh_token, task_panel],
     )
+
+    return task_refresh_token, task_panel
 
 
 def go_settings_tab():

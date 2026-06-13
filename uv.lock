@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
@@ -53,7 +53,6 @@ dependencies = [
     { name = "fastapi" },
     { name = "gradio" },
     { name = "gradio-calendar" },
-    { name = "gradio-log" },
     { name = "httpx", extra = ["socks"] },
     { name = "huggingface-hub" },
     { name = "jinja2" },
@@ -85,7 +84,6 @@ requires-dist = [
     { name = "fastapi", specifier = "==0.112.2" },
     { name = "gradio", specifier = "~=4.44.1" },
     { name = "gradio-calendar", specifier = "~=0.0.6" },
-    { name = "gradio-log", specifier = "~=0.0.4" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1" },
     { name = "huggingface-hub", specifier = "==0.34.3" },
     { name = "jinja2", specifier = "==3.1.2" },
@@ -417,18 +415,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7b/86/2697930b274a5c8479a44dcb65c02d7e7445e5d88a72524a0a65593cbb58/gradio_client-1.3.0.tar.gz", hash = "sha256:d904afeae4f5682add0a6a263542c10e7669ff6c9de0a53a5c2fc9b719a24bb8", size = 316713, upload-time = "2024-08-08T10:30:23.749Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/de/fe/7e9cb4d0e6aa74268fa31089189e4855882a0f2a36c45d359336946d4ae1/gradio_client-1.3.0-py3-none-any.whl", hash = "sha256:20c40cb4d56e18de1a025ccf58079f08a304e4fb2dfbcf7c2352815b2cb31091", size = 318688, upload-time = "2024-08-08T10:30:21.659Z" },
-]
-
-[[package]]
-name = "gradio-log"
-version = "0.0.8"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "gradio" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6a/8d/368e16b93fdd2fc0b601ff648a7786e8551a7b4cc946faec0bdcff33ea4e/gradio_log-0.0.8.tar.gz", hash = "sha256:43d7aeb2651fb3b0583f6c205bdabc4ede50b47b531328174db9b0ca63cccf0c", size = 3457531, upload-time = "2024-12-05T15:00:49.673Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4d/9b/5caba8a73175d2c6d8ebd72d92d1e6943f188cb5fff2196593a5f0d0dc1e/gradio_log-0.0.8-py3-none-any.whl", hash = "sha256:ed88db174429cc539c3bd9605891471f69544aafb930c36706a67a073459db48", size = 1220834, upload-time = "2024-12-05T15:00:46.994Z" },
 ]
 
 [[package]]

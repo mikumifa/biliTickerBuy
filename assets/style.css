@@ -910,6 +910,260 @@ select,
   box-shadow: inset 0 0 0 1px var(--semantic-error-ring);
 }
 
+.btb-task-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 14px;
+}
+
+.btb-task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.btb-task-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 18px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-surface) 96%, transparent),
+    color-mix(in srgb, var(--bg-surface) 88%, var(--bg-secondary))
+  );
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.06),
+    var(--shadow-subtle);
+  overflow: hidden;
+}
+
+.btb-task-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--border-default);
+}
+
+.btb-task-card.is-running {
+  box-shadow: inset 0 0 0 1px var(--semantic-brand-ring), var(--shadow-subtle);
+}
+
+.btb-task-card.is-running::before {
+  background: var(--semantic-brand-text);
+}
+
+.btb-task-card.is-completed {
+  box-shadow: inset 0 0 0 1px var(--semantic-success-ring), var(--shadow-subtle);
+}
+
+.btb-task-card.is-completed::before {
+  background: var(--semantic-success-text);
+}
+
+.btb-task-card.is-stopped,
+.btb-task-card.is-exited {
+  box-shadow: inset 0 0 0 1px var(--semantic-warn-ring), var(--shadow-subtle);
+}
+
+.btb-task-card.is-stopped::before,
+.btb-task-card.is-exited::before {
+  background: var(--semantic-warn-text);
+}
+
+.btb-task-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.btb-task-card__title {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  word-break: break-word;
+  padding-left: 4px;
+}
+
+.btb-task-card__meta {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  padding-left: 4px;
+}
+
+.btb-task-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.btb-task-card__actions {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 92%, transparent);
+}
+
+.btb-task-card__actions > div {
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+}
+
+.btb-task-card__actions .gradio-html {
+  display: flex;
+  align-items: center;
+}
+
+.btb-task-card__actions .gradio-html,
+.btb-task-card__actions .gradio-button {
+  min-width: 0 !important;
+}
+
+.btb-task-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.3rem 0.72rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.btb-task-status.is-running {
+  color: var(--semantic-brand-text);
+  background: var(--semantic-brand-bg);
+  box-shadow: inset 0 0 0 1px var(--semantic-brand-ring);
+}
+
+.btb-task-status.is-completed {
+  color: var(--semantic-success-text);
+  background: var(--semantic-success-bg);
+  box-shadow: inset 0 0 0 1px var(--semantic-success-ring);
+}
+
+.btb-task-status.is-stopped,
+.btb-task-status.is-exited {
+  color: var(--semantic-warn-text);
+  background: var(--semantic-warn-bg);
+  box-shadow: inset 0 0 0 1px var(--semantic-warn-ring);
+}
+
+.btb-task-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--shadow-subtle);
+  white-space: nowrap;
+}
+
+.btb-task-link:hover {
+  border-color: var(--border-hover);
+  text-decoration: none;
+}
+
+.btb-task-link--primary {
+  background: var(--semantic-brand-bg);
+  color: var(--semantic-brand-text);
+  box-shadow: inset 0 0 0 1px var(--semantic-brand-ring);
+}
+
+.btb-task-button {
+  min-height: 34px !important;
+  padding: 0 14px !important;
+  margin: 0 !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  letter-spacing: 0.01em !important;
+  transition:
+    transform 0.18s var(--easing-natural),
+    box-shadow 0.18s var(--easing-natural),
+    border-color 0.18s var(--easing-natural),
+    background 0.18s var(--easing-natural) !important;
+}
+
+.btb-task-button:hover {
+  transform: translateY(-1px);
+}
+
+.btb-task-button--stop {
+  color: var(--semantic-error-text) !important;
+  background: var(--semantic-error-bg) !important;
+  border: 1px solid var(--semantic-error-ring) !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+.btb-task-button--stop:hover {
+  background: color-mix(
+    in srgb,
+    var(--semantic-error-bg) 82%,
+    var(--semantic-error-ring)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--semantic-error-ring) 88%,
+    var(--semantic-error-text)
+  ) !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+.btb-task-button--remove {
+  color: var(--semantic-warn-text) !important;
+  background: var(--semantic-warn-bg) !important;
+  border: 1px solid var(--semantic-warn-ring) !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+.btb-task-button--remove:hover {
+  background: color-mix(
+    in srgb,
+    var(--semantic-warn-bg) 82%,
+    var(--semantic-warn-ring)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--semantic-warn-ring) 88%,
+    var(--semantic-warn-text)
+  ) !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+.btb-task-toolbar-row {
+  justify-content: flex-end !important;
+  margin-top: -2px;
+  margin-bottom: 6px;
+}
+
+.btb-task-refresh {
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
 #btb-log-output {
   min-height: 28rem !important;
 }

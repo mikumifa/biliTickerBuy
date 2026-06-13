@@ -2,9 +2,6 @@ from argparse import Namespace
 import os
 import re
 import sys
-import threading
-
-from util import GlobalStatusInstance, build_public_url, get_application_path
 
 
 def buy_cmd(args: Namespace):
@@ -39,8 +36,6 @@ def buy_cmd(args: Namespace):
         return f"{uuid.uuid4()}.log"
 
     def hold_terminal_after_interrupt():
-        if getattr(args, "web", False):
-            return
         try:
             if os.name == "nt":
                 import msvcrt
@@ -54,6 +49,10 @@ def buy_cmd(args: Namespace):
             input("已停止当前抢票流程。按回车关闭此窗口...")
         except (EOFError, KeyboardInterrupt):
             pass
+
+    def exit_immediately_if_child_process() -> None:
+        if child_process_mode:
+            os._exit(0)
 
     def build_notifier_config() -> NotifierConfig:
         return NotifierConfig(
@@ -95,73 +94,17 @@ def buy_cmd(args: Namespace):
     tickets_info, config_path = load_tickets_info(args.tickets_info)
     filename = os.path.basename(config_path) if config_path else "default"
     filename_only = os.path.basename(filename)
-    css_path = os.path.join(get_application_path(), "assets", "style.css")
     log_file_name = resolve_log_file_name()
-    use_terminal_renderer = os.name == "nt" and not getattr(args, "web", False)
-    if getattr(args, "web", False):
-        log_file = loguru_config(LOG_DIR, log_file_name, enable_console=False)
+    child_process_mode = os.environ.get("BTB_CHILD_PROCESS", "") == "1"
+    use_terminal_renderer = os.name == "nt" and not child_process_mode
+    enable_console_log = not use_terminal_renderer and not child_process_mode
+    log_file = loguru_config(
+        LOG_DIR,
+        log_file_name,
+        enable_console=enable_console_log,
+    )
+    if enable_console_log:
         logger.info(f"抢票日志路径：{log_file}")
-        from task.endpoint import start_heartbeat_thread
-        import gradio_client
-        import gradio as gr
-        from gradio_log import Log
-
-        with gr.Blocks(
-            css=css_path,
-            head="""<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>""",
-            title=f"{filename_only}",
-            fill_height=True,
-        ) as demo:
-            gr.Markdown(
-                f"""
-                # 当前抢票 {filename_only}
-                > 你可以在这里查看程序的运行日志
-                """
-            )
-
-            Log(
-                log_file,
-                dark=True,
-                scale=1,
-                xterm_log_level="info",
-                xterm_scrollback=5000,
-                elem_classes="h-full",
-            )
-
-            def exit_program():
-                print(f"{filename_only} ，关闭程序...")
-                os._exit(0)
-
-            btn = gr.Button("关闭程序")
-            btn.click(fn=exit_program)
-
-        print(f"抢票日志路径： {log_file}")
-        print(f"运行程序网址   ↓↓↓↓↓↓↓↓↓↓↓↓↓↓   {filename_only} ")
-        is_docker = os.path.exists("/.dockerenv") or os.environ.get("BTB_DOCKER") == "1"
-        demo.launch(
-            server_name=args.server_name,
-            server_port=args.port,
-            share=args.share or is_docker,
-            inbrowser=not is_docker,
-            prevent_thread_lock=True,
-        )
-        client = gradio_client.Client(args.endpoint_url)
-        assert demo.local_url
-        self_url = build_public_url(demo.local_url, args.server_name)
-        GlobalStatusInstance.nowTask = filename_only
-        start_heartbeat_thread(
-            client,
-            self_url=self_url,
-            to_url=args.endpoint_url,
-        )
-    else:
-        log_file = loguru_config(
-            LOG_DIR,
-            log_file_name,
-            enable_console=not use_terminal_renderer,
-        )
-        if not use_terminal_renderer:
-            logger.info(f"抢票日志路径：{log_file}")
     try:
         if use_terminal_renderer:
             run_with_terminal_renderer(tickets_info)
@@ -185,9 +128,8 @@ def buy_cmd(args: Namespace):
             )
     except KeyboardInterrupt:
         logger.warning("收到 Ctrl+C，已停止当前抢票流程。")
+        exit_immediately_if_child_process()
         hold_terminal_after_interrupt()
         return
-    if getattr(args, "web", False):
-        logger.info("抢票流程已结束，网页将保持运行，直到用户点击关闭程序。")
-        threading.Event().wait()
     logger.info("抢票完成后退出程序。。。。。")
+    exit_immediately_if_child_process()

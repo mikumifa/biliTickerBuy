@@ -24,7 +24,6 @@ classifiers = [
 dependencies = [
     "gradio~=4.44.1",
     "gradio-calendar~=0.0.6",
-    "gradio-log~=0.0.4",
     "httpx[socks]>=0.28.1",
     "loguru~=0.7.2",
     "ntplib~=0.4.0",

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from html import escape
 import json
+import os
 from pathlib import Path
 import time
 from urllib.parse import quote
 
-from fastapi import HTTPException, Query
+from fastapi import HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from util import LOG_DIR
@@ -16,21 +17,28 @@ _LOG_STREAM_ROUTE = "/__btb/logs/stream"
 
 
 def build_log_view_url(path: str) -> str:
-    return f"{_LOG_VIEW_ROUTE}?path={quote(path, safe='')}"
+    log_name = os.path.basename(path)
+    return f"{_LOG_VIEW_ROUTE}?name={quote(log_name, safe='')}"
 
 
-def _resolve_log_path(raw_path: str) -> Path:
-    if not raw_path:
-        raise HTTPException(status_code=400, detail="missing log path")
-
-    target = Path(raw_path).resolve()
+def _resolve_log_path(raw_path: str | None = None, log_name: str | None = None) -> Path:
     log_root = Path(LOG_DIR).resolve()
-    try:
-        target.relative_to(log_root)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=403, detail="log path is outside log dir"
-        ) from exc
+
+    if log_name:
+        safe_name = os.path.basename(log_name.strip())
+        if not safe_name:
+            raise HTTPException(status_code=400, detail="missing log name")
+        target = (log_root / safe_name).resolve()
+    elif raw_path:
+        target = Path(raw_path).resolve()
+        try:
+            target.relative_to(log_root)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403, detail="log path is outside log dir"
+            ) from exc
+    else:
+        raise HTTPException(status_code=400, detail="missing log identifier")
 
     if not target.exists() or not target.is_file():
         raise HTTPException(status_code=404, detail="log file not found")
@@ -48,11 +56,17 @@ def attach_log_routes(app) -> None:
         return
 
     @app.get(_LOG_VIEW_ROUTE, response_class=HTMLResponse)
-    def view_log(path: str = Query(...)) -> HTMLResponse:
-        log_path = _resolve_log_path(path)
+    def view_log(
+        request: Request,
+        path: str | None = Query(default=None),
+        name: str | None = Query(default=None),
+    ) -> HTMLResponse:
+        log_path = _resolve_log_path(raw_path=path, log_name=name)
         initial_text = escape(_read_log_text(log_path))
         title = escape(log_path.name)
-        stream_url = build_log_stream_url(str(log_path))
+        stream_url = (
+            f"{request.url_for('stream_log')}?name={quote(log_path.name, safe='')}"
+        )
         body = f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -152,8 +166,11 @@ def attach_log_routes(app) -> None:
         return HTMLResponse(body)
 
     @app.get(_LOG_STREAM_ROUTE)
-    def stream_log(path: str = Query(...)) -> StreamingResponse:
-        log_path = _resolve_log_path(path)
+    def stream_log(
+        path: str | None = Query(default=None),
+        name: str | None = Query(default=None),
+    ) -> StreamingResponse:
+        log_path = _resolve_log_path(raw_path=path, log_name=name)
 
         def generate():
             position = log_path.stat().st_size
@@ -197,7 +214,8 @@ def attach_log_routes(app) -> None:
 
 
 def build_log_stream_url(path: str) -> str:
-    return f"{_LOG_STREAM_ROUTE}?path={quote(path, safe='')}"
+    log_name = os.path.basename(path)
+    return f"{_LOG_STREAM_ROUTE}?name={quote(log_name, safe='')}"
 
 
 def _sse(event: str, data: str) -> str:

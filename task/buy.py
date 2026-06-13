@@ -644,7 +644,6 @@ def buy(
 
 
 def buy_new_terminal(
-    endpoint_url,
     tickets_info,
     time_start,
     interval,
@@ -660,8 +659,6 @@ def buy_new_terminal(
     meowNickname=None,
     notify_proxy_exhausted=False,
     show_random_message=True,
-    terminal_ui="网页",
-    server_name: str | None = None,
     log_file_path: str | None = None,
 ) -> subprocess.Popen:
     command = None
@@ -712,21 +709,26 @@ def buy_new_terminal(
         command.extend(["--https_proxys", https_proxys])
     if not show_random_message:
         command.extend(["--hide_random_message"])
-    if server_name:
-        command.extend(["--server_name", server_name])
-    if terminal_ui == "网页":
-        command.append("--web")
-    command.extend(["--endpoint_url", endpoint_url])
     env = os.environ.copy()
+    env["BTB_CHILD_PROCESS"] = "1"
     if log_file_path:
         env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)
     else:
         env.setdefault("BTB_APP_LOG_NAME", f"{uuid.uuid4()}.log")
-    if terminal_ui == "网页":
-        proc = subprocess.Popen(command, env=env)
+    kwargs = {}
+    if os.name == "nt":
+        kwargs["creationflags"] = (
+            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+        )
     else:
-        kwargs = {}
-        if os.name == "nt":
-            kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
-        proc = subprocess.Popen(command, env=env, **kwargs)
+        kwargs["start_new_session"] = True
+    with open(os.devnull, "r") as devnull_in, open(os.devnull, "a") as devnull_out:
+        proc = subprocess.Popen(
+            command,
+            env=env,
+            stdin=devnull_in,
+            stdout=devnull_out,
+            stderr=devnull_out,
+            **kwargs,
+        )
     return proc

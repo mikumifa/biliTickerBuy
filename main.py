@@ -73,12 +73,6 @@ def main():
         help="Interval time (ms). Defaults to 1000 if omitted.",
     )
     buy_core.add_argument(
-        "--endpoint_url",
-        type=str,
-        default=os.environ.get("BTB_ENDPOINT_URL", ""),
-        help="Endpoint URL.",
-    )
-    buy_core.add_argument(
         "--time_start",
         type=str,
         default=os.environ.get("BTB_TIME_START", ""),
@@ -157,11 +151,6 @@ def main():
 
     # ===== Runtime / UI =====
     runtime = buy_parser.add_argument_group("Runtime & UI Options")
-    runtime.add_argument(
-        "--web",
-        action="store_true",
-        help="Run with web UI instead of terminal output (useful on macOS).",
-    )
     runtime.add_argument(
         "--hide_random_message",
         action="store_true",
