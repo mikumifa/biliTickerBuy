@@ -84,9 +84,7 @@ def terminate_task(pid: int) -> str:
         except OSError:
             return "强制停止任务进程失败。"
 
-        if not is_task_running(pid):
-            return "已强制停止任务进程。"
-        return "停止任务进程失败。"
+        return "已发送停止任务请求"
 
     try:
         os.killpg(pid, signal.SIGTERM)
