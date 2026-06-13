@@ -1,5 +1,8 @@
 import gradio as gr
+import html
 import os
+from pathlib import Path
+from datetime import datetime
 
 from util import GlobalStatusInstance, LOG_DIR
 
@@ -13,38 +16,56 @@ def read_last_logs(n=1000):
     return "".join(lines[-n:])
 
 
+def _path_to_file_uri(path: str) -> str:
+    try:
+        return Path(path).resolve().as_uri()
+    except ValueError:
+        return ""
+
+
 def read_task_log_locations():
     entries = GlobalStatusInstance.get_task_logs()
     if not entries:
-        return "暂无已启动的抢票任务日志记录。"
+        return '<div class="btb-card-note">暂无已启动的抢票任务日志记录。</div>'
 
-    lines: list[str] = []
+    items: list[str] = []
     for entry in entries:
-        log_dir = os.path.dirname(entry.log_file)
-        pid_text = str(entry.pid) if entry.pid is not None else "未知"
-        lines.append(
-            "\n".join(
-                [
-                    f"任务: {entry.title}",
-                    f"模式: {entry.mode}",
-                    f"PID: {pid_text}",
-                    f"日志文件: {entry.log_file}",
-                    f"日志目录: {log_dir}",
-                ]
+        created_at = datetime.fromtimestamp(entry.created_at).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        file_link = (
+            f'<a href="{entry.log_file}" target="_blank" rel="noopener noreferrer">'
+            f"{html.escape(entry.log_file)}"
+            "</a>"
+        )
+        items.append(
+            """
+            <div style="padding:8px 0;border-bottom:1px solid #e2e8f0;line-height:1.6;">
+              <div><strong>创建时间：</strong>{created_at}</div>
+              <div><strong>配置文件：</strong>{title}</div>
+              <div><strong>日志路径：</strong>{file_link}</div>
+            </div>
+            """.format(
+                created_at=html.escape(created_at),
+                title=html.escape(entry.title),
+                file_link=file_link,
             )
         )
-    return "\n\n".join(lines)
+    return "".join(items)
 
 
 def log_tab():
-    task_log_textbox = gr.Textbox(
+    task_log_textbox = gr.HTML(
         label="抢票窗口日志位置",
-        lines=12,
-        interactive=False,
-        elem_classes="log",
+        value=read_task_log_locations(),
     )
     log_textbox = gr.Textbox(
-        label="最近日志", lines=20, interactive=False, elem_classes="log"
+        label="最近日志",
+        lines=20,
+        max_lines=20,
+        interactive=False,
+        elem_id="btb-log-output",
+        elem_classes="log",
     )
     refresh_btn = gr.Button("刷新日志")
     gr.File(

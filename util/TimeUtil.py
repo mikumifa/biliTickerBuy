@@ -29,7 +29,6 @@ class TimeUtil:
         if response is None:
             logger.error("无法获取NTP时间")
             return "error"
-        logger.info("使用" + self.ntp_server + "时间")
         # response.offset 为[NTP时钟源 - 设备时钟]的偏差, 使用时需要取反
         return format(-(response.offset), ".5f")
 

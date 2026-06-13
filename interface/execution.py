@@ -252,6 +252,7 @@ def _run_buy_task(
         ntfy_username=runtime_options.get("ntfy_username", ""),
         ntfy_password=runtime_options.get("ntfy_password", ""),
         audio_path=runtime_options.get("audio_path", ""),
+        notify_proxy_exhausted=runtime_options.get("notify_proxy_exhausted", False),
     )
     _update_task(task_id, status="running", started_at=time.time())
     succeeded = False
@@ -265,6 +266,8 @@ def _run_buy_task(
             runtime_options.get("show_random_message", True),
             runtime_options.get("show_qrcode", False),
         ):
+            if message is None:
+                continue
             _append_log(task_id, message)
             if "抢票成功" in message:
                 succeeded = True
@@ -365,6 +368,7 @@ def run_buy_sync(
         ntfy_username=runtime.get("ntfy_username", ""),
         ntfy_password=runtime.get("ntfy_password", ""),
         audio_path=runtime.get("audio_path", ""),
+        notify_proxy_exhausted=runtime.get("notify_proxy_exhausted", False),
     )
 
     logs: list[str] = []
@@ -379,6 +383,8 @@ def run_buy_sync(
         runtime.get("show_random_message", True),
         runtime.get("show_qrcode", False),
     ):
+        if message is None:
+            continue
         logs.append(message)
         if "抢票成功" in message:
             succeeded = True

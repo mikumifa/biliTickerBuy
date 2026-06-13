@@ -910,6 +910,18 @@ select,
   box-shadow: inset 0 0 0 1px var(--semantic-error-ring);
 }
 
+#btb-log-output {
+  min-height: 28rem !important;
+}
+
+#btb-log-output textarea {
+  min-height: 28rem !important;
+  max-height: 28rem !important;
+  overflow-y: auto !important;
+  white-space: pre !important;
+  resize: vertical !important;
+}
+
 /* =========================================================
    Dropdown Safe Styling
    关键原则：只改颜色和视觉，不强行改定位

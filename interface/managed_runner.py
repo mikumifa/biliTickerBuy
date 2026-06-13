@@ -100,6 +100,7 @@ def main(run_dir_arg: str) -> int:
         ntfy_username=runtime.get("ntfy_username", ""),
         ntfy_password=runtime.get("ntfy_password", ""),
         audio_path=runtime.get("audio_path", ""),
+        notify_proxy_exhausted=runtime.get("notify_proxy_exhausted", False),
     )
 
     final_status = "completed"
@@ -113,16 +114,18 @@ def main(run_dir_arg: str) -> int:
             runtime.get("show_random_message", True),
             False,
         ):
-            _append_log(logs_path, message)
+            if message is not None:
+                _append_log(logs_path, message)
             with status_lock:
                 status["updated_at"] = time.time()
-                status["last_message"] = message
-                if "抢票成功" in message:
-                    final_status = "succeeded"
-                if "有重复订单" in message:
-                    final_status = "duplicate_order"
-                if message.startswith("PAYMENT_QR_URL="):
-                    status["payment_qr_url"] = message.split("=", 1)[1]
+                if message is not None:
+                    status["last_message"] = message
+                    if "抢票成功" in message:
+                        final_status = "succeeded"
+                    if "有重复订单" in message:
+                        final_status = "duplicate_order"
+                    if message.startswith("PAYMENT_QR_URL="):
+                        status["payment_qr_url"] = message.split("=", 1)[1]
                 _dump_json(status_path, status)
     except BaseException as exc:
         with status_lock:

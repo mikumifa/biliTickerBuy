@@ -1,7 +1,8 @@
-import time
 import loguru
 import requests
+from requests import Response
 from util.CookieManager import CookieManager
+from util.ProxyManager import ProxyManager
 
 
 class BiliRequest:
@@ -10,14 +11,7 @@ class BiliRequest:
     ):
         self.session = requests.Session()
         # self.session.verify = False  # 禁用 SSL 验证，便于抓包测试
-        self.proxy_list = (
-            [v.strip() for v in proxy.split(",") if len(v.strip()) != 0]
-            if proxy
-            else []
-        )
-        if len(self.proxy_list) == 0:
-            raise ValueError("at least have none proxy")
-        self.now_proxy_idx = 0
+        self.proxy_manager = ProxyManager(proxy)
         self.cookieManager = CookieManager(cookies_config_path, cookies)
         self.headers = headers or {
             "accept": "*/*",
@@ -29,77 +23,104 @@ class BiliRequest:
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
         }
         self.request_count = 0  # 记录请求次数
+        self.proxy_manager.apply_to_session(self.session)
 
-    def count_and_sleep(self, threshold=60, sleep_time=60):
-        """
-        当记录到一定次数就sleep
-        """
-        self.request_count += 1
-        if self.request_count % threshold == 0:
-            loguru.logger.info(f"达到 {threshold} 次请求 412，休眠 {sleep_time} 秒")
-            time.sleep(sleep_time)
+    def _rotate_proxy(self, reason: str) -> bool:
+        if not self.proxy_manager.rotate():
+            return False
+        self.proxy_manager.apply_to_session(self.session)
+        return True
+
+    def snapshot_proxy_state(self) -> int:
+        return self.proxy_manager.snapshot()
+
+    def restore_proxy_state(self, state: int) -> None:
+        self.proxy_manager.restore(state)
+        self.proxy_manager.apply_to_session(self.session)
 
     def clear_request_count(self):
         self.request_count = 0
 
     def get(self, url, data=None, isJson=False):
-        self.headers["cookie"] = self.cookieManager.get_cookies_str()
-        if isJson:
-            self.headers["Content-Type"] = "application/json"
-            response = self.session.get(
-                url, json=data, headers=self.headers, timeout=10
-            )
-        else:
-            self.headers["Content-Type"] = "application/x-www-form-urlencoded"
-            response = self.session.get(
-                url, params=data, headers=self.headers, timeout=10
-            )
-        if response.status_code == 412:
-            self.count_and_sleep()
-            self.switch_proxy()
-            loguru.logger.warning(
-                f"412风控，切换代理到 {self.proxy_list[self.now_proxy_idx]}"
-            )
-            return self.get(url, data, isJson)
-        response.raise_for_status()
-        self.clear_request_count()
-        if response.json().get("msg", "") == "请先登录":
-            raise RuntimeError("当前未登录，请重新登陆")
-        return response
+        return self._request("get", url, data=data, isJson=isJson)
 
     def switch_proxy(self):
-        self.now_proxy_idx = (self.now_proxy_idx + 1) % len(self.proxy_list)
-        current_proxy = self.proxy_list[self.now_proxy_idx]
-
-        if current_proxy == "none":
-            self.session.proxies = {}  # 不使用任何代理，直连
-        else:
-            self.session.proxies = {
-                "http": current_proxy,
-                "https": current_proxy,
-            }
+        return self._rotate_proxy("手动切换代理")
 
     def post(self, url, data=None, isJson=False):
+        return self._request("post", url, data=data, isJson=isJson)
+
+    def current_proxy_display(self) -> str:
+        return self.proxy_manager.current_proxy_display
+
+    def current_proxy_status(self) -> str:
+        return self.proxy_manager.current_proxy_status()
+
+    def proxy_pool_status(self) -> str:
+        return self.proxy_manager.proxy_pool_status()
+
+    def has_available_proxy(self) -> bool:
+        return self.proxy_manager.has_available_proxy()
+
+    def is_current_proxy_available(self) -> bool:
+        return self.proxy_manager.is_current_proxy_available()
+
+    def ensure_active_proxy(self) -> bool:
+        if not self.proxy_manager.ensure_current_available():
+            return False
+        self.proxy_manager.apply_to_session(self.session)
+        return True
+
+    def mark_current_proxy_failure(self, reason: str) -> bool:
+        return self.proxy_manager.mark_current_failure(reason)
+
+    def mark_current_proxy_success(self) -> None:
+        self.proxy_manager.mark_current_success()
+
+    def describe_non_json_response(
+        self, response: Response, body_limit: int = 300
+    ) -> str:
+        content_type = response.headers.get("Content-Type", "未知")
+        body = response.text or ""
+        body = body.replace("\r", "\\r").replace("\n", "\\n")
+        if len(body) > body_limit:
+            body = body[:body_limit] + "..."
+        if not body:
+            body = "<empty>"
+        return (
+            f"status={response.status_code}, "
+            f"content_type={content_type}, "
+            f"url={response.url}, "
+            f"body_preview={body}"
+        )
+
+    def _request(self, method: str, url, data=None, isJson=False):
         self.headers["cookie"] = self.cookieManager.get_cookies_str()
         if isJson:
             self.headers["Content-Type"] = "application/json"
-            response = self.session.post(
-                url, json=data, headers=self.headers, timeout=10
+            response = self.session.request(
+                method, url, json=data, headers=self.headers, timeout=10
             )
         else:
             self.headers["Content-Type"] = "application/x-www-form-urlencoded"
-            response = self.session.post(
-                url, data=data, headers=self.headers, timeout=10
+            request_kwargs = (
+                {"params": data} if method.lower() == "get" else {"data": data}
             )
+            response = self.session.request(
+                method,
+                url,
+                headers=self.headers,
+                timeout=10,
+                **request_kwargs,
+            )
+
         if response.status_code == 412:
-            self.count_and_sleep()
-            self.switch_proxy()
-            loguru.logger.warning(
-                f"412风控，切换代理到 {self.proxy_list[self.now_proxy_idx]}"
-            )
-            return self.post(url, data, isJson)
+            self.request_count += 1
+            return response
+
         response.raise_for_status()
         self.clear_request_count()
+        self.mark_current_proxy_success()
         if response.json().get("msg", "") == "请先登录":
             raise RuntimeError("当前未登录，请重新登陆")
         return response

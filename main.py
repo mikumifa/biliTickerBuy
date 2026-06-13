@@ -148,6 +148,12 @@ def main():
         default=os.environ.get("BTB_NTFY_PASSWORD", ""),
         help="Ntfy password (optional).",
     )
+    notify.add_argument(
+        "--notify_proxy_exhausted",
+        action="store_true",
+        default=get_env_default("NOTIFY_PROXY_EXHAUSTED", False, str_to_bool),
+        help="Send message notifications when all proxies are temporarily unavailable.",
+    )
 
     # ===== Runtime / UI =====
     runtime = buy_parser.add_argument_group("Runtime & UI Options")

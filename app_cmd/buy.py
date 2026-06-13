@@ -1,6 +1,7 @@
 from argparse import Namespace
 import os
 import re
+import sys
 import threading
 
 from util import GlobalStatusInstance, build_public_url, get_application_path
@@ -11,7 +12,13 @@ def buy_cmd(args: Namespace):
     import uuid
 
     from util import LOG_DIR
-    from task.buy import buy
+    from task.buy import buy, buy_stream
+    from util.Notifier import NotifierConfig
+    from util.terminal_renderer import (
+        TerminalRenderContext,
+        create_terminal_renderer,
+        render_message_stream,
+    )
     from loguru import logger
 
     def load_tickets_info(tickets_info: str) -> tuple[str, str | None]:
@@ -31,11 +38,66 @@ def buy_cmd(args: Namespace):
             return re.sub(r"[^\w.\-]", "_", os.path.basename(configured_name))
         return f"{uuid.uuid4()}.log"
 
+    def hold_terminal_after_interrupt():
+        if getattr(args, "web", False):
+            return
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                print("已停止当前抢票流程。按任意键关闭此窗口...", flush=True)
+                msvcrt.getwch()
+                return
+
+            if not sys.stdin or not sys.stdin.isatty():
+                return
+            input("已停止当前抢票流程。按回车关闭此窗口...")
+        except (EOFError, KeyboardInterrupt):
+            pass
+
+    def build_notifier_config() -> NotifierConfig:
+        return NotifierConfig(
+            serverchan_key=args.serverchanKey,
+            serverchan3_api_url=args.serverchan3ApiUrl,
+            pushplus_token=args.pushplusToken,
+            bark_token=args.barkToken,
+            ntfy_url=args.ntfy_url,
+            ntfy_username=args.ntfy_username,
+            ntfy_password=args.ntfy_password,
+            meow_nickname=args.meowNickname,
+            audio_path=args.audio_path,
+            notify_proxy_exhausted=args.notify_proxy_exhausted,
+        )
+
+    def run_with_terminal_renderer(tickets_info: str):
+        renderer = create_terminal_renderer(
+            TerminalRenderContext(
+                config_name=filename_only,
+                log_file=log_file,
+                platform_name=os.name,
+            ),
+            prefer_rich=os.name == "nt",
+        )
+        render_message_stream(
+            renderer,
+            buy_stream(
+                tickets_info,
+                args.time_start,
+                args.interval,
+                build_notifier_config(),
+                args.https_proxys,
+                not args.hide_random_message,
+                readable=True,
+            ),
+            on_message=logger.info,
+        )
+
     tickets_info, config_path = load_tickets_info(args.tickets_info)
     filename = os.path.basename(config_path) if config_path else "default"
     filename_only = os.path.basename(filename)
     css_path = os.path.join(get_application_path(), "assets", "style.css")
     log_file_name = resolve_log_file_name()
+    use_terminal_renderer = os.name == "nt" and not getattr(args, "web", False)
     if getattr(args, "web", False):
         log_file = loguru_config(LOG_DIR, log_file_name, enable_console=False)
         logger.info(f"抢票日志路径：{log_file}")
@@ -93,24 +155,38 @@ def buy_cmd(args: Namespace):
             to_url=args.endpoint_url,
         )
     else:
-        log_file = loguru_config(LOG_DIR, log_file_name, enable_console=True)
-        logger.info(f"抢票日志路径：{log_file}")
-    buy(
-        tickets_info,
-        args.time_start,
-        args.interval,
-        args.audio_path,
-        args.pushplusToken,
-        args.serverchanKey,
-        args.barkToken,
-        args.https_proxys,
-        args.serverchan3ApiUrl,
-        args.ntfy_url,
-        args.ntfy_username,
-        args.ntfy_password,
-        args.meowNickname,
-        not args.hide_random_message,
-    )
+        log_file = loguru_config(
+            LOG_DIR,
+            log_file_name,
+            enable_console=not use_terminal_renderer,
+        )
+        if not use_terminal_renderer:
+            logger.info(f"抢票日志路径：{log_file}")
+    try:
+        if use_terminal_renderer:
+            run_with_terminal_renderer(tickets_info)
+        else:
+            buy(
+                tickets_info,
+                args.time_start,
+                args.interval,
+                args.audio_path,
+                args.pushplusToken,
+                args.serverchanKey,
+                args.barkToken,
+                args.https_proxys,
+                args.serverchan3ApiUrl,
+                args.ntfy_url,
+                args.ntfy_username,
+                args.ntfy_password,
+                args.meowNickname,
+                args.notify_proxy_exhausted,
+                not args.hide_random_message,
+            )
+    except KeyboardInterrupt:
+        logger.warning("收到 Ctrl+C，已停止当前抢票流程。")
+        hold_terminal_after_interrupt()
+        return
     if getattr(args, "web", False):
         logger.info("抢票流程已结束，网页将保持运行，直到用户点击关闭程序。")
         threading.Event().wait()

@@ -11,13 +11,7 @@ from pathlib import Path
 import gradio as gr
 import requests
 
-from app_update import (
-    UPDATE_CHANNELS,
-    UPDATE_CHANNEL_STABLE,
-    ReleaseInfo,
-    UpdateError,
-    fetch_update,
-)
+from app_update import UPDATE_CHANNEL_STABLE, ReleaseInfo, UpdateError, fetch_update
 from app_version import get_app_version
 from util import ConfigDB, EXE_PATH
 
@@ -26,8 +20,8 @@ PACKAGE_NAME = "bilitickerbuy"
 
 
 def _saved_channel() -> str:
-    channel = ConfigDB.get(UPDATE_CHANNEL_KEY)
-    return channel if channel in UPDATE_CHANNELS else UPDATE_CHANNEL_STABLE
+    ConfigDB.get(UPDATE_CHANNEL_KEY)
+    return UPDATE_CHANNEL_STABLE
 
 
 def _format_update(release: ReleaseInfo | None, channel: str) -> str:
@@ -104,7 +98,8 @@ def _update_hint(channel: str) -> str:
     return _pip_update_hint(channel)
 
 
-def check_updates(channel: str):
+def _check_updates(channel: str | None = None):
+    channel = UPDATE_CHANNEL_STABLE
     ConfigDB.insert(UPDATE_CHANNEL_KEY, channel)
     try:
         release = fetch_update(get_app_version(), channel)
@@ -124,24 +119,25 @@ def check_updates(channel: str):
     )
 
 
+def load_update_check():
+    return _check_updates(_saved_channel())
+
+
+def run_stable_update_check():
+    return _check_updates(UPDATE_CHANNEL_STABLE)
+
+
 def update_tab(demo: gr.Blocks):
-    channel = gr.Radio(
-        choices=list(UPDATE_CHANNELS),
-        value=_saved_channel(),
-        label="更新频道",
-        info="稳定版会跳过 GitHub prerelease；测试版会同时接收预发布版本。",
-    )
     status = gr.HTML(
         '<div class="btb-update-status"><strong>正在检查更新…</strong></div>'
     )
     release_state = gr.State(None)
 
     with gr.Row():
-        check_button = gr.Button("立即检查", variant="secondary")
+        stable_button = gr.Button("检查更新", variant="secondary")
 
     notice = gr.Markdown(_update_hint(_saved_channel()))
 
     check_outputs = [status, release_state, notice]
-    demo.load(check_updates, inputs=channel, outputs=check_outputs)
-    check_button.click(check_updates, inputs=channel, outputs=check_outputs)
-    channel.change(check_updates, inputs=channel, outputs=check_outputs)
+    demo.load(load_update_check, outputs=check_outputs)
+    stable_button.click(run_stable_update_check, outputs=check_outputs)

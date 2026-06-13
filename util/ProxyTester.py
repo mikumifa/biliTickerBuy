@@ -3,6 +3,7 @@ import requests
 import loguru
 from typing import List, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from util.ProxyManager import ProxyManager
 
 
 # 代理连通性测试工具
@@ -13,7 +14,7 @@ class ProxyTester:
     # 测试单个代理连通性
     def test_single_proxy(self, proxy: str) -> Dict[str, Any]:
         result = {
-            "proxy": proxy,
+            "proxy": ProxyManager.mask_proxy_value(proxy) or proxy,
             "status": "failed",
             "response_time": None,
             "error": None,
@@ -22,17 +23,11 @@ class ProxyTester:
 
         try:
             session = requests.Session()
-            session.trust_env = False
-            # 配置代理
-            if proxy == "none" or proxy.lower() == "direct":
-                session.proxies = {}
-                result["proxy"] = "直连"
-            else:
-                if not self._validate_proxy_format(proxy):
-                    result["error"] = "代理格式无效"
-                    return result
-
-                session.proxies = {"http": proxy, "https": proxy}
+            proxy = ProxyManager.normalize_proxy_value(proxy)
+            if proxy != "none" and not self._validate_proxy_format(proxy):
+                result["error"] = "代理格式无效"
+                return result
+            ProxyManager(proxy).apply_to_session(session)
 
             # 测试连通性和响应时间
             start_time = time.time()
@@ -124,17 +119,12 @@ class ProxyTester:
     def test_proxy_list(
         self, proxy_string: str, max_workers: int = 5
     ) -> List[Dict[str, Any]]:
-        if not proxy_string or proxy_string.strip() == "":
+        proxy_list = ProxyManager.parse_proxy_list(
+            proxy_string,
+            include_direct_fallback=True,
+        )
+        if not proxy_list:
             proxy_list = ["none"]
-        else:
-            proxy_list = [p.strip() for p in proxy_string.split(",") if p.strip()]
-            if not proxy_list:
-                proxy_list = ["none"]
-            else:
-                if "none" not in [p.lower() for p in proxy_list] and "direct" not in [
-                    p.lower() for p in proxy_list
-                ]:
-                    proxy_list.insert(0, "none")
 
         results = []
         # 使用线程池并发测试
@@ -161,7 +151,15 @@ class ProxyTester:
                 return (0, proxy)
             else:
                 try:
-                    return (1, proxy_list.index(proxy))
+                    raw_proxy = next(
+                        (
+                            item
+                            for item in proxy_list
+                            if ProxyManager.mask_proxy_value(item) == proxy
+                        ),
+                        proxy,
+                    )
+                    return (1, proxy_list.index(raw_proxy))
                 except ValueError:
                     return (2, proxy)
 

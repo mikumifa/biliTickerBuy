@@ -3,6 +3,7 @@ import html
 import json
 import os
 import platform
+import re
 import time
 import uuid
 
@@ -304,6 +305,9 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
         hide_random_message = ConfigDB.get("hideRandomMessage")
         if hide_random_message is None:
             hide_random_message = True
+        notify_proxy_exhausted = ConfigDB.get("notifyProxyExhausted")
+        if notify_proxy_exhausted is None:
+            notify_proxy_exhausted = False
 
         for idx, filename in enumerate(files):
             with open(filename, "r", encoding="utf-8") as file:
@@ -327,6 +331,7 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
                         "ntfy_url": ConfigDB.get("ntfyUrl"),
                         "ntfy_username": ConfigDB.get("ntfyUsername"),
                         "ntfy_password": ConfigDB.get("ntfyPassword"),
+                        "notify_proxy_exhausted": notify_proxy_exhausted,
                     },
                 )
                 endpoints_next_idx += 1
@@ -352,6 +357,7 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
                     ntfy_url=ConfigDB.get("ntfyUrl"),
                     ntfy_username=ConfigDB.get("ntfyUsername"),
                     ntfy_password=ConfigDB.get("ntfyPassword"),
+                    notify_proxy_exhausted=notify_proxy_exhausted,
                     https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
                     terminal_ui=terminal_ui,
                     show_random_message=not hide_random_message,
@@ -483,22 +489,49 @@ def go_start_tab(demo: gr.Blocks, server_name: str | None = None):
 
 
 def go_settings_tab():
+    def _split_proxy_lines(proxy_text: str | None) -> list[str]:
+        if not proxy_text:
+            return []
+        return [
+            item.strip()
+            for item in re.split(r"[\n,]+", proxy_text)
+            if item and item.strip()
+        ]
+
+    def _serialize_proxy_text(proxy_text: str | None) -> str:
+        return ",".join(_split_proxy_lines(proxy_text))
+
+    def _format_proxy_text(proxy_text: str | None) -> str:
+        return "\n".join(_split_proxy_lines(proxy_text))
+
     def get_latest_proxy():
-        return ConfigDB.get("https_proxy") or ""
+        return _format_proxy_text(ConfigDB.get("https_proxy") or "")
 
     def input_https_proxy(_https_proxy):
-        ConfigDB.insert("https_proxy", _https_proxy)
-        return gr.update(ConfigDB.get("https_proxy"))
+        normalized_proxy = _serialize_proxy_text(_https_proxy)
+        ConfigDB.insert("https_proxy", normalized_proxy)
+        gr.Info("代理配置已保存。")
+        return gr.update(value=_format_proxy_text(normalized_proxy))
+
+    def clear_https_proxy():
+        ConfigDB.insert("https_proxy", "")
+        gr.Info("代理配置已清空。")
+        return gr.update(value="")
 
     def test_proxy_connectivity(proxy_string, timeout):
         try:
             from util.ProxyTester import test_proxy_connectivity
 
+            proxy_string = _serialize_proxy_text(proxy_string)
             if not proxy_string or proxy_string.strip() == "":
                 proxy_string = "none"
-            return test_proxy_connectivity(proxy_string, int(timeout))
+            result = test_proxy_connectivity(proxy_string, int(timeout))
+            return gr.update(value=result, visible=True)
         except Exception as e:
-            return f"❌ 测试过程中发生错误: {str(e)}"
+            return gr.update(value=f"❌ 测试过程中发生错误: {str(e)}", visible=True)
+
+    def show_proxy_test_loading():
+        return gr.update(value="正在测试代理连通性，请稍候...", visible=True)
 
     def inner_input_serverchan(x):
         ConfigDB.insert("serverchanKey", x)
@@ -584,12 +617,19 @@ def go_settings_tab():
         ConfigDB.insert("autoFillTime", value)
         return gr.update(value=ConfigDB.get("autoFillTime"))
 
+    def update_notify_proxy_exhausted(value):
+        ConfigDB.insert("notifyProxyExhausted", value)
+        return gr.update(value=ConfigDB.get("notifyProxyExhausted"))
+
     hide_random_message_default = ConfigDB.get("hideRandomMessage")
     if hide_random_message_default is None:
         hide_random_message_default = True
     auto_fill_time_default = ConfigDB.get("autoFillTime")
     if auto_fill_time_default is None:
         auto_fill_time_default = True
+    notify_proxy_exhausted_default = ConfigDB.get("notifyProxyExhausted")
+    if notify_proxy_exhausted_default is None:
+        notify_proxy_exhausted_default = False
 
     with gr.Column(elem_classes="btb-page-section"):
         with gr.Column(elem_classes="btb-card btb-layout-card"):
@@ -612,27 +652,27 @@ def go_settings_tab():
         with gr.Tabs(elem_classes="btb-top-tabs"):
             with gr.Tab("代理设置"):
                 with gr.Column(elem_classes="btb-card btb-layout-card"):
-                    gr.Markdown("### 填写你的代理服务器[可选]")
-                    gr.Markdown(
-                        """
-                        > **注意**：
-
-                        填写代理服务器地址后，程序在使用这个配置文件后会在出现风控后后根据代理服务器去访问哔哩哔哩的抢票接口。
-
-                        抢票前请确保代理服务器已经开启，并且可以正常访问哔哩哔哩的抢票接口。
-
-                        支持 HTTP/HTTPS/SOCKS 代理。
-                        """
-                    )
+                    gr.Markdown("### 填写你的代理服务器")
                     https_proxy_ui = gr.Textbox(
-                        label="填写抢票时候的代理服务器地址，使用逗号隔开|输入完成后，回车键保存",
-                        info="例如： http://127.0.0.1:8080,https://127.0.0.1:8081,socks5://127.0.0.1:1080",
+                        label="代理服务器地址",
+                        lines=4,
+                        placeholder="推荐每行填写一个代理地址，留空表示只使用直连\n例如：\nhttp://127.0.0.1:8080\nsocks5://127.0.0.1:1080\nhttp://proxyuser:proxypass@xx.xx.xx.xx:8080",
+                        info="支持每行一个，也支持逗号分隔。例如：\nhttp://127.0.0.1:8080\nhttps://127.0.0.1:8081\nsocks5://127.0.0.1:1080",
                         value=get_latest_proxy(),
                     )
-                    test_proxy_btn = gr.Button(
-                        "🔍 测试代理连通性",
-                        elem_classes="btb-soft-button",
-                    )
+                    with gr.Row(elem_classes="btb-inline-actions !justify-end"):
+                        save_proxy_btn = gr.Button(
+                            "保存代理配置",
+                            elem_classes="btb-soft-button",
+                        )
+                        clear_proxy_btn = gr.Button(
+                            "清空代理配置",
+                            elem_classes="btb-soft-button",
+                        )
+                        test_proxy_btn = gr.Button(
+                            "🔍 测试代理连通性",
+                            elem_classes="btb-soft-button",
+                        )
                     test_timeout_ui = gr.Number(
                         label="测试代理超时时间(秒)",
                         value=10,
@@ -646,11 +686,26 @@ def go_settings_tab():
                         max_lines=15,
                         interactive=False,
                         placeholder="点击上方按钮开始测试代理连通性...",
+                        visible=False,
+                    )
+                    gr.Markdown(
+                        """
+                        <div class="mt-3 text-sm leading-7 text-slate-700">
+                          <p><strong>怎么填写：</strong>推荐每行填写一个代理地址，也支持逗号分隔。留空表示只使用直连。</p>
+                          <p><strong>支持格式：</strong><code>http://IP:端口</code>、<code>https://IP:端口</code>、<code>socks5://IP:端口</code>。</p>
+                          <p><strong>带账号密码的 HTTP 代理示例：</strong><code>http://proxyuser:proxypass@xx.xx.xx.xx:8080</code></p>
+                          <p><strong>程序什么时候会用代理：</strong>当抢票流程检测到风控时，会按你填写的顺序切换到下一个代理；当前请求不会在请求层立刻自动重试，下一次抢票重试才会使用新代理。</p>
+                          <p><strong>代理失效怎么处理：</strong>同一代理在短时间内连续失败会被暂时冷却；如果所有代理都不可用，程序会按递增时间休息后再试。</p>
+                          <p><strong>建议先测试再开抢：</strong>保存后点击上方“测试代理连通性”，确认代理能正常访问哔哩哔哩接口。</p>
+                          <p><strong>自建代理：</strong>如果你没有现成代理，可以自己在 Ubuntu / Debian 服务器上搭建 Squid HTTP 代理。</p>
+                          <p><strong>完整搭建说明：</strong><a href="https://github.com/mikumifa/biliTickerBuy/blob/main/docs/proxy-self-hosting.md" target="_blank" rel="noopener noreferrer">GitHub 查看自建代理指南</a></p>
+                        </div>
+                        """
                     )
 
             with gr.Tab("音乐设置"):
                 with gr.Column(elem_classes="btb-card btb-layout-card"):
-                    gr.Markdown("### 配置抢票成功后播放音乐[可选]")
+                    gr.Markdown("### 配置抢票成功后播放音乐")
                     gr.Markdown(
                         "推荐上传 WAV。若上传 MP3、FLAC、M4A、OGG 等格式，请先在系统中安装 "
                         "`ffmpeg/ffprobe`；如果安装时报错，也可以先前往 "
@@ -673,7 +728,7 @@ def go_settings_tab():
 
             with gr.Tab("推送设置"):
                 with gr.Column(elem_classes="btb-card btb-layout-card"):
-                    gr.Markdown("### 配置抢票推送消息[可选]")
+                    gr.Markdown("### 配置抢票推送消息")
                     gr.Markdown(
                         """
                         🗨️ **抢票成功提醒**
@@ -732,7 +787,7 @@ def go_settings_tab():
                         )
 
                         with gr.Column(elem_classes="btb-card btb-layout-card"):
-                            gr.Markdown("#### Ntfy认证配置[可选]")
+                            gr.Markdown("#### Ntfy认证")
                             with gr.Row(elem_classes="btb-inline-actions !justify-end"):
                                 ntfy_username_ui = gr.Textbox(
                                     value=(ConfigDB.get("ntfyUsername") or ""),
@@ -780,11 +835,20 @@ def go_settings_tab():
                         value=hide_random_message_default,
                         info="关闭后，抢票失败时将不再显示有趣的语录",
                     )
+                    notify_proxy_exhausted_ui = gr.Checkbox(
+                        label="无可用代理时发送提醒",
+                        value=notify_proxy_exhausted_default,
+                        info="默认关闭。开启后，当所有代理都进入冷却且程序需要休息时，会通过已配置的推送渠道提醒你补充代理。",
+                    )
 
-    https_proxy_ui.submit(
+    save_proxy_btn.click(
         fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
     )
+    clear_proxy_btn.click(fn=clear_https_proxy, outputs=https_proxy_ui)
     test_proxy_btn.click(
+        fn=show_proxy_test_loading,
+        outputs=test_result_ui,
+    ).then(
         fn=test_proxy_connectivity,
         inputs=[https_proxy_ui, test_timeout_ui],
         outputs=test_result_ui,
@@ -825,6 +889,11 @@ def go_settings_tab():
         fn=update_auto_fill_time,
         inputs=auto_fill_time_ui,
         outputs=auto_fill_time_ui,
+    )
+    notify_proxy_exhausted_ui.change(
+        fn=update_notify_proxy_exhausted,
+        inputs=notify_proxy_exhausted_ui,
+        outputs=notify_proxy_exhausted_ui,
     )
     test_audio_button.click(
         fn=test_terminal_audio,

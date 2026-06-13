@@ -93,6 +93,7 @@ class NotifierConfig:
     ntfy_password: Optional[str] = None
     meow_nickname: Optional[str] = None
     audio_path: Optional[str] = None
+    notify_proxy_exhausted: bool = False
 
     @classmethod
     def from_config_db(cls):
@@ -109,6 +110,7 @@ class NotifierConfig:
             ntfy_password=ConfigDB.get("ntfyPassword"),
             meow_nickname=ConfigDB.get("meowNickname"),
             audio_path=ConfigDB.get("audioPath"),
+            notify_proxy_exhausted=bool(ConfigDB.get("notifyProxyExhausted") or False),
         )
 
 

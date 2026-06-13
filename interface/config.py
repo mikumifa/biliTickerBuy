@@ -196,6 +196,7 @@ def build_runtime_options(
     ntfy_url: str = "",
     ntfy_username: str = "",
     ntfy_password: str = "",
+    notify_proxy_exhausted: bool = False,
     show_random_message: bool = True,
     show_qrcode: bool = False,
 ) -> dict[str, Any]:
@@ -212,6 +213,7 @@ def build_runtime_options(
         "ntfy_url": ntfy_url,
         "ntfy_username": ntfy_username,
         "ntfy_password": ntfy_password,
+        "notify_proxy_exhausted": notify_proxy_exhausted,
         "show_random_message": show_random_message,
         "show_qrcode": show_qrcode,
     }
