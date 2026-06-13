@@ -34,11 +34,7 @@ class CTokenGenerator:
 
     @staticmethod
     def _derive_mask(index: int, env_data: list[int]) -> int:
-        return (
-            env_data[index % 16]
-            + env_data[(3 * index) % 16]
-            + 17 * index
-        ) & 0xFF
+        return (env_data[index % 16] + env_data[(3 * index) % 16] + 17 * index) & 0xFF
 
     @staticmethod
     def _append_byte(buffer: bytearray, value: int) -> None:
