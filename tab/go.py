@@ -140,8 +140,7 @@ def _build_session_ticket_preview() -> str:
         return _render_ticket_preview(content)
     except Exception as e:
         return (
-            '<div class="btb-card-note">配置预览恢复失败：'
-            f"{html.escape(str(e))}</div>"
+            f'<div class="btb-card-note">配置预览恢复失败：{html.escape(str(e))}</div>'
         )
 
 

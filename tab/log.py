@@ -115,7 +115,9 @@ def sync_task_statuses() -> list:
         if entry.status == TASK_STATUS_STOPPED:
             continue
         if log_contains_marker(entry.log_file, TASK_COMPLETED_MARKER):
-            GlobalStatusInstance.update_task_log_status(entry.pid, TASK_STATUS_COMPLETED)
+            GlobalStatusInstance.update_task_log_status(
+                entry.pid, TASK_STATUS_COMPLETED
+            )
             continue
         if is_task_running(entry.pid):
             GlobalStatusInstance.update_task_log_status(entry.pid, TASK_STATUS_RUNNING)
@@ -292,6 +294,7 @@ def render_task_manager_panel(task_panel):
                             fn=lambda pid=entry.pid: remove_task(pid),
                             outputs=[refresh_token, task_panel],
                         )
+
     refresh_btn.click(
         fn=refresh_task_panel,
         inputs=None,

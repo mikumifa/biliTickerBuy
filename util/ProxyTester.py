@@ -73,7 +73,9 @@ class ProxyTester:
             {
                 "name": "ip-api.com",
                 "url": "http://ip-api.com/json/",
-                "parser": lambda data: f"{data.get('query', '未知')} ({data.get('city', '未知')}, {data.get('isp', '未知')})",
+                "parser": lambda data: (
+                    f"{data.get('query', '未知')} ({data.get('city', '未知')}, {data.get('isp', '未知')})"
+                ),
             },
             {
                 "name": "httpbin.org",
