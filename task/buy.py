@@ -447,9 +447,13 @@ def buy_stream(
                         diagnostic = _request.describe_non_json_response(
                             request_result_normal
                         )
-                        summary = _summarize_non_json_response("订单准备接口", diagnostic)
+                        summary = _summarize_non_json_response(
+                            "订单准备接口", diagnostic
+                        )
                         if "412 风控" in summary:
-                            summary += f"（当前代理: {_request.current_proxy_display()}）"
+                            summary += (
+                                f"（当前代理: {_request.current_proxy_display()}）"
+                            )
                             for message in emit_proxy_failure_messages(
                                 "订单准备接口 412 风控"
                             ):
@@ -492,9 +496,13 @@ def buy_stream(
                         diagnostic = _request.describe_non_json_response(
                             request_result_normal
                         )
-                        summary = _summarize_non_json_response("订单准备接口", diagnostic)
+                        summary = _summarize_non_json_response(
+                            "订单准备接口", diagnostic
+                        )
                         if "412 风控" in summary:
-                            summary += f"（当前代理: {_request.current_proxy_display()}）"
+                            summary += (
+                                f"（当前代理: {_request.current_proxy_display()}）"
+                            )
                             for message in emit_proxy_failure_messages(
                                 "订单准备接口 412 风控"
                             ):
