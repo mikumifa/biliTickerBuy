@@ -58,6 +58,11 @@ def buy_cmd(args: Namespace):
             return
         hold_terminal("抢票流程已结束。按任意键关闭此窗口...")
 
+    def hold_terminal_after_error(message: str) -> None:
+        if os.environ.get("BTB_HOLD_TERMINAL", "") != "1":
+            return
+        hold_terminal(f"{message}\n按任意键关闭此窗口...")
+
     def exit_immediately_if_child_process() -> None:
         if child_process_mode:
             os._exit(0)
@@ -139,6 +144,20 @@ def buy_cmd(args: Namespace):
         exit_immediately_if_child_process()
         hold_terminal_after_interrupt()
         return
+    except SystemExit as exc:
+        if exc.code in (None, 0):
+            raise
+        logger.error(f"抢票流程异常退出: {exc.code}")
+        if os.environ.get("BTB_HOLD_TERMINAL", "") == "1":
+            hold_terminal_after_error(f"抢票流程异常退出: {exc.code}")
+            return
+        raise
+    except Exception as exc:
+        logger.exception("抢票流程异常退出")
+        if os.environ.get("BTB_HOLD_TERMINAL", "") == "1":
+            hold_terminal_after_error(f"抢票流程异常退出: {exc}")
+            return
+        raise
     logger.info("抢票完成后退出程序。。。。。")
     hold_terminal_after_finish()
     exit_immediately_if_child_process()
