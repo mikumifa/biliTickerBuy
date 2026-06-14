@@ -174,11 +174,11 @@ def _merge_log_item(item: LogItem, next_item) -> None:
     item.attempt_body = message
 
     if item.attempt_start == item.attempt_end:
-        item.display_message = f"[{item.attempt_start}/{attempt_total}] {message}".rstrip()
-    else:
         item.display_message = (
-            f"[{item.attempt_start}-{item.attempt_end}/{attempt_total}] {message}".rstrip()
+            f"[{item.attempt_start}/{attempt_total}] {message}".rstrip()
         )
+    else:
+        item.display_message = f"[{item.attempt_start}-{item.attempt_end}/{attempt_total}] {message}".rstrip()
 
 
 class TextualTerminalRenderer(BaseTerminalRenderer):

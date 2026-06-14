@@ -243,7 +243,10 @@ def test_hot_buy_stream_ignores_local_ptoken_and_uses_prepare(monkeypatch):
             if "order/prepare" in url:
                 assert data["token"] != ""
                 return DummyResponse(
-                    {"errno": 0, "data": {"token": "SERVER_TOKEN", "ptoken": "SERVER_PTOKEN=="}}
+                    {
+                        "errno": 0,
+                        "data": {"token": "SERVER_TOKEN", "ptoken": "SERVER_PTOKEN=="},
+                    }
                 )
             assert data["token"] == "SERVER_TOKEN"
             assert data["ptoken"] == "SERVER_PTOKEN"
