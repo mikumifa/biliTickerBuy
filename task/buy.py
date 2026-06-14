@@ -15,6 +15,7 @@ import qrcode
 from loguru import logger
 
 from requests import HTTPError, RequestException
+from cptoken import generate_ctoken, init_ctoken_state, sim_ctoken_state
 
 from util import time_service
 from util.Notifier import NotifierManager, NotifierConfig
@@ -22,7 +23,6 @@ from util.ProxyBackoff import ProxyBackoff
 from util.BiliRequest import BiliRequest
 from util.ProxyManager import ProxyManager
 from util.RandomMessages import get_random_fail_message
-from util.CTokenUtil import CTokenGenerator
 from util.TokenUtil import generate_token
 from util.error_codes import ErrorCodes
 
@@ -158,14 +158,12 @@ def _normalize_prepare_ptoken(value: object) -> str:
     return str(value).replace("=", "")
 
 
-def _build_click_position(origin_ms: int | None = None) -> dict[str, int]:
-    if origin_ms is None:
-        origin_ms = int(time.time() * 1000) - randint(10000, 20000)
+def _build_click_position(origin_ms: int, now_ms: int) -> dict[str, int]:
     return {
-        "x": randint(200, 400),
-        "y": randint(750, 800),
+        "x": randint(0, 900),
+        "y": randint(0, 900),
         "origin": origin_ms,
-        "now": int(time.time() * 1000),
+        "now": now_ms,
     }
 
 
@@ -176,7 +174,7 @@ def _is_create_success(ret: dict, err: int) -> bool:
     return err == 0 and "defaultBBR" not in resp_message
 
 
-CREATE_RETRY_LIMIT = 60
+CREATE_RETRY_LIMIT = 20
 
 
 def _extract_response_message(ret: dict) -> str:
@@ -458,21 +456,17 @@ def buy_stream(
     while isRunning:
         try:
             request_result: dict | None = None
-            token_gen = time.time()
+            before_state = init_ctoken_state()
             if is_hot_project:
                 # hot
                 yield emit("stage", "开始准备订单", stage="订单准备")
-                ctoken_generator = CTokenGenerator(time.time(), 0, randint(2000, 10000))
-                token_payload["token"] = ctoken_generator.generate_ctoken(
-                    touchend=randint(1, 5),
-                    beforeunload=randint(1, 3),
-                    openWindow=randint(1, 3),
-                )
+                token_payload["token"] = generate_ctoken(**before_state)
                 request_result_normal = _request.post(
                     url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                     data=token_payload,
                     isJson=True,
                 )
+
                 try:
                     request_result = request_result_normal.json()
                 except JSONDecodeError:
@@ -489,7 +483,7 @@ def buy_stream(
                         request_result,  # type: ignore
                     ),
                 )
-                token_gen = time.time()
+                started_ms = int(time.time() * 1000)
                 order_token = request_result["data"]["token"]  # type: ignore
                 request_result["data"]["ptoken"] = _normalize_prepare_ptoken(
                     request_result["data"].get("ptoken")  # type: ignore[index]
@@ -532,7 +526,8 @@ def buy_stream(
                 attempt_total=CREATE_RETRY_LIMIT,
             )
             payload = _build_order_payload(tickets_info, order_token)
-            payload["clickPosition"] = _build_click_position(int(token_gen * 1000))
+            now_ms = int(time.time() * 1000)
+            payload["timestamp"] = now_ms
 
             result = None
             last_err: int | None = None
@@ -544,12 +539,22 @@ def buy_stream(
                     break
                 try:
                     url = f"{base_url}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
+
                     if is_hot_project:
-                        payload["ctoken"] = ctoken_generator.generate_ctoken(  # type: ignore
-                            timer=10 + 2 * int(time.time()) - 2 * int(token_gen)
+                        create_ctoken_state = sim_ctoken_state(
+                            before_state=before_state,
+                            started_ms=started_ms,
+                        )
+                        payload["clickPosition"] = _build_click_position(
+                            started_ms, now_ms
+                        )
+                        payload["ctoken"] = generate_ctoken(  # type: ignore
+                            **create_ctoken_state,
                         )
                         ptoken = _normalize_prepare_ptoken(
-                            request_result["data"].get("ptoken") if request_result else ""
+                            request_result["data"].get("ptoken")
+                            if request_result
+                            else ""
                         )
                         payload["ptoken"] = ptoken
                         payload["orderCreateUrl"] = (
@@ -689,7 +694,7 @@ def buy_stream(
                 break
         except JSONDecodeError as e:
             yield emit("error", f"配置文件格式错误: {e}", status="failed")
-        except HTTPError | RequestException as e:
+        except (HTTPError, RequestException) as e:
             logger.exception(e)
             yield emit("error", f"请求错误: {e}")
             for message in handle_proxy_failure(
