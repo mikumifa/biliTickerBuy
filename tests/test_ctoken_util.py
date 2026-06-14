@@ -12,12 +12,20 @@ def test_derive_mask_matches_v3_formula():
 
 
 def test_prepare_ctoken_uses_v3_layout(monkeypatch):
+    monkeypatch.setattr(
+        CTokenGenerator, "_get_env_data", staticmethod(lambda: list(range(16)))
+    )
     generator = CTokenGenerator(ticket_collection_t=0, time_offset=0, stay_time=0x1234)
-    monkeypatch.setattr(generator, "_get_env_data", lambda: list(range(16)))
-    values = iter([3, 2, 17])
-    monkeypatch.setattr("util.CTokenUtil.random.randint", lambda _a, _b: next(values))
 
-    token = base64.b64decode(generator.generate_ctoken(for_create_stage=False))
+    token = base64.b64decode(
+        generator.generate_ctoken(
+            touchend=3,
+            visibilitychange=17,
+            beforeunload=2,
+            timer=0,
+            ticket_collection_t=0,
+        )
+    )
 
     assert token == bytes(
         [
@@ -25,13 +33,9 @@ def test_prepare_ctoken_uses_v3_layout(monkeypatch):
             0,
             3,
             0,
-            255,
-            0,
             42,
             0,
             17,
-            0,
-            255,
             0,
             63,
             0,
@@ -41,9 +45,13 @@ def test_prepare_ctoken_uses_v3_layout(monkeypatch):
             0,
             105,
             0,
-            0x12,
+            0x00,
             0,
-            0x34,
+            0x00,
+            0,
+            0x00,
+            0,
+            0x00,
             0,
             110,
             0,
@@ -58,16 +66,23 @@ def test_prepare_ctoken_uses_v3_layout(monkeypatch):
 
 
 def test_create_ctoken_caps_timer_and_uses_create_event_ranges(monkeypatch):
-    generator = CTokenGenerator(ticket_collection_t=100, time_offset=5, stay_time=10)
-    monkeypatch.setattr(generator, "_get_env_data", lambda: list(range(16)))
-    monkeypatch.setattr("util.CTokenUtil.time.time", lambda: 100_000)
-    values = iter([35, 25, 15])
-    monkeypatch.setattr("util.CTokenUtil.random.randint", lambda _a, _b: next(values))
+    monkeypatch.setattr(
+        CTokenGenerator, "_get_env_data", staticmethod(lambda: list(range(16)))
+    )
+    generator = CTokenGenerator(ticket_collection_t=100, time_offset=0, stay_time=10)
 
-    token = base64.b64decode(generator.generate_ctoken(for_create_stage=True))
+    token = base64.b64decode(
+        generator.generate_ctoken(
+            touchend=35,
+            visibilitychange=25,
+            beforeunload=15,
+            timer=70000,
+            ticket_collection_t=70000,
+        )
+    )
 
     assert len(token) == 32
     assert token[2] == 35
-    assert token[8] == 15
-    assert token[16] == 25
+    assert token[6] == 25
+    assert token[12] == 15
     assert token[20:24] == bytes([0xFF, 0, 0xFF, 0])

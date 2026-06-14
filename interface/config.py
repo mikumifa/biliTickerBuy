@@ -199,6 +199,7 @@ def build_runtime_options(
     notify_proxy_exhausted: bool = False,
     show_random_message: bool = True,
     show_qrcode: bool = False,
+    use_local_token: bool = False,
     use_local_ptoken: bool = False,
 ) -> dict[str, Any]:
     return {
@@ -217,6 +218,7 @@ def build_runtime_options(
         "notify_proxy_exhausted": notify_proxy_exhausted,
         "show_random_message": show_random_message,
         "show_qrcode": show_qrcode,
+        "use_local_token": use_local_token,
         "use_local_ptoken": use_local_ptoken,
     }
 

@@ -265,6 +265,9 @@ def go_start_tab():
         notify_proxy_exhausted = ConfigDB.get("notifyProxyExhausted")
         if notify_proxy_exhausted is None:
             notify_proxy_exhausted = False
+        use_local_token = ConfigDB.get("useLocalToken")
+        if use_local_token is None:
+            use_local_token = False
         use_local_ptoken = ConfigDB.get("useLocalPtoken")
         if use_local_ptoken is None:
             use_local_ptoken = False
@@ -295,6 +298,7 @@ def go_start_tab():
                 notify_proxy_exhausted=notify_proxy_exhausted,
                 https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
                 show_random_message=not hide_random_message,
+                use_local_token=use_local_token,
                 use_local_ptoken=use_local_ptoken,
                 log_file_path=log_file_path,
             )
@@ -547,6 +551,10 @@ def go_settings_tab(header_ui):
         ConfigDB.insert("useLocalPtoken", value)
         return gr.update(value=ConfigDB.get("useLocalPtoken"))
 
+    def update_use_local_token(value):
+        ConfigDB.insert("useLocalToken", value)
+        return gr.update(value=ConfigDB.get("useLocalToken"))
+
     hide_random_message_default = ConfigDB.get("hideRandomMessage")
     if hide_random_message_default is None:
         hide_random_message_default = True
@@ -559,6 +567,9 @@ def go_settings_tab(header_ui):
     notify_proxy_exhausted_default = ConfigDB.get("notifyProxyExhausted")
     if notify_proxy_exhausted_default is None:
         notify_proxy_exhausted_default = False
+    use_local_token_default = ConfigDB.get("useLocalToken")
+    if use_local_token_default is None:
+        use_local_token_default = False
     use_local_ptoken_default = ConfigDB.get("useLocalPtoken")
     if use_local_ptoken_default is None:
         use_local_ptoken_default = False
@@ -754,6 +765,11 @@ def go_settings_tab(header_ui):
                         value=notify_proxy_exhausted_default,
                         info="默认关闭。开启后，当所有代理都进入冷却且程序需要休息时，会通过已配置的推送渠道提醒你补充代理。",
                     )
+                    use_local_token_ui = gr.Checkbox(
+                        label="使用本地 token",
+                        value=use_local_token_default,
+                        info="默认关闭。开启后，非 hotproject 直接使用本地生成 token。",
+                    )
                     use_local_ptoken_ui = gr.Checkbox(
                         label="hotproject使用本地 ptoken",
                         value=use_local_ptoken_default,
@@ -818,6 +834,11 @@ def go_settings_tab(header_ui):
         fn=update_notify_proxy_exhausted,
         inputs=notify_proxy_exhausted_ui,
         outputs=notify_proxy_exhausted_ui,
+    )
+    use_local_token_ui.change(
+        fn=update_use_local_token,
+        inputs=use_local_token_ui,
+        outputs=use_local_token_ui,
     )
     use_local_ptoken_ui.change(
         fn=update_use_local_ptoken,

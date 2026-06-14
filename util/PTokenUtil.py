@@ -1,4 +1,5 @@
 import base64
+import random
 import time
 
 from util.CTokenUtil import CTokenGenerator
@@ -85,7 +86,14 @@ def generate_inferred_prepare_ctoken(
     if collection_second is None:
         collection_second = int(time.time())
     generator = CTokenGenerator(collection_second, time_offset, stay_time)
-    return generator.generate_ctoken(for_create_stage=False), collection_second
+    return (
+        generator.generate_ctoken(
+            touchend=random.randint(1, 5),
+            beforeunload=random.randint(1, 3),
+            openWindow=random.randint(1, 3),
+        ),
+        collection_second,
+    )
 
 
 def generate_inferred_ptoken_without_prepare(
