@@ -196,6 +196,39 @@ def _format_ticket_option(screen_name: str, ticket: dict, ticket_price: int) -> 
     )
 
 
+def _resolve_project_input(project_input: Any) -> tuple[int, int | str, str]:
+    if isinstance(project_input, int):
+        return project_input, project_input, ""
+
+    text = str(project_input)
+    stripped = text.strip()
+    if not stripped:
+        raise gr.Error("请输入活动详情页链接")
+
+    if stripped.lower().isdigit():
+        return (
+            int(stripped),
+            text,
+            f"当前票务id为 {text}",
+        )
+
+    if "http" in stripped or "https" in stripped:
+        extracted_id = extract_id_from_url(stripped)
+        if extracted_id is None:
+            raise gr.Error("无法从链接中识别票务 ID，请确认链接是会员购活动详情页。")
+        return (
+            int(extracted_id),
+            int(extracted_id),
+            f"已从链接中提取项目 ID：{extracted_id}",
+        )
+
+    if stripped.isdigit():
+        parsed_id = int(stripped)
+        return parsed_id, parsed_id, ""
+
+    raise gr.Error("请输入活动详情页链接，或直接输入纯数字票务 ID。")
+
+
 def on_submit_ticket_id(num):
     global buyer_value
     global addr_value
@@ -209,19 +242,7 @@ def on_submit_ticket_id(num):
         buyer_value = []
         addr_value = []
         ticket_value = []
-        extracted_id_message = ""
-
-        if isinstance(num, str) and ("http" in num or "https" in num):
-            num = extract_id_from_url(num)
-            if num is None:
-                raise gr.Error(
-                    "无法从链接中识别票务 ID，请确认链接是会员购活动详情页。"
-                )
-            extracted_id_message = f"已从链接中提取项目 ID：{num}"
-        elif isinstance(num, str) and num.isdigit():
-            num = int(num)
-        else:
-            raise gr.Error("请输入活动详情页链接，或直接输入纯数字票务 ID。")
+        _, num, extracted_id_message = _resolve_project_input(num)
 
         try:
             data = fetch_project_payload(request=util.main_request, project_id=num)
@@ -234,17 +255,6 @@ def on_submit_ticket_id(num):
         project_id = data["id"]
         project_name = data["name"]
         is_hot_project = data["hotProject"]
-
-        project_start_time = datetime.fromtimestamp(data["start_time"]).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-        project_end_time = datetime.fromtimestamp(data["end_time"]).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-
-        venue_info = data["venue_info"]
-        venue_name = venue_info["name"]
-        venue_address = venue_info["address_detail"]
         sales_dates = [t["date"] for t in data["sales_dates"]]
         sales_dates_show = len(data["sales_dates"]) != 0
         for item in data["screen_list"]:
@@ -333,8 +343,6 @@ def on_submit_ticket_id(num):
                     lines=[
                         ("票务 ID", str(num)),
                         ("展会名称", project_name),
-                        ("活动时间", f"{project_start_time} - {project_end_time}"),
-                        ("场馆地址", f"{venue_name} {venue_address}"),
                     ],
                     hint=extracted_id_message or "请继续选择票档、购票人和地址。",
                 ),
@@ -388,12 +396,9 @@ def on_submit_all(
 
         ticket_cur: dict[str, Any] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
-        if isinstance(ticket_id, str) and ticket_id.isdigit():
-            pass
-        else:
-            ticket_id = extract_id_from_url(ticket_id)
-            if ticket_id is None:
-                raise gr.Error("未能从当前链接中解析出票务 ID，请重新获取票务信息。")
+        resolved_project_id, config_project_id, _message = _resolve_project_input(
+            ticket_id
+        )
 
         ConfigDB.insert("people_buyer_name", people_buyer_name)
         ConfigDB.insert("people_buyer_phone", people_buyer_phone)
@@ -404,12 +409,16 @@ def on_submit_all(
         for person in people_cur:
             detail += f"-{person['name']}"
 
+        selected_project_id = ticket_cur["project_id"]
+        if selected_project_id == resolved_project_id:
+            selected_project_id = config_project_id
+
         config_dir = {
             "username": username,
             "detail": detail,
             "count": len(people_indices),
             "screen_id": ticket_cur["ticket"]["screen_id"],
-            "project_id": ticket_cur["project_id"],
+            "project_id": selected_project_id,
             "is_hot_project": ticket_cur["ticket"]["is_hot_project"],
             "sku_id": ticket_cur["ticket"]["id"],
             "sale_start": ticket_cur["ticket"].get("sale_start", ""),
@@ -953,10 +962,8 @@ def setting_tab():
                                 title="票务信息",
                                 badge="日期已更新",
                                 lines=[
-                                    ("当前票务日期", _date),
-                                    ("票档数量", str(len(ticket_str_list))),
+                                    ("票务 ID", str(project_id)),
                                     ("展会名称", project_name),
-                                    ("项目 ID", str(project_id)),
                                 ],
                                 hint="票档列表已按当前日期刷新，请重新确认起售时间。",
                             ),

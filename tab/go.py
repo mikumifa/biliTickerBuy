@@ -69,34 +69,10 @@ def _format_price_cents(value) -> str:
 
 
 def _render_ticket_preview(config: dict) -> str:
-    buyer_info = config.get("buyer_info") or []
-    buyer_names = [
-        item.get("name", "未命名购票人")
-        for item in buyer_info
-        if isinstance(item, dict)
-    ]
-    deliver_info = config.get("deliver_info") or {}
-    deliver_name = deliver_info.get("name", "")
-    deliver_tel = deliver_info.get("tel", "")
-    deliver_addr = deliver_info.get("addr", "")
-    delivery_summary = _preview_value(
-        " / ".join(part for part in [deliver_name, deliver_tel, deliver_addr] if part)
-    )
-    purchase_summary = "{0} * {1}".format(
-        _preview_value(config.get("count")),
-        _format_price_cents(config.get("pay_money")),
-    )
-
     items = [
         ("账号", _preview_value(config.get("username"))),
-        ("项目 ID", _preview_value(config.get("project_id"))),
-        ("场次 ID", _preview_value(config.get("screen_id"))),
-        ("票档 ID", _preview_value(config.get("sku_id"))),
-        ("票数 * 单价", purchase_summary),
-        ("起售时间", _preview_value(config.get("sale_start"))),
-        ("联系人", _preview_value(config.get("buyer"))),
-        ("联系电话", _preview_value(config.get("tel"))),
-        ("实名购票人", _preview_value(buyer_names)),
+        ("票数", _preview_value(config.get("count"))),
+        ("单价", _format_price_cents(config.get("pay_money"))),
     ]
     item_html = "".join(
         (
@@ -111,8 +87,8 @@ def _render_ticket_preview(config: dict) -> str:
     <div class="btb-ticket-panel btb-ticket-panel--compact">
         <div class="btb-mini-grid btb-mini-grid--triple">{item_html}</div>
         <div class="btb-mini-card btb-ticket-panel__delivery">
-            <strong>收货信息</strong>
-            <span>{html.escape(delivery_summary)}</span>
+            <strong>详细信息</strong>
+            <span>{html.escape(_preview_value(config.get("detail") or "-"))}</span>
         </div>
     </div>
     """
