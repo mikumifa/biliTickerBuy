@@ -386,6 +386,12 @@ def render_task_manager_panel(task_panel):
                         )
                     )
                     with gr.Row(elem_classes="btb-task-card__actions"):
+                        view_btn = gr.Button(
+                            "查看",
+                            elem_classes="btb-soft-button btb-task-button btb-task-button--view",
+                            scale=0,
+                            min_width=84,
+                        )
                         if entry.status == TASK_STATUS_RUNNING and entry.pid:
                             stop_btn = gr.Button(
                                 "终止任务",
@@ -397,12 +403,6 @@ def render_task_manager_panel(task_panel):
                                 fn=lambda pid=entry.pid: stop_task(pid),
                                 outputs=[refresh_token, task_panel],
                             )
-                        view_btn = gr.Button(
-                            "查看",
-                            elem_classes="btb-soft-button btb-task-button btb-task-button--view",
-                            scale=0,
-                            min_width=84,
-                        )
                         view_btn.click(
                             fn=None,
                             inputs=gr.State(build_log_view_url(entry.log_file)),

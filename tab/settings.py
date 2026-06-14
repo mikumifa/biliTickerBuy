@@ -298,7 +298,9 @@ def on_submit_ticket_id(num):
             screen_id = screen["id"]
             current_project_id = screen["project_id"]
             express_fee = (
-                0 if data["has_eticket"] else max(screen.get("express_fee", 0), 0)
+                0
+                if data["has_eticket"]
+                else max(int(screen.get("express_fee", 0) or 0), 0)
             )
 
             for ticket in screen["ticket_list"]:
@@ -936,7 +938,7 @@ def setting_tab():
                     for screen in screens:
                         screen_name = screen["name"]
                         screen_id = screen["id"]
-                        express_fee = int(screen.get("express_fee", 0))
+                        express_fee = max(int(screen.get("express_fee", 0) or 0), 0)
                         for ticket in screen["ticket_list"]:
                             ticket_price = int(ticket["price"]) + express_fee
                             ticket["price"] = ticket_price

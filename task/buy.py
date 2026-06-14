@@ -664,6 +664,8 @@ def buy(
     notify_proxy_exhausted=False,
     show_random_message=True,
     show_qrcode=True,
+    use_local_ptoken=False,
+    use_local_token=False,
 ):
     # 创建NotifierConfig对象
     notifier_config = NotifierConfig(
@@ -687,6 +689,8 @@ def buy(
         https_proxys,
         show_random_message,
         show_qrcode,
+        use_local_ptoken=use_local_ptoken,
+        use_local_token=use_local_token,
     ):
         if msg is not None:
             logger.info(msg)
