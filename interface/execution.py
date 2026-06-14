@@ -265,6 +265,7 @@ def _run_buy_task(
             runtime_options.get("https_proxys", "none"),
             runtime_options.get("show_random_message", True),
             runtime_options.get("show_qrcode", False),
+            use_local_ptoken=runtime_options.get("use_local_ptoken", False),
         ):
             if message is None:
                 continue
@@ -382,6 +383,7 @@ def run_buy_sync(
         runtime.get("https_proxys", "none"),
         runtime.get("show_random_message", True),
         runtime.get("show_qrcode", False),
+        use_local_ptoken=runtime.get("use_local_ptoken", False),
     ):
         if message is None:
             continue

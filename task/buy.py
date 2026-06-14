@@ -20,6 +20,7 @@ from util.Notifier import NotifierManager, NotifierConfig
 from util.ProxyBackoff import ProxyBackoff
 from util.BiliRequest import BiliRequest
 from util.ProxyManager import ProxyManager
+from util.PTokenUtil import generate_inferred_ptoken_without_prepare
 from util.RandomMessages import get_random_fail_message
 from util.CTokenUtil import CTokenGenerator
 from util.TokenUtil import generate_token
@@ -276,6 +277,7 @@ def buy_stream(
     show_random_message=True,
     show_qrcode=True,
     readable=False,
+    use_local_ptoken=False,
 ):
     state = BuyStreamState()
 
@@ -381,6 +383,7 @@ def buy_stream(
     proxy_backoff = ProxyBackoff()
 
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
+    use_local_ptoken = bool(use_local_ptoken)
     token_payload = _build_token_payload(tickets_info)
 
     for wait_message in _wait_until_start(time_start):
@@ -406,46 +409,72 @@ def buy_stream(
     while isRunning:
         try:
             request_result: dict | None = None
+            ctoken_generator = None
+            local_ptoken_bundle: dict | None = None
             if is_hot_project:
-                yield emit("stage", "1）订单准备", stage="订单准备")
-                ctoken_generator = CTokenGenerator(time.time(), 0, randint(2000, 10000))
-                token_payload["token"] = ctoken_generator.generate_ctoken(
-                    for_create_stage=False
-                )
-                request_result_normal = _request.post(
-                    url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                    data=token_payload,
-                    isJson=True,
-                )
-                try:
-                    request_result = request_result_normal.json()
-                except JSONDecodeError:
-                    diagnostic = _request.describe_non_json_response(
-                        request_result_normal
-                    )
-                    summary = _summarize_non_json_response("订单准备接口", diagnostic)
-                    if "412 风控" in summary:
-                        summary += f"（当前代理: {_request.current_proxy_display()}）"
-                        for message in emit_proxy_failure_messages(
-                            "订单准备接口 412 风控"
-                        ):
-                            yield message
+                if use_local_ptoken:
                     yield emit(
-                        "error",
-                        summary,
-                        current_proxy=_request.current_proxy_status(),
-                        proxy_pool=_request.proxy_pool_status(),
+                        "stage",
+                        "1）本地生成风控参数",
+                        stage="本地生成风控参数",
                     )
-                    continue
-                proxy_backoff.reset()
-                yield emit(
-                    "status",
-                    _format_status_result(
-                        "订单准备结果",
-                        request_result,  # type: ignore
-                    ),
-                )
-                order_token = request_result["data"]["token"]  # type: ignore
+                    local_ptoken_bundle = generate_inferred_ptoken_without_prepare()
+                    ctoken_generator = CTokenGenerator(
+                        local_ptoken_bundle["collection_second"],
+                        0,
+                        randint(2000, 10000),
+                    )
+                    order_token = _build_order_token(tickets_info)
+                    yield emit(
+                        "status",
+                        "已启用本地 ptoken 模式，跳过 prepare",
+                    )
+                else:
+                    yield emit("stage", "1）订单准备", stage="订单准备")
+                    ctoken_generator = CTokenGenerator(
+                        time.time(), 0, randint(2000, 10000)
+                    )
+                    token_payload["token"] = ctoken_generator.generate_ctoken(
+                        for_create_stage=False
+                    )
+                    request_result_normal = _request.post(
+                        url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
+                        data=token_payload,
+                        isJson=True,
+                    )
+                    try:
+                        request_result = request_result_normal.json()
+                    except JSONDecodeError:
+                        diagnostic = _request.describe_non_json_response(
+                            request_result_normal
+                        )
+                        summary = _summarize_non_json_response(
+                            "订单准备接口", diagnostic
+                        )
+                        if "412 风控" in summary:
+                            summary += (
+                                f"（当前代理: {_request.current_proxy_display()}）"
+                            )
+                            for message in emit_proxy_failure_messages(
+                                "订单准备接口 412 风控"
+                            ):
+                                yield message
+                        yield emit(
+                            "error",
+                            summary,
+                            current_proxy=_request.current_proxy_status(),
+                            proxy_pool=_request.proxy_pool_status(),
+                        )
+                        continue
+                    proxy_backoff.reset()
+                    yield emit(
+                        "status",
+                        _format_status_result(
+                            "订单准备结果",
+                            request_result,  # type: ignore
+                        ),
+                    )
+                    order_token = request_result["data"]["token"]  # type: ignore
             else:
                 yield emit(
                     "status",
@@ -477,9 +506,18 @@ def buy_stream(
                         payload["ctoken"] = ctoken_generator.generate_ctoken(  # type: ignore
                             for_create_stage=True
                         )
-                        ptoken = (
-                            request_result["data"]["ptoken"] if request_result else ""
-                        )
+                        if use_local_ptoken:
+                            ptoken = (
+                                local_ptoken_bundle["ptoken"]
+                                if local_ptoken_bundle is not None
+                                else ""
+                            )
+                        else:
+                            ptoken = (
+                                request_result["data"]["ptoken"]
+                                if request_result
+                                else ""
+                            )
                         payload["ptoken"] = ptoken
                         payload["orderCreateUrl"] = (
                             "https://show.bilibili.com/api/ticket/order/createV2"
@@ -655,6 +693,7 @@ def buy(
     notify_proxy_exhausted=False,
     show_random_message=True,
     show_qrcode=True,
+    use_local_ptoken=False,
 ):
     # 创建NotifierConfig对象
     notifier_config = NotifierConfig(
@@ -678,6 +717,7 @@ def buy(
         https_proxys,
         show_random_message,
         show_qrcode,
+        use_local_ptoken=use_local_ptoken,
     ):
         if msg is not None:
             logger.info(msg)
@@ -699,6 +739,7 @@ def buy_new_terminal(
     meowNickname=None,
     notify_proxy_exhausted=False,
     show_random_message=True,
+    use_local_ptoken=False,
     log_file_path: str | None = None,
 ) -> subprocess.Popen:
     command = None
@@ -749,6 +790,8 @@ def buy_new_terminal(
         command.extend(["--https_proxys", https_proxys])
     if not show_random_message:
         command.extend(["--hide_random_message"])
+    if use_local_ptoken:
+        command.extend(["--use_local_ptoken"])
     env = os.environ.copy()
     if log_file_path:
         env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)

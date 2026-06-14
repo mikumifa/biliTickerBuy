@@ -2,6 +2,9 @@ from argparse import Namespace
 import os
 import re
 import sys
+import time
+
+from util.task_markers import TASK_STOPPED_MARKER
 
 
 def buy_cmd(args: Namespace):
@@ -17,6 +20,8 @@ def buy_cmd(args: Namespace):
         render_message_stream,
     )
     from loguru import logger
+
+    console_close_handler_ref = None
 
     def load_tickets_info(tickets_info: str) -> tuple[str, str | None]:
         config_path = os.path.expanduser(tickets_info)
@@ -63,6 +68,37 @@ def buy_cmd(args: Namespace):
             return
         hold_terminal(f"{message}\n按任意键关闭此窗口...")
 
+    def install_console_close_handler() -> None:
+        nonlocal console_close_handler_ref
+        if os.name != "nt":
+            return
+        import ctypes
+
+        ctrl_close_event = 2
+        ctrl_logoff_event = 5
+        ctrl_shutdown_event = 6
+
+        handler_routine = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)
+
+        @handler_routine
+        def _handler(ctrl_type):
+            if ctrl_type in {
+                ctrl_close_event,
+                ctrl_logoff_event,
+                ctrl_shutdown_event,
+            }:
+                try:
+                    logger.warning(TASK_STOPPED_MARKER)
+                    logger.warning("检测到终端被用户主动关闭，任务即将结束。")
+                except Exception:
+                    pass
+                time.sleep(0.1)
+                return False
+            return False
+
+        ctypes.windll.kernel32.SetConsoleCtrlHandler(_handler, True)
+        console_close_handler_ref = _handler
+
     def exit_immediately_if_child_process() -> None:
         if child_process_mode:
             os._exit(0)
@@ -100,6 +136,7 @@ def buy_cmd(args: Namespace):
                 args.https_proxys,
                 not args.hide_random_message,
                 readable=True,
+                use_local_ptoken=args.use_local_ptoken,
             ),
             on_message=logger.info,
         )
@@ -116,6 +153,7 @@ def buy_cmd(args: Namespace):
         log_file_name,
         enable_console=enable_console_log,
     )
+    install_console_close_handler()
     if enable_console_log:
         logger.info(f"抢票日志路径：{log_file}")
     try:
@@ -138,6 +176,7 @@ def buy_cmd(args: Namespace):
                 args.meowNickname,
                 args.notify_proxy_exhausted,
                 not args.hide_random_message,
+                use_local_ptoken=args.use_local_ptoken,
             )
     except KeyboardInterrupt:
         logger.warning("收到 Ctrl+C，已停止当前抢票流程。")

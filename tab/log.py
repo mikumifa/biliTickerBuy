@@ -4,18 +4,19 @@ import os
 import signal
 import subprocess
 import time
+import ctypes
 from datetime import datetime
 
 from util import GlobalStatusInstance
 from util import LOG_DIR
 from util import log_file_name
 from util.log_web import build_log_view_url
+from util.task_markers import TASK_COMPLETED_MARKER, TASK_STOPPED_MARKER
 
 TASK_STATUS_RUNNING = "运行中"
-TASK_STATUS_STOPPED = "已主动终止"
+TASK_STATUS_STOPPED = "已主动结束"
 TASK_STATUS_COMPLETED = "已完成"
 TASK_STATUS_EXITED = "已结束"
-TASK_COMPLETED_MARKER = "抢票完成后退出程序。。。。。"
 OPEN_LOG_JS = """
 (url) => {
     if (url) {
@@ -132,6 +133,28 @@ def clear_log_files():
 def is_task_running(pid: int | None) -> bool:
     if not pid:
         return False
+    if os.name == "nt":
+        process_query_limited_information = 0x1000
+        synchronize = 0x00100000
+        still_active = 259
+
+        handle = ctypes.windll.kernel32.OpenProcess(
+            process_query_limited_information | synchronize,
+            False,
+            pid,
+        )
+        if not handle:
+            return False
+        try:
+            exit_code = ctypes.c_ulong()
+            if not ctypes.windll.kernel32.GetExitCodeProcess(
+                handle,
+                ctypes.byref(exit_code),
+            ):
+                return False
+            return exit_code.value == still_active
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
     proc_stat_path = "/proc/{0}/stat".format(pid)
     if os.path.exists(proc_stat_path):
         try:
@@ -207,6 +230,9 @@ def sync_task_statuses() -> list:
             continue
         if entry.status == TASK_STATUS_STOPPED:
             continue
+        if log_contains_marker(entry.log_file, TASK_STOPPED_MARKER):
+            GlobalStatusInstance.update_task_log_status(entry.pid, TASK_STATUS_STOPPED)
+            continue
         if log_contains_marker(entry.log_file, TASK_COMPLETED_MARKER):
             GlobalStatusInstance.update_task_log_status(
                 entry.pid, TASK_STATUS_COMPLETED
@@ -276,6 +302,7 @@ def append_stop_log(log_file: str, title: str, message: str) -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         with open(log_file, "a", encoding="utf-8", errors="replace") as handle:
+            handle.write("{0}\n".format(TASK_STOPPED_MARKER))
             handle.write(
                 "\n[{0}] 已停止任务: {1} ({2})\n".format(timestamp, title, message)
             )

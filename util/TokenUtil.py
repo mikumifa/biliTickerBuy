@@ -1,60 +1,47 @@
-from base64 import urlsafe_b64encode
+import base64
+import time
+
+
+_BASE64_STD_ALPHABET = (
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/+="
+)
+_BASE64_TOKEN_ALPHABET = (
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-."
+)
 
 
 def generate_token(
-    project_id: int, screen_id: int, order_type: int, count: int, sku_id: int
+    project_id: int,
+    screen_id: int,
+    order_type: int,
+    count: int,
+    sku_id: int,
+    ts: int | None = None,
 ) -> str:
     """
-    生成Token
-    # reference: https://github.com/biliticket/transition-ticket/blob/d32fcf4399bd04b96e382ae791514867ad97612c/util/Bilibili/__init__.py#L230
-    Base64: URLSafeBase64
+    生成 Token。
+
+    Layout:
+    - 1 byte header: 0xC0
+    - 4 bytes timestamp
+    - 4 bytes project_id
+    - 4 bytes screen_id
+    - 1 byte order_type
+    - 2 bytes count
+    - 4 bytes sku_id
+    - base64, then remap /+= -> _-.
     """
 
-    def encrypt(char: int, encrypt_type: str) -> str:
-        """
-        加密
-        """
-        match encrypt_type:
-            # 6 位 timestamp 参数
-            case "timestamp":
-                v1 = char.to_bytes(5, "big")
-                v2 = urlsafe_b64encode(v1).decode("utf-8").rstrip("=")
-                return v2[1:8]
-            # 4 位 projectId 参数
-            case "projectId":
-                v1 = char.to_bytes(3, "big")
-                v2 = urlsafe_b64encode(v1).decode("utf-8").rstrip("=")
-                return v2
-            # 5 位 screenId 参数
-            case "screenId":
-                v1 = char.to_bytes(4, "big")
-                v2 = urlsafe_b64encode(v1).decode("utf-8").rstrip("=")
-                return v2[1:6]
-            # 1 位 orderType 参数
-            case "orderType":
-                v1 = char.to_bytes(2, "big")
-                v2 = urlsafe_b64encode(v1).decode("utf-8").rstrip("=")
-                return v2[2:3]
-            # 2 位 count 参数
-            case "count":
-                v1 = char.to_bytes(1, "big")
-                v2 = urlsafe_b64encode(v1).decode("utf-8").rstrip("=")
-                return v2
-            # 5 位 skuId 参数
-            case "skuId":
-                v1 = char.to_bytes(5, "big")
-                v2 = urlsafe_b64encode(v1).decode("utf-8").rstrip("=")
-                return v2[2:7]
-            case _:
-                return ""
+    timestamp = int(time.time()) if ts is None else int(ts)
+    token = bytes([0xC0])
+    token += timestamp.to_bytes(4, "big")
+    token += int(project_id).to_bytes(4, "big")
+    token += int(screen_id).to_bytes(4, "big")
+    token += int(order_type).to_bytes(1, "big")
+    token += int(count).to_bytes(2, "big")
+    token += int(sku_id).to_bytes(4, "big")
 
-    p1 = "999999"
-    p2 = encrypt(project_id, "projectId")
-    p3 = encrypt(screen_id, "screenId")
-    p4 = encrypt(order_type, "orderType")
-    p5 = encrypt(count, "count")
-    p6 = encrypt(sku_id, "skuId")
-
-    token = "w" + p1 + "A" + p2 + "A" + p3 + p4 + "A" + p5 + p6 + "."
-
-    return token
+    encoded = base64.b64encode(token).decode("ascii")
+    return encoded.translate(
+        str.maketrans(_BASE64_STD_ALPHABET, _BASE64_TOKEN_ALPHABET)
+    )

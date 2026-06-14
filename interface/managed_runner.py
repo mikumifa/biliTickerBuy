@@ -113,6 +113,7 @@ def main(run_dir_arg: str) -> int:
             runtime.get("https_proxys", "none"),
             runtime.get("show_random_message", True),
             False,
+            use_local_ptoken=runtime.get("use_local_ptoken", False),
         ):
             if message is not None:
                 _append_log(logs_path, message)
