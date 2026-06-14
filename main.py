@@ -166,7 +166,7 @@ def main():
         "--use_local_ptoken",
         action="store_true",
         default=get_env_default("USE_LOCAL_PTOKEN", False, str_to_bool),
-        help="Skip prepare for hot projects and use locally inferred ptoken.",
+        help="Deprecated. Local ptoken is temporarily disabled; hot projects use server prepare.",
     )
 
     args = parser.parse_args()

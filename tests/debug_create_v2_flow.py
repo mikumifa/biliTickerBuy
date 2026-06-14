@@ -123,6 +123,7 @@ def _prepare_runtime_tickets_info(
     tickets_info = dict(raw_tickets_info)
     cookies = tickets_info["cookies"]
     tickets_info.pop("cookies", None)
+    tickets_info["_prepare_buyer_info"] = deepcopy(tickets_info["buyer_info"])
     tickets_info["buyer_info"] = json.dumps(
         tickets_info["buyer_info"], ensure_ascii=False
     )
@@ -450,7 +451,9 @@ def run_debug(
             generator_start_second, 0, randint(2000, 10000)
         )
         prepare_payload["token"] = ctoken_generator.generate_ctoken(
-            for_create_stage=False
+            touchend=randint(1, 5),
+            beforeunload=randint(1, 3),
+            openWindow=randint(1, 3),
         )
         prepare_response = request.post(
             url=prepare_url,
@@ -471,7 +474,7 @@ def run_debug(
     if is_hot_project:
         ptoken = prepare_result["data"]["ptoken"]
         create_payload["ctoken"] = ctoken_generator.generate_ctoken(  # type: ignore[union-attr]
-            for_create_stage=True
+            timer=10 + 2 * int(time.time()) - 2 * int(generator_start_second)
         )
         create_payload["ptoken"] = ptoken
         create_payload["orderCreateUrl"] = (

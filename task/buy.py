@@ -23,7 +23,6 @@ from util.BiliRequest import BiliRequest
 from util.ProxyManager import ProxyManager
 from util.RandomMessages import get_random_fail_message
 from util.CTokenUtil import CTokenGenerator
-from util.PTokenUtil import generate_inferred_ptoken_without_prepare
 from util.TokenUtil import generate_token
 from util.error_codes import ErrorCodes
 
@@ -120,7 +119,10 @@ def _build_token_payload(tickets_info: dict) -> dict:
         "order_type": order_type,
         "project_id": project_id,
         "sku_id": sku_id,
-        "buyer_info": tickets_info.get("buyer_info", "[]"),
+        "buyer_info": tickets_info.get(
+            "_prepare_buyer_info",
+            tickets_info.get("buyer_info", []),
+        ),
         "ignoreRequestLimit": True,
         "ticket_agent": "",
         "token": "",
@@ -413,6 +415,7 @@ def buy_stream(
     detail = tickets_info["detail"]
     cookies = tickets_info["cookies"]
     tickets_info.pop("cookies", None)
+    tickets_info["_prepare_buyer_info"] = copy.deepcopy(tickets_info["buyer_info"])
     tickets_info["buyer_info"] = json.dumps(tickets_info["buyer_info"])
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
     masked_proxies = ProxyManager.mask_proxy_string(https_proxys)
@@ -421,7 +424,8 @@ def buy_stream(
     proxy_backoff = ProxyBackoff()
 
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
-    use_local_ptoken = bool(use_local_ptoken)
+    requested_local_ptoken = bool(use_local_ptoken)
+    use_local_ptoken = False
     use_local_token = bool(use_local_token)
 
     token_payload = _build_token_payload(tickets_info)
@@ -445,6 +449,11 @@ def buy_stream(
         current_proxy=_request.current_proxy_status(),
         proxy_pool=_request.proxy_pool_status(),
     )
+    if requested_local_ptoken:
+        yield emit(
+            "status",
+            "本地 ptoken 已暂时禁用，回退到服务端 prepare",
+        )
 
     while isRunning:
         try:
@@ -454,51 +463,37 @@ def buy_stream(
                 # hot
                 yield emit("stage", "开始准备订单", stage="订单准备")
                 ctoken_generator = CTokenGenerator(time.time(), 0, randint(2000, 10000))
-                if use_local_ptoken:
-                    local_ptoken = generate_inferred_ptoken_without_prepare()
-                    order_token = _build_order_token(tickets_info)
-                    request_result = {
-                        "data": {
-                            "token": order_token,
-                            "ptoken": local_ptoken["ptoken"],
-                        }
-                    }
-                    yield emit(
-                        "status",
-                        "已启用本地 ptoken 模式，跳过 prepare",
+                token_payload["token"] = ctoken_generator.generate_ctoken(
+                    touchend=randint(1, 5),
+                    beforeunload=randint(1, 3),
+                    openWindow=randint(1, 3),
+                )
+                request_result_normal = _request.post(
+                    url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
+                    data=token_payload,
+                    isJson=True,
+                )
+                try:
+                    request_result = request_result_normal.json()
+                except JSONDecodeError:
+                    yield from handle_non_json_response(
+                        "订单准备接口",
+                        request_result_normal,
                     )
-                else:
-                    token_payload["token"] = ctoken_generator.generate_ctoken(
-                        touchend=randint(1, 5),
-                        beforeunload=randint(1, 3),
-                        openWindow=randint(1, 3),
-                    )
-                    request_result_normal = _request.post(
-                        url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                        data=token_payload,
-                        isJson=True,
-                    )
-                    try:
-                        request_result = request_result_normal.json()
-                    except JSONDecodeError:
-                        yield from handle_non_json_response(
-                            "订单准备接口",
-                            request_result_normal,
-                        )
-                        continue
-                    proxy_backoff.reset()
-                    yield emit(
-                        "status",
-                        _format_status_result(
-                            "订单准备结果",
-                            request_result,  # type: ignore
-                        ),
-                    )
-                    token_gen = time.time()
-                    order_token = request_result["data"]["token"]  # type: ignore
-                    request_result["data"]["ptoken"] = _normalize_prepare_ptoken(
-                        request_result["data"].get("ptoken")  # type: ignore[index]
-                    )
+                    continue
+                proxy_backoff.reset()
+                yield emit(
+                    "status",
+                    _format_status_result(
+                        "订单准备结果",
+                        request_result,  # type: ignore
+                    ),
+                )
+                token_gen = time.time()
+                order_token = request_result["data"]["token"]  # type: ignore
+                request_result["data"]["ptoken"] = _normalize_prepare_ptoken(
+                    request_result["data"].get("ptoken")  # type: ignore[index]
+                )
             else:
                 # normal
                 yield emit("status", None, stage="订单准备")

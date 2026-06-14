@@ -18,6 +18,7 @@ def test_build_token_payload_matches_bhyg_prepare_payload():
         "project_id": 123456,
         "sku_id": 987654321,
         "buyer_info": "[]",
+        "_prepare_buyer_info": [],
     }
 
     payload = _build_token_payload(tickets_info)
@@ -28,7 +29,7 @@ def test_build_token_payload_matches_bhyg_prepare_payload():
     assert payload["requestSource"] == "neul-next"
     assert payload["ignoreRequestLimit"] is True
     assert payload["ticket_agent"] == ""
-    assert payload["buyer_info"] == "[]"
+    assert payload["buyer_info"] == []
 
 
 def test_generate_token_uses_new_binary_layout(monkeypatch):
@@ -53,6 +54,7 @@ def test_build_token_payload_coerces_string_numbers():
         "project_id": "123456",
         "sku_id": "987654321",
         "buyer_info": "[]",
+        "_prepare_buyer_info": [],
     }
 
     payload = _build_token_payload(tickets_info)
@@ -221,10 +223,8 @@ def test_non_hot_buy_stream_can_use_local_token_without_prepare(monkeypatch):
     )
 
 
-def test_hot_buy_stream_can_use_local_ptoken_without_prepare(monkeypatch):
+def test_hot_buy_stream_ignores_local_ptoken_and_uses_prepare(monkeypatch):
     called_urls: list[str] = []
-    generated_ctokens: list[bool] = []
-    generated_ptokens: list[dict] = []
 
     class DummyResponse:
         def __init__(self, payload):
@@ -240,12 +240,13 @@ def test_hot_buy_stream_can_use_local_ptoken_without_prepare(monkeypatch):
 
         def post(self, url, data, isJson=True):
             called_urls.append(url)
-            assert "order/prepare" not in url
-            assert data["ptoken"] == "LOCAL_PTOKEN"
-            assert (
-                data["orderCreateUrl"]
-                == "https://show.bilibili.com/api/ticket/order/createV2"
-            )
+            if "order/prepare" in url:
+                assert data["token"] != ""
+                return DummyResponse(
+                    {"errno": 0, "data": {"token": "SERVER_TOKEN", "ptoken": "SERVER_PTOKEN=="}}
+                )
+            assert data["token"] == "SERVER_TOKEN"
+            assert data["ptoken"] == "SERVER_PTOKEN"
             assert "ctoken" in data
             return DummyResponse({"errno": 100079, "msg": "duplicate order"})
 
@@ -255,35 +256,8 @@ def test_hot_buy_stream_can_use_local_ptoken_without_prepare(monkeypatch):
         def proxy_pool_status(self):
             return "直连"
 
-    class DummyCTokenGenerator:
-        def __init__(self, ticket_collection_t, time_offset, stay_time):
-            self.ticket_collection_t = ticket_collection_t
-            self.time_offset = time_offset
-            self.stay_time = stay_time
-
-        def generate_ctoken(self, for_create_stage: bool) -> str:
-            generated_ctokens.append(for_create_stage)
-            return "LOCAL_CREATE_CTOKEN"
-
-    def fake_generate_inferred_ptoken_without_prepare(**kwargs):
-        generated_ptokens.append(kwargs)
-        return {
-            "collection_second": 1781440220,
-            "current_second": 1781441544,
-            "prepare_ctoken": "LOCAL_PREPARE_CTOKEN",
-            "ptoken": "LOCAL_PTOKEN",
-            "ptoken_prefix_u8": [17, 1, 8, 1, 1, 99, 1, 4, 1, 1, 1, 1],
-            "ptoken_u8": [17, 1, 8, 1, 1, 99, 1, 4, 1, 1, 1, 1, 4, 1, 5, 44],
-        }
-
     monkeypatch.setattr(buy_module, "BiliRequest", DummyRequest)
     monkeypatch.setattr(buy_module, "_wait_until_start", lambda _time_start: [])
-    monkeypatch.setattr(buy_module, "CTokenGenerator", DummyCTokenGenerator)
-    monkeypatch.setattr(
-        buy_module,
-        "generate_inferred_ptoken_without_prepare",
-        fake_generate_inferred_ptoken_without_prepare,
-    )
 
     tickets_info = json.dumps(
         {
@@ -313,13 +287,12 @@ def test_hot_buy_stream_can_use_local_ptoken_without_prepare(monkeypatch):
         )
     )
 
-    assert len(called_urls) == 1
-    assert "order/createV2" in called_urls[0]
-    assert "&ptoken=LOCAL_PTOKEN" in called_urls[0]
-    assert generated_ctokens == [True]
-    assert len(generated_ptokens) == 1
+    assert len(called_urls) == 2
+    assert "order/prepare" in called_urls[0]
+    assert "order/createV2" in called_urls[1]
+    assert "&ptoken=SERVER_PTOKEN" in called_urls[1]
     assert any(
-        event.message == "已启用本地 ptoken 模式，跳过 prepare"
+        event.message == "本地 ptoken 已暂时禁用，回退到服务端 prepare"
         for event in events
         if getattr(event, "message", None) is not None
     )

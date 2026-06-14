@@ -773,7 +773,7 @@ def go_settings_tab(header_ui):
                     use_local_ptoken_ui = gr.Checkbox(
                         label="hotproject使用本地 ptoken",
                         value=use_local_ptoken_default,
-                        info="默认关闭。我也不知道ai写的ptoken对不对（ ",
+                        info="已暂时停用。当前 hotproject 固定走服务端 prepare 获取 ptoken。",
                     )
 
     save_proxy_btn.click(

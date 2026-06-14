@@ -32,14 +32,8 @@ class CTokenGenerator:
             int(time.time() * 1000) % 256,
         ]
 
-    @staticmethod
-    def _derive_mask(index: int, env_data: list[int]) -> int:
-        return (env_data[index % 16] + env_data[(3 * index) % 16] + 17 * index) & 255
-
     def generate_ctoken(
         self,
-        for_create_stage: bool | None = None,
-        *,
         m1: int = -1,
         m2: int = -1,
         m3: int = -1,
@@ -53,28 +47,14 @@ class CTokenGenerator:
         visibilitychange: int = -1,
         beforeunload: int = -1,
         timer: int = -1,
-        ticket_collection_t: int | None = None,
+        ticket_collection_t: int = 0,
         openWindow: int = -1,
     ) -> str:
-        """BHYG-style ctoken generator, with a compatibility bool mode."""
-
-        if for_create_stage is not None:
-            if for_create_stage:
-                if timer == -1:
-                    elapsed = max(
-                        0,
-                        int(time.time() + self.time_offset - self.ticket_collection_t),
-                    )
-                    timer = elapsed + 10
-                if touchend == -1:
-                    touchend = random.randint(30, 50)
-                if beforeunload == -1 and openWindow == -1:
-                    beforeunload = random.randint(10, 50)
-            else:
-                if touchend == -1:
-                    touchend = random.randint(1, 5)
-                if beforeunload == -1 and openWindow == -1:
-                    beforeunload = random.randint(1, 3)
+        def m(t: int, env_data: list[int]) -> int:
+            idx1 = t % 16
+            idx2 = (3 * t) % 16
+            result = (env_data[idx1] + env_data[idx2] + 17 * t) & 255
+            return result
 
         if touchend == -1:
             touchend = random.randint(30, 50)
@@ -87,30 +67,28 @@ class CTokenGenerator:
                 beforeunload = random.randint(10, 50)
         if timer == -1:
             timer = random.randint(1, 10)
-        if ticket_collection_t is None:
-            ticket_collection_t = 0
 
         env_data = self._get_env_data()
         if m1 == -1:
-            m1 = self._derive_mask(1, env_data)
+            m1 = m(1, env_data)
         if m2 == -1:
-            m2 = self._derive_mask(2, env_data)
+            m2 = m(2, env_data)
         if m3 == -1:
-            m3 = self._derive_mask(3, env_data)
+            m3 = m(3, env_data)
         if m4 == -1:
-            m4 = self._derive_mask(4, env_data)
+            m4 = m(4, env_data)
         if m5 == -1:
-            m5 = self._derive_mask(5, env_data)
+            m5 = m(5, env_data)
         if m6 == -1:
-            m6 = self._derive_mask(6, env_data)
+            m6 = m(6, env_data)
         if m7 == -1:
-            m7 = self._derive_mask(7, env_data)
+            m7 = m(7, env_data)
         if m8 == -1:
-            m8 = self._derive_mask(8, env_data)
+            m8 = m(8, env_data)
         if m9 == -1:
-            m9 = self._derive_mask(9, env_data)
+            m9 = m(9, env_data)
 
-        token_bytes = bytearray()
+        token_bytes = b""
         data = {
             "m1": m1,
             "m2": m2,
@@ -127,40 +105,61 @@ class CTokenGenerator:
             "timer": timer,
             "ticket_collection_t": ticket_collection_t,
         }
-
-        def append_byte(value: int) -> None:
-            try:
-                token_bytes.extend(int(value).to_bytes(1, byteorder="big"))
-            except OverflowError:
-                token_bytes.extend(b"\xff")
-            token_bytes.extend(b"\x00")
-
-        append_byte(data["m1"])
-        append_byte(data["touchend"])
-        append_byte(data["m2"])
-        append_byte(data["visibilitychange"])
-        append_byte(data["m3"])
-        append_byte(data["m4"])
-        append_byte(data["beforeunload"])
-        append_byte(data["m5"])
+        token_bytes += data["m1"].to_bytes(1, byteorder="big")
+        token_bytes += b"\x00"
+        try:
+            token_bytes += data["touchend"].to_bytes(1, byteorder="big")
+        except OverflowError:
+            token_bytes += b"\xff"
+        token_bytes += b"\x00"
+        token_bytes += data["m2"].to_bytes(1, byteorder="big")
+        token_bytes += b"\x00"
+        try:
+            token_bytes += data["visibilitychange"].to_bytes(1, byteorder="big")
+        except OverflowError:
+            token_bytes += b"\xff"
+        token_bytes += b"\x00"
+        token_bytes += data["m3"].to_bytes(1, byteorder="big")
+        token_bytes += b"\x00"
+        token_bytes += data["m4"].to_bytes(1, byteorder="big")
+        token_bytes += b"\x00"
+        try:
+            token_bytes += data["beforeunload"].to_bytes(1, byteorder="big")
+        except OverflowError:
+            token_bytes += b"\xff"
+        token_bytes += b"\x00"
+        token_bytes += data["m5"].to_bytes(1, byteorder="big")
+        token_bytes += b"\x00"
 
         try:
             temp_timer = int(data["timer"]).to_bytes(2, byteorder="big")
-            token_bytes.extend((temp_timer[0], 0, temp_timer[1], 0))
+            token_bytes += temp_timer[0].to_bytes(1, byteorder="big")
+            token_bytes += b"\x00"
+            token_bytes += temp_timer[1].to_bytes(1, byteorder="big")
+            token_bytes += b"\x00"
         except OverflowError:
-            token_bytes.extend(b"\xff\x00\xff\x00")
+            token_bytes += b"\xff\x00\xff\x00"
 
         try:
-            temp_collection = int(data["ticket_collection_t"]).to_bytes(
+            temp_ticket_collection_t = int(data["ticket_collection_t"]).to_bytes(
                 2, byteorder="big"
             )
-            token_bytes.extend((temp_collection[0], 0, temp_collection[1], 0))
+            token_bytes += temp_ticket_collection_t[0].to_bytes(1, byteorder="big")
+            token_bytes += b"\x00"
+            token_bytes += temp_ticket_collection_t[1].to_bytes(1, byteorder="big")
+            token_bytes += b"\x00"
         except OverflowError:
-            token_bytes.extend(b"\xff\x00\xff\x00")
+            token_bytes += b"\xff\x00\xff\x00"
+        token_bytes += data["m6"].to_bytes(1, byteorder="big")
+        token_bytes += b"\x00"
+        token_bytes += data["m7"].to_bytes(1, byteorder="big")
+        token_bytes += b"\x00"
+        token_bytes += data["m8"].to_bytes(1, byteorder="big")
+        token_bytes += b"\x00"
+        token_bytes += data["m9"].to_bytes(1, byteorder="big")
+        token_bytes += b"\x00"
+        return base64.b64encode(token_bytes).decode("utf-8")
 
-        append_byte(data["m6"])
-        append_byte(data["m7"])
-        append_byte(data["m8"])
-        append_byte(data["m9"])
-
-        return base64.b64encode(bytes(token_bytes)).decode("utf-8")
+    @staticmethod
+    def _derive_mask(index: int, env_data: list[int]) -> int:
+        return (env_data[index % 16] + env_data[(3 * index) % 16] + 17 * index) & 255

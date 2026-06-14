@@ -32,6 +32,10 @@ def decode_ptoken_u8(ptoken: str) -> list[int]:
     return [raw[index + 1] for index in range(0, len(raw), 2)]
 
 
+def decode_ctoken_u8(ctoken: str) -> list[int]:
+    return _decode_interleaved_even_u8(ctoken)
+
+
 def infer_ptoken_prefix_from_ctoken(prepare_ctoken: str) -> list[int]:
     prepare_ctoken_u8 = _decode_interleaved_even_u8(prepare_ctoken)
     if len(prepare_ctoken_u8) < 12:
@@ -77,6 +81,31 @@ def generate_inferred_ptoken(
     return _encode_u8_as_u16_base64(values)
 
 
+def generate_ptoken(
+    ctoken: str,
+    uid: int | str | None,
+    timestamp: int,
+    *,
+    collection_second: int | None = None,
+) -> str:
+    """Best-effort OSS approximation of BHYG's hidden generate_ptoken API.
+
+    BHYG's public repository exposes the function signature but not the body.
+    Current observable samples indicate the public ptoken structure is derived
+    from prepare-stage ctoken fields plus an elapsed-seconds tail.
+    """
+
+    del uid
+
+    if collection_second is None:
+        collection_second = timestamp
+    return generate_inferred_ptoken(
+        ctoken,
+        collection_second=collection_second,
+        current_second=timestamp,
+    )
+
+
 def generate_inferred_prepare_ctoken(
     *,
     collection_second: int | None = None,
@@ -108,16 +137,20 @@ def generate_inferred_ptoken_without_prepare(
         time_offset=time_offset,
         stay_time=stay_time,
     )
-    ptoken = generate_inferred_ptoken(
+    current_second = (
+        int(time.time())
+        if current_second is None
+        else current_second
+    )
+    ptoken = generate_ptoken(
         prepare_ctoken,
+        uid=None,
+        timestamp=current_second,
         collection_second=used_collection_second,
-        current_second=current_second,
     )
     return {
         "collection_second": used_collection_second,
-        "current_second": int(time.time())
-        if current_second is None
-        else current_second,
+        "current_second": current_second,
         "prepare_ctoken": prepare_ctoken,
         "ptoken": ptoken,
         "ptoken_prefix_u8": infer_ptoken_prefix_from_ctoken(prepare_ctoken),
