@@ -10,6 +10,7 @@ from util.BiliRequest import BiliRequest
 from util.KVDatabase import KVDatabase
 from util.LogConfig import loguru_config
 from util.TimeUtil import TimeUtil
+from util.error_codes import ERRNO_DICT
 
 
 def get_application_path() -> str:
@@ -51,25 +52,6 @@ os.makedirs(LOG_DIR, exist_ok=True)
 log_file_name = os.environ.get("BTB_APP_LOG_NAME", "app.log")
 log_file_name = re.sub(r"[^\w.\-]", "_", log_file_name) or "app.log"
 loguru_config(LOG_DIR, log_file_name, enable_console=True, file_colorize=False)
-ERRNO_DICT = {
-    0: "成功",
-    3: "下单过于频繁，请稍后再试",
-    100001: "暂无可售票或登录状态异常",
-    100041: "未到开票时间",
-    100044: "需要完成人机验证",
-    100003: "重复购买",
-    100016: "项目不可售",
-    100039: "活动收摊啦,下次要快点哦",
-    100048: "已经下单，有尚未完成订单",
-    100017: "票种不可售",
-    100051: "订单准备过期，重新验证",
-    100034: "票价错误",
-    100009: "库存不足",
-    219: "下单失败，请重试",
-    221: "下单请求过多，请稍后再试",
-    900001: "下单过快，被系统限制",
-    900002: "当前请求较多，请稍后再试",
-}
 
 __all__ = [
     "TEMP_PATH",

@@ -15,7 +15,7 @@ from loguru import logger
 
 from requests import HTTPError, RequestException
 
-from util import ERRNO_DICT, time_service
+from util import time_service
 from util.Notifier import NotifierManager, NotifierConfig
 from util.ProxyBackoff import ProxyBackoff
 from util.BiliRequest import BiliRequest
@@ -23,6 +23,7 @@ from util.ProxyManager import ProxyManager
 from util.RandomMessages import get_random_fail_message
 from util.CTokenUtil import CTokenGenerator
 from util.TokenUtil import generate_token
+from util.error_codes import ErrorCodes
 
 
 base_url = "https://show.bilibili.com"
@@ -155,7 +156,6 @@ def _is_create_success(ret: dict, err: int) -> bool:
 
 
 CREATE_RETRY_LIMIT = 60
-ERRNOS_SHOW_RESPONSE_MSG = {10003, 100003}
 
 
 def _extract_response_message(ret: dict) -> str:
@@ -163,7 +163,7 @@ def _extract_response_message(ret: dict) -> str:
 
 
 def _append_response_message(err: int, base: str, ret: dict | None) -> str:
-    if err not in ERRNOS_SHOW_RESPONSE_MSG or ret is None:
+    if not ErrorCodes.should_show_response_msg(err) or ret is None:
         return base
     message = _extract_response_message(ret)
     if not message:
@@ -178,7 +178,7 @@ def _format_retry_reason(
         return f"最后一次异常: {exc}"
     if err is None:
         return "最后一次失败原因未知"
-    reason = ERRNO_DICT.get(err, "未知错误码")
+    reason = ErrorCodes.get_message_or_unknown(err)
     detail = ret if ret is not None else {}
     base = f"最后一次返回: [{err}]({reason}) | {detail}"
     return _append_response_message(err, base, ret)
@@ -198,7 +198,7 @@ def _summarize_non_json_response(prefix: str, diagnostic: str) -> str:
 
 def _format_attempt_result(attempt: int, err: int, ret: dict) -> str:
     prefix = f"[{attempt}/{CREATE_RETRY_LIMIT}]"
-    reason = ERRNO_DICT.get(err)
+    reason = ErrorCodes.get_message(err)
     if reason:
         return _append_response_message(err, f"{prefix} [{err}] {reason}", ret)
     return _append_response_message(err, f"{prefix} [{err}] 未知错误码 | {ret}", ret)
@@ -258,7 +258,7 @@ def _handle_proxy_failure(
 
 def _format_status_result(prefix: str, ret: dict) -> str:
     err = int(ret.get("errno", ret.get("code", -1)))
-    reason = ERRNO_DICT.get(err)
+    reason = ErrorCodes.get_message(err)
     if reason:
         return _append_response_message(err, f"{prefix}: [{err}] {reason}", ret)
     message = _extract_response_message(ret)
@@ -449,7 +449,7 @@ def buy_stream(
             else:
                 yield emit(
                     "status",
-                    "生成token",
+                    None,
                     stage="订单准备",
                 )
                 order_token = _build_order_token(tickets_info)
@@ -557,16 +557,6 @@ def buy_stream(
                     )
                     time.sleep(interval / 1000)
 
-                except RuntimeError as e:
-                    last_exc = e
-                    yield emit(
-                        "attempt",
-                        f"[{attempt}/{CREATE_RETRY_LIMIT}] {e}",
-                        attempt_current=attempt,
-                        attempt_total=CREATE_RETRY_LIMIT,
-                    )
-                    time.sleep(interval / 1000)
-
                 except Exception as e:
                     last_exc = e
                     yield emit(
@@ -581,7 +571,7 @@ def buy_stream(
                     yield emit("status", f"群友说👴： {get_random_fail_message()}")
                 yield emit(
                     "status",
-                    f"创建订单已重试 {CREATE_RETRY_LIMIT} 次，重新准备订单",
+                    None,
                     attempt_current=None,
                     attempt_total=CREATE_RETRY_LIMIT,
                 )
@@ -636,14 +626,7 @@ def buy_stream(
                 break
         except JSONDecodeError as e:
             yield emit("error", f"配置文件格式错误: {e}", status="failed")
-        except HTTPError as e:
-            logger.exception(e)
-            yield emit("error", f"请求错误: {e}")
-            for message in emit_proxy_failure_messages(
-                f"订单准备请求异常({e.__class__.__name__})"
-            ):
-                yield message
-        except RequestException as e:
+        except HTTPError | RequestException as e:
             logger.exception(e)
             yield emit("error", f"请求错误: {e}")
             for message in emit_proxy_failure_messages(
