@@ -120,14 +120,12 @@ def _build_token_payload(tickets_info: dict) -> dict:
         "order_type": order_type,
         "project_id": project_id,
         "sku_id": sku_id,
-        "token": generate_token(
-            project_id=project_id,
-            screen_id=screen_id,
-            order_type=order_type,
-            count=count,
-            sku_id=sku_id,
-        ),
+        "buyer_info": tickets_info.get("buyer_info", "[]"),
+        "ignoreRequestLimit": True,
+        "ticket_agent": "",
+        "token": "",
         "newRisk": True,
+        "requestSource": "neul-next",
     }
 
 
@@ -146,8 +144,27 @@ def _build_order_payload(tickets_info: dict, token: str) -> dict:
     payload["again"] = 1
     payload["token"] = token
     payload["timestamp"] = int(time.time()) * 1000
+    payload["newRisk"] = True
+    payload["requestSource"] = "neul-next"
     payload.pop("detail", None)
     return payload
+
+
+def _normalize_prepare_ptoken(value: object) -> str:
+    if value is None:
+        return ""
+    return str(value).replace("=", "")
+
+
+def _build_click_position(origin_ms: int | None = None) -> dict[str, int]:
+    if origin_ms is None:
+        origin_ms = int(time.time() * 1000) - randint(10000, 20000)
+    return {
+        "x": randint(200, 400),
+        "y": randint(750, 800),
+        "origin": origin_ms,
+        "now": int(time.time() * 1000),
+    }
 
 
 def _is_create_success(ret: dict, err: int) -> bool:
@@ -479,6 +496,9 @@ def buy_stream(
                     )
                     token_gen = time.time()
                     order_token = request_result["data"]["token"]  # type: ignore
+                    request_result["data"]["ptoken"] = _normalize_prepare_ptoken(
+                        request_result["data"].get("ptoken")  # type: ignore[index]
+                    )
             else:
                 # normal
                 yield emit("status", None, stage="订单准备")
@@ -517,6 +537,7 @@ def buy_stream(
                 attempt_total=CREATE_RETRY_LIMIT,
             )
             payload = _build_order_payload(tickets_info, order_token)
+            payload["clickPosition"] = _build_click_position(int(token_gen * 1000))
 
             result = None
             last_err: int | None = None
@@ -532,8 +553,8 @@ def buy_stream(
                         payload["ctoken"] = ctoken_generator.generate_ctoken(  # type: ignore
                             timer=10 + 2 * int(time.time()) - 2 * int(token_gen)
                         )
-                        ptoken = (
-                            request_result["data"]["ptoken"] if request_result else ""
+                        ptoken = _normalize_prepare_ptoken(
+                            request_result["data"].get("ptoken") if request_result else ""
                         )
                         payload["ptoken"] = ptoken
                         payload["orderCreateUrl"] = (
