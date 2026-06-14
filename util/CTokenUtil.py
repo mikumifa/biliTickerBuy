@@ -45,12 +45,12 @@ class CTokenGenerator:
         value = min(value, 0xFFFF)
         buffer.extend(((value >> 8) & 0xFF, 0, value & 0xFF, 0))
 
-    def generate_ctoken(self, is_create_v2: bool) -> str:
-        """Return a v3 ctoken for either the prepare or createV2 stage."""
+    def generate_ctoken(self, for_create_stage: bool) -> str:
+        """Return a v3 ctoken for either the prepare or create-order stage."""
         env_data = self._get_env_data()
         masks = [self._derive_mask(index, env_data) for index in range(1, 10)]
 
-        if is_create_v2:
+        if for_create_stage:
             elapsed = max(
                 0,
                 int(time.time() + self.time_offset - self.ticket_collection_t),

@@ -17,7 +17,7 @@ def test_prepare_ctoken_uses_v3_layout(monkeypatch):
     values = iter([3, 2, 17])
     monkeypatch.setattr("util.CTokenUtil.random.randint", lambda _a, _b: next(values))
 
-    token = base64.b64decode(generator.generate_ctoken(is_create_v2=False))
+    token = base64.b64decode(generator.generate_ctoken(for_create_stage=False))
 
     assert token == bytes(
         [
@@ -64,7 +64,7 @@ def test_create_ctoken_caps_timer_and_uses_create_event_ranges(monkeypatch):
     values = iter([35, 25, 15])
     monkeypatch.setattr("util.CTokenUtil.random.randint", lambda _a, _b: next(values))
 
-    token = base64.b64decode(generator.generate_ctoken(is_create_v2=True))
+    token = base64.b64decode(generator.generate_ctoken(for_create_stage=True))
 
     assert len(token) == 32
     assert token[2] == 35

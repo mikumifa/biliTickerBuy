@@ -372,7 +372,7 @@ def buy_stream(
             if is_hot_project:
                 ctoken_generator = CTokenGenerator(time.time(), 0, randint(2000, 10000))
                 token_payload["token"] = ctoken_generator.generate_ctoken(
-                    is_create_v2=False
+                    for_create_stage=False
                 )
             request_result_normal = _request.post(
                 url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
@@ -420,7 +420,7 @@ def buy_stream(
                     url = f"{base_url}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
                     if is_hot_project:
                         payload["ctoken"] = ctoken_generator.generate_ctoken(  # type: ignore
-                            is_create_v2=True
+                            for_create_stage=True
                         )
                         ptoken = request_result["data"]["ptoken"] or ""
                         payload["ptoken"] = ptoken
