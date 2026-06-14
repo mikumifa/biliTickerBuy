@@ -7,6 +7,7 @@ import uuid
 import copy
 from random import randint
 import datetime
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from json import JSONDecodeError
 import shutil
@@ -164,12 +165,7 @@ def _extract_response_message(ret: dict) -> str:
 
 
 def _append_response_message(err: int, base: str, ret: dict | None) -> str:
-    if not ErrorCodes.should_show_response_msg(err) or ret is None:
-        return base
-    message = _extract_response_message(ret)
-    if not message:
-        return base
-    return f"{base} | msg: {message}"
+    return ErrorCodes.append_response_message(err, base, ret)
 
 
 def _format_retry_reason(
@@ -195,14 +191,6 @@ def _summarize_non_json_response(prefix: str, diagnostic: str) -> str:
             content_type = part.split("=", 1)[1]
             break
     return f"{prefix}返回了非 JSON 响应（{content_type}）"
-
-
-def _format_attempt_result(attempt: int, err: int, ret: dict) -> str:
-    prefix = f"[{attempt}/{CREATE_RETRY_LIMIT}]"
-    reason = ErrorCodes.get_message(err)
-    if reason:
-        return _append_response_message(err, f"{prefix} [{err}] {reason}", ret)
-    return _append_response_message(err, f"{prefix} [{err}] 未知错误码 | {ret}", ret)
 
 
 def _build_proxy_exhausted_message(_request: BiliRequest, delay_seconds: int) -> str:
@@ -235,26 +223,32 @@ def _handle_proxy_failure(
     reason: str,
     proxy_backoff: ProxyBackoff,
     notifier_config: NotifierConfig,
-) -> tuple[list[str], int | None]:
-    messages: list[str] = []
+) -> tuple[str | None, int | None]:
+    """Handle a proxy failure and return the immediate status plus cooldown plan."""
     previous_proxy = _request.current_proxy_display()
     cooled = _request.mark_current_proxy_failure(reason)
     if cooled:
-        messages.append(f"代理冷却: {previous_proxy} 短时间内连续失败，已暂时停用")
+        immediate_message = f"代理冷却: {previous_proxy} 短时间内连续失败，已暂时停用"
+    else:
+        immediate_message = None
 
     if _request.switch_proxy():
         proxy_backoff.reset()
-        messages.append(f"切换代理到 {_request.current_proxy_display()}")
-        return messages, None
+        switched_message = f"切换代理到 {_request.current_proxy_display()}"
+        if immediate_message:
+            return f"{immediate_message}\n{switched_message}", None
+        return switched_message, None
 
     if _request.has_available_proxy():
-        return messages, None
+        return immediate_message, None
 
     delay_seconds = proxy_backoff.next_delay_seconds()
     if proxy_backoff.should_notify():
         _notify_proxy_exhausted(notifier_config, _request, delay_seconds)
-    messages.append(f"所有代理当前不可用，休息 {delay_seconds} 秒后再试")
-    return messages, delay_seconds
+    exhausted_message = f"所有代理当前不可用，休息 {delay_seconds} 秒后再试"
+    if immediate_message:
+        return f"{immediate_message}\n{exhausted_message}", delay_seconds
+    return exhausted_message, delay_seconds
 
 
 def _format_status_result(prefix: str, ret: dict) -> str:
@@ -276,7 +270,6 @@ def buy_stream(
     https_proxys,
     show_random_message=True,
     show_qrcode=True,
-    readable=False,
     use_local_ptoken=False,
     use_local_token=False,
 ):
@@ -304,72 +297,99 @@ def buy_stream(
         if message is not None:
             state.last_message = message
 
-        if readable:
-            return BuyStreamEvent(
-                kind=kind,
-                message=message,
-                state=copy.deepcopy(state),
-                data=data,
-            )
-        return message
+        return BuyStreamEvent(
+            kind=kind,
+            message=message,
+            state=copy.deepcopy(state),
+            data=data,
+        )
 
-    def emit_proxy_failure_messages(
+    def handle_proxy_failure(
         reason: str,
         *,
         attempt: int | None = None,
     ):
-        messages, delay_seconds = _handle_proxy_failure(
+        immediate_message, delay_seconds = _handle_proxy_failure(
             _request,
             reason,
             proxy_backoff,
             notifier_config,
         )
-        for message in messages:
-            yield emit(
-                "proxy",
-                message,
-                current_proxy=_request.current_proxy_status(),
-                proxy_pool=_request.proxy_pool_status(),
-                cooldown_remaining=None,
-                status="running",
-                attempt_current=attempt,
-                attempt_total=(
-                    CREATE_RETRY_LIMIT if attempt is not None else state.attempt_total
-                ),
-            )
-        if delay_seconds is not None:
-            for remaining in range(delay_seconds, 0, -1):
+        attempt_total = (
+            CREATE_RETRY_LIMIT if attempt is not None else state.attempt_total
+        )
+        if immediate_message:
+            for message in immediate_message.splitlines():
                 yield emit(
-                    "state",
-                    None,
-                    status="cooldown",
-                    cooldown_remaining=remaining,
-                    current_proxy=_request.current_proxy_status(),
-                    proxy_pool=_request.proxy_pool_status(),
-                    attempt_current=attempt,
-                    attempt_total=(
-                        CREATE_RETRY_LIMIT
-                        if attempt is not None
-                        else state.attempt_total
-                    ),
-                )
-                time.sleep(1)
-            if _request.ensure_active_proxy():
-                proxy_backoff.reset()
-                yield emit(
-                    "state",
-                    None,
+                    "proxy",
+                    message,
                     current_proxy=_request.current_proxy_status(),
                     proxy_pool=_request.proxy_pool_status(),
                     cooldown_remaining=None,
                     status="running",
                     attempt_current=attempt,
-                    attempt_total=(
-                        CREATE_RETRY_LIMIT
-                        if attempt is not None
-                        else state.attempt_total
-                    ),
+                    attempt_total=attempt_total,
                 )
+        if delay_seconds is None:
+            return
+        for remaining in range(delay_seconds, 0, -1):
+            yield emit(
+                "state",
+                None,
+                current_proxy=_request.current_proxy_status(),
+                proxy_pool=_request.proxy_pool_status(),
+                cooldown_remaining=remaining,
+                status="cooldown",
+                attempt_current=attempt,
+                attempt_total=attempt_total,
+            )
+            time.sleep(1)
+        if _request.ensure_active_proxy():
+            proxy_backoff.reset()
+            yield emit(
+                "state",
+                None,
+                current_proxy=_request.current_proxy_status(),
+                proxy_pool=_request.proxy_pool_status(),
+                cooldown_remaining=None,
+                status="running",
+                attempt_current=attempt,
+                attempt_total=attempt_total,
+            )
+
+    def handle_non_json_response(
+        prefix: str,
+        response,
+        *,
+        attempt: int | None = None,
+    ) -> Generator[object, None, bool]:
+        diagnostic = _request.describe_non_json_response(response)
+        summary = _summarize_non_json_response(prefix, diagnostic)
+        # 出现 412 风控时，走代理失败处理，切换代理或进入冷却等待。
+        if "412 风控" in summary:
+            yield emit(
+                "proxy",
+                f"{prefix}触发 412 风控",
+                current_proxy=_request.current_proxy_status(),
+                proxy_pool=_request.proxy_pool_status(),
+                attempt_current=attempt,
+                attempt_total=(
+                    CREATE_RETRY_LIMIT if attempt is not None else state.attempt_total
+                ),
+            )
+            yield from handle_proxy_failure(f"{prefix} 412 风控", attempt=attempt)
+            return True
+        yield emit(
+            "attempt" if attempt is not None else "error",
+            summary,
+            current_proxy=_request.current_proxy_status(),
+            proxy_pool=_request.proxy_pool_status(),
+            attempt_current=attempt,
+            attempt_total=(
+                CREATE_RETRY_LIMIT if attempt is not None else state.attempt_total
+            ),
+        )
+        return False
 
     isRunning = True
     tickets_info = json.loads(tickets_info)
@@ -415,7 +435,7 @@ def buy_stream(
             token_gen = time.time()
             if is_hot_project:
                 # hot
-                yield emit("stage", "1）订单准备", stage="订单准备")
+                yield emit("stage", "开始准备订单", stage="订单准备")
                 ctoken_generator = CTokenGenerator(time.time(), 0, randint(2000, 10000))
                 if use_local_ptoken:
                     local_ptoken = generate_inferred_ptoken_without_prepare()
@@ -444,25 +464,9 @@ def buy_stream(
                     try:
                         request_result = request_result_normal.json()
                     except JSONDecodeError:
-                        diagnostic = _request.describe_non_json_response(
-                            request_result_normal
-                        )
-                        summary = _summarize_non_json_response(
-                            "订单准备接口", diagnostic
-                        )
-                        if "412 风控" in summary:
-                            summary += (
-                                f"（当前代理: {_request.current_proxy_display()}）"
-                            )
-                            for message in emit_proxy_failure_messages(
-                                "订单准备接口 412 风控"
-                            ):
-                                yield message
-                        yield emit(
-                            "error",
-                            summary,
-                            current_proxy=_request.current_proxy_status(),
-                            proxy_pool=_request.proxy_pool_status(),
+                        yield from handle_non_json_response(
+                            "订单准备接口",
+                            request_result_normal,
                         )
                         continue
                     proxy_backoff.reset()
@@ -493,25 +497,9 @@ def buy_stream(
                     try:
                         request_result = request_result_normal.json()
                     except JSONDecodeError:
-                        diagnostic = _request.describe_non_json_response(
-                            request_result_normal
-                        )
-                        summary = _summarize_non_json_response(
-                            "订单准备接口", diagnostic
-                        )
-                        if "412 风控" in summary:
-                            summary += (
-                                f"（当前代理: {_request.current_proxy_display()}）"
-                            )
-                            for message in emit_proxy_failure_messages(
-                                "订单准备接口 412 风控"
-                            ):
-                                yield message
-                        yield emit(
-                            "error",
-                            summary,
-                            current_proxy=_request.current_proxy_status(),
-                            proxy_pool=_request.proxy_pool_status(),
+                        yield from handle_non_json_response(
+                            "订单准备接口",
+                            request_result_normal,
                         )
                         continue
                     proxy_backoff.reset()
@@ -523,7 +511,7 @@ def buy_stream(
 
             yield emit(
                 "stage",
-                "2）创建订单",
+                "开始创建订单",
                 stage="创建订单",
                 attempt_current=None,
                 attempt_total=CREATE_RETRY_LIMIT,
@@ -560,27 +548,39 @@ def buy_stream(
                     try:
                         ret = create_response.json()
                     except JSONDecodeError as exc:
-                        diagnostic = _request.describe_non_json_response(
-                            create_response
+                        handled_412 = yield from handle_non_json_response(
+                            "创建订单接口",
+                            create_response,
+                            attempt=attempt,
                         )
-                        summary = _summarize_non_json_response(
-                            "创建订单接口", diagnostic
-                        )
-                        if "412 风控" in summary:
-                            summary += (
-                                f"（当前代理: {_request.current_proxy_display()}）"
-                            )
-                            for message in emit_proxy_failure_messages(
-                                "创建订单接口 412 风控",
-                                attempt=attempt,
-                            ):
-                                yield message
-                        raise RuntimeError(summary) from exc
+                        if not handled_412:
+                            last_exc = exc
+                            time.sleep(interval / 1000)
+                        continue
                     proxy_backoff.reset()
                     err = int(ret.get("errno", ret.get("code")))
                     last_err = err
                     last_ret = ret
                     last_exc = None
+                    if _is_create_success(ret, err):
+                        yield emit(
+                            "success",
+                            "创建订单成功",
+                            attempt_current=attempt,
+                            attempt_total=CREATE_RETRY_LIMIT,
+                        )
+                        result = (ret, err)
+                        break
+                    if err == 100051:
+                        yield emit("status", "token过期，需要重新准备订单")
+                        break
+
+                    yield emit(
+                        "attempt",
+                        ErrorCodes.format_attempt_result(err, ret),
+                        attempt_current=attempt,
+                        attempt_total=CREATE_RETRY_LIMIT,
+                    )
                     if err == 100034:
                         yield emit(
                             "status",
@@ -589,36 +589,18 @@ def buy_stream(
                             attempt_total=CREATE_RETRY_LIMIT,
                         )
                         payload["pay_money"] = ret["data"]["pay_money"]
-                    if _is_create_success(ret, err):
-                        yield emit(
-                            "success",
-                            "请求成功，停止重试",
-                            attempt_current=attempt,
-                            attempt_total=CREATE_RETRY_LIMIT,
-                        )
-                        result = (ret, err)
-                        break
-                    if err == 100051:
-                        break
-                    yield emit(
-                        "attempt",
-                        _format_attempt_result(attempt, err, ret),
-                        attempt_current=attempt,
-                        attempt_total=CREATE_RETRY_LIMIT,
-                    )
-
                     time.sleep(interval / 1000)
 
                 except RequestException as e:
                     last_exc = e
-                    for message in emit_proxy_failure_messages(
+                    for message in handle_proxy_failure(
                         f"创建订单请求异常({e.__class__.__name__})",
                         attempt=attempt,
                     ):
                         yield message
                     yield emit(
                         "attempt",
-                        f"[{attempt}/{CREATE_RETRY_LIMIT}] {e}",
+                        str(e),
                         attempt_current=attempt,
                         attempt_total=CREATE_RETRY_LIMIT,
                     )
@@ -628,7 +610,7 @@ def buy_stream(
                     last_exc = e
                     yield emit(
                         "attempt",
-                        f"[{attempt}/{CREATE_RETRY_LIMIT}] {e}",
+                        str(e),
                         attempt_current=attempt,
                         attempt_total=CREATE_RETRY_LIMIT,
                     )
@@ -644,16 +626,14 @@ def buy_stream(
                 )
                 continue
             if result is None:
-                if last_err == 100051:
-                    yield emit("status", "token过期，需要重新准备订单")
-                else:
-                    yield emit(
-                        "status",
-                        "本轮创建订单未成功，"
-                        f"{_format_retry_reason(last_err, last_ret, last_exc)}，重新准备订单",
-                    )
+                yield emit(
+                    "status",
+                    "本轮创建订单未成功，"
+                    f"{_format_retry_reason(last_err, last_ret, last_exc)}，重新准备订单",
+                )
                 continue
 
+            # win了
             request_result, errno = result
             if errno == 0:
                 notifierManager = NotifierManager.create_from_config(
@@ -666,7 +646,7 @@ def buy_stream(
 
                 yield emit(
                     "stage",
-                    "3）抢票成功，弹出付款二维码",
+                    "抢票成功，弹出付款二维码",
                     stage="抢票成功",
                     status="succeeded",
                 )
@@ -696,7 +676,7 @@ def buy_stream(
         except HTTPError | RequestException as e:
             logger.exception(e)
             yield emit("error", f"请求错误: {e}")
-            for message in emit_proxy_failure_messages(
+            for message in handle_proxy_failure(
                 f"订单准备请求异常({e.__class__.__name__})"
             ):
                 yield message
@@ -750,8 +730,8 @@ def buy(
         use_local_ptoken=use_local_ptoken,
         use_local_token=use_local_token,
     ):
-        if msg is not None:
-            logger.info(msg)
+        if msg.message is not None:
+            logger.info(msg.message)
 
 
 def buy_new_terminal(

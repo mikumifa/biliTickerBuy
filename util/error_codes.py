@@ -33,5 +33,26 @@ class ErrorCodes:
     def should_show_response_msg(cls, code: int) -> bool:
         return code in cls.SHOW_RESPONSE_MSG
 
+    @classmethod
+    def append_response_message(
+        cls,
+        code: int,
+        base: str,
+        ret: dict | None,
+    ) -> str:
+        if not cls.should_show_response_msg(code) or ret is None:
+            return base
+        message = str(ret.get("msg", ret.get("message", "")) or "").strip()
+        if not message:
+            return base
+        return f"{base} | msg: {message}"
+
+    @classmethod
+    def format_attempt_result(cls, err: int, ret: dict) -> str:
+        reason = cls.get_message(err)
+        if reason:
+            return cls.append_response_message(err, f"[{err}] {reason}", ret)
+        return cls.append_response_message(err, f"[{err}] 未知错误码 | {ret}", ret)
+
 
 ERRNO_DICT = ErrorCodes.MESSAGES

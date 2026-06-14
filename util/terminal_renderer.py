@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import inspect
-import re
 from typing import Iterable
 
 
@@ -33,7 +32,13 @@ class LogItem:
     attempt_body: str | None = None
 
 
-_ATTEMPT_RE = re.compile(r"^\[(\d+)/(\d+)\]\s*(.*)$")
+def _extract_message_meta(item) -> tuple[str, str, int | None, int | None]:
+    message = getattr(item, "message", item)
+    kind = getattr(item, "kind", "normal")
+    state = getattr(item, "state", None)
+    attempt_current = getattr(state, "attempt_current", None)
+    attempt_total = getattr(state, "attempt_total", None)
+    return str(message), str(kind), attempt_current, attempt_total
 
 
 class BaseTerminalRenderer:
@@ -68,8 +73,8 @@ class PlainTerminalRenderer(BaseTerminalRenderer):
         )
         self._print_snapshot(force=True)
 
-    def render_message(self, message: str) -> None:
-        self._update_state_from_message(message)
+    def render_message(self, item) -> None:
+        message = getattr(item, "message", item)
         self._print_snapshot()
         print(message, flush=True)
 
@@ -86,32 +91,6 @@ class PlainTerminalRenderer(BaseTerminalRenderer):
             else "-"
         )
         self._print_snapshot()
-
-    def _update_state_from_message(self, message: str) -> None:
-        if message.startswith("0)"):
-            self.state.stage = "等待开票"
-        elif message.startswith("1）"):
-            self.state.stage = "订单准备"
-        elif message.startswith("2）"):
-            self.state.stage = "创建订单"
-        elif message.startswith("3）"):
-            self.state.stage = "抢票成功"
-
-        if message.startswith("距离开始抢票还有:"):
-            self.state.countdown = message.split(":", 1)[1].strip()
-
-        if message.startswith("当前代理:"):
-            match = re.search(r"^当前代理:\s*(.+)$", message)
-            if match:
-                self.state.current_proxy = match.group(1).strip()
-        elif message.startswith("切换代理到 "):
-            match = re.search(r"^切换代理到\s+(.+)$", message)
-            if match:
-                self.state.current_proxy = match.group(1).strip()
-        elif message.startswith("所有代理当前不可用，休息 "):
-            match = re.search(r"休息\s+(\d+)\s+秒后再试", message)
-            if match:
-                self.state.cooldown = f"{match.group(1)} 秒"
 
     def _print_snapshot(self, *, force: bool = False) -> None:
         snapshot = (
@@ -136,21 +115,10 @@ class PlainTerminalRenderer(BaseTerminalRenderer):
         self._last_snapshot = snapshot
 
 
-def _parse_attempt(message: str) -> tuple[int, int, str] | None:
-    match = _ATTEMPT_RE.match(message)
-    if not match:
-        return None
+def _make_log_item(item) -> LogItem:
+    message, kind, attempt_current, attempt_total = _extract_message_meta(item)
 
-    current = int(match.group(1))
-    total = int(match.group(2))
-    body = match.group(3).strip()
-    return current, total, body
-
-
-def _make_log_item(message: str) -> LogItem:
-    parsed = _parse_attempt(message)
-
-    if parsed is None:
+    if kind != "attempt" or attempt_current is None or attempt_total is None:
         return LogItem(
             raw_message=message,
             display_message=message,
@@ -158,63 +126,58 @@ def _make_log_item(message: str) -> LogItem:
             kind="normal",
         )
 
-    current, total, body = parsed
     return LogItem(
         raw_message=message,
         display_message=message,
         count=1,
         kind="attempt",
-        attempt_start=current,
-        attempt_end=current,
-        attempt_total=total,
-        attempt_body=body,
+        attempt_start=attempt_current,
+        attempt_end=attempt_current,
+        attempt_total=attempt_total,
+        attempt_body=message,
     )
 
 
-def _can_merge_log_item(item: LogItem, message: str) -> bool:
+def _can_merge_log_item(item: LogItem, next_item) -> bool:
+    message, kind, attempt_current, attempt_total = _extract_message_meta(next_item)
     if item.kind == "normal":
         return item.raw_message == message
 
-    parsed = _parse_attempt(message)
-    if parsed is None:
+    if kind != "attempt" or attempt_current is None or attempt_total is None:
         return False
-
-    current, total, body = parsed
 
     if item.attempt_end is None:
         return False
 
     return (
         item.kind == "attempt"
-        and item.attempt_total == total
-        and item.attempt_body == body
-        and current == item.attempt_end + 1
+        and item.attempt_total == attempt_total
+        and item.attempt_body == message
+        and attempt_current == item.attempt_end + 1
     )
 
 
-def _merge_log_item(item: LogItem, message: str) -> None:
+def _merge_log_item(item: LogItem, next_item) -> None:
+    message, kind, attempt_current, attempt_total = _extract_message_meta(next_item)
     if item.kind == "normal":
         item.count += 1
         return
 
-    parsed = _parse_attempt(message)
-    if parsed is None:
+    if kind != "attempt" or attempt_current is None or attempt_total is None:
         item.count += 1
         return
 
-    current, total, body = parsed
-
     item.raw_message = message
     item.count += 1
-    item.attempt_end = current
-    item.attempt_total = total
-    item.attempt_body = body
+    item.attempt_end = attempt_current
+    item.attempt_total = attempt_total
+    item.attempt_body = message
 
     if item.attempt_start == item.attempt_end:
-        item.display_message = f"[{item.attempt_start}/{total}] {body}".rstrip()
+        item.display_message = f"[{item.attempt_start}/{attempt_total}] {message}".rstrip()
     else:
         item.display_message = (
-            f"[{item.attempt_start}-{item.attempt_end}/{total}] {body}".rstrip()
+            f"[{item.attempt_start}-{item.attempt_end}/{attempt_total}] {message}".rstrip()
         )
 
 
@@ -350,34 +313,6 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                     return "-"
                 return text if len(text) <= width else text[: width - 1] + "…"
 
-            def update_state(self, message: str) -> None:
-                if message.startswith("0)"):
-                    self.state.stage = "等待开票"
-                elif message.startswith("1）"):
-                    self.state.stage = "订单准备"
-                elif message.startswith("2）"):
-                    self.state.stage = "创建订单"
-                elif message.startswith("3）"):
-                    self.state.stage = "抢票成功"
-
-                if message.startswith("距离开始抢票还有:"):
-                    self.state.countdown = message.split(":", 1)[1].strip()
-
-                if message.startswith("当前代理:"):
-                    match = re.search(r"^当前代理:\s*(.+)$", message)
-                    if match:
-                        self.state.current_proxy = match.group(1).strip()
-
-                elif message.startswith("切换代理到 "):
-                    match = re.search(r"^切换代理到\s+(.+)$", message)
-                    if match:
-                        self.state.current_proxy = match.group(1).strip()
-
-                elif message.startswith("所有代理当前不可用，休息 "):
-                    match = re.search(r"休息\s+(\d+)\s+秒后再试", message)
-                    if match:
-                        self.state.cooldown = f"{match.group(1)} 秒"
-
             def sync_state(self, state) -> None:
                 self.state.stage = getattr(state, "stage", self.state.stage)
                 self.state.countdown = getattr(state, "countdown", self.state.countdown)
@@ -392,7 +327,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                 )
                 self.update_status()
 
-            def render_log_message(self, message: str) -> Text:
+            def render_log_message(self, message: str, item: LogItem) -> Text:
                 text = Text()
 
                 if message.startswith(("0)", "1）", "2）", "3）")):
@@ -412,6 +347,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
 
                 if (
                     message.startswith("当前代理:")
+                    or message.startswith("目前已配置代理")
                     or message.startswith("切换代理到 ")
                     or message.startswith("代理冷却:")
                     or message.startswith("代理池状态:")
@@ -421,7 +357,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                     text.append(message, style="yellow")
                     return text
 
-                if "抢票成功" in message or "请求成功" in message:
+                if "抢票成功" in message or "创建订单成功" in message:
                     text.append("✓ ", style="bold green")
                     text.append(message, style="bold green")
                     return text
@@ -435,7 +371,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                     text.append(message, style="bold red")
                     return text
 
-                if _parse_attempt(message) is not None:
+                if item.kind == "attempt":
                     if "[900001]" in message or "[900002]" in message:
                         text.append("… ", style="yellow")
                         text.append(message, style="yellow")
@@ -452,23 +388,20 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                 return text
 
             def render_log_item(self, item: LogItem) -> Text:
-                line = self.render_log_message(item.display_message)
+                line = self.render_log_message(item.display_message, item)
 
                 if item.count > 1:
                     line.append(f"  x{item.count}", style="bold dim")
 
                 return line
 
-            def add_message(self, message: str) -> None:
+            def add_message(self, event) -> None:
                 self.message_count += 1
 
-                self.update_state(message)
-                self.update_status()
-
-                if self.log_items and _can_merge_log_item(self.log_items[-1], message):
-                    _merge_log_item(self.log_items[-1], message)
+                if self.log_items and _can_merge_log_item(self.log_items[-1], event):
+                    _merge_log_item(self.log_items[-1], event)
                 else:
-                    self.log_items.append(_make_log_item(message))
+                    self.log_items.append(_make_log_item(event))
 
                 self.update_log()
 
@@ -505,8 +438,8 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
         if not self.ready.wait(timeout=5):
             raise RuntimeError("Textual terminal renderer failed to start")
 
-    def render_message(self, message: str) -> None:
-        self.app.call_from_thread(self.app.add_message, message)
+    def render_message(self, item) -> None:
+        self.app.call_from_thread(self.app.add_message, item)
 
     def render_state(self, state) -> None:
         self.app.call_from_thread(self.app.sync_state, state)
@@ -563,7 +496,7 @@ def render_message_stream(
                 on_message(message)
 
             if renderer is not None:
-                renderer.render_message(message)
+                renderer.render_message(item)
 
     finally:
         if renderer is not None:

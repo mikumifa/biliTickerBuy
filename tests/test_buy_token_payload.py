@@ -4,9 +4,9 @@ import task.buy as buy_module
 from task.buy import _build_token_payload
 from task.buy import _build_order_token
 from task.buy import buy_stream
-from task.buy import _format_attempt_result
 from task.buy import _format_retry_reason
 from task.buy import _format_status_result
+from util.error_codes import ErrorCodes
 from util.TokenUtil import generate_token
 
 
@@ -140,7 +140,6 @@ def test_non_hot_buy_stream_uses_prepare(monkeypatch):
             https_proxys="none",
             show_random_message=False,
             show_qrcode=False,
-            readable=True,
         )
     )
 
@@ -209,7 +208,6 @@ def test_non_hot_buy_stream_can_use_local_token_without_prepare(monkeypatch):
             https_proxys="none",
             show_random_message=False,
             show_qrcode=False,
-            readable=True,
             use_local_token=True,
         )
     )
@@ -311,7 +309,6 @@ def test_hot_buy_stream_can_use_local_ptoken_without_prepare(monkeypatch):
             https_proxys="none",
             show_random_message=False,
             show_qrcode=False,
-            readable=True,
             use_local_ptoken=True,
         )
     )
@@ -332,7 +329,9 @@ def test_formatters_append_msg_for_selected_errno():
     ret = {"errno": 100003, "msg": "请重新完成验证码"}
 
     assert _format_status_result("订单准备结果", ret).endswith("msg: 请重新完成验证码")
-    assert _format_attempt_result(1, 100003, ret).endswith("msg: 请重新完成验证码")
+    assert ErrorCodes.format_attempt_result(100003, ret).endswith(
+        "msg: 请重新完成验证码"
+    )
     assert _format_retry_reason(100003, ret, None).endswith("msg: 请重新完成验证码")
 
 

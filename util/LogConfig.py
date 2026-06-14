@@ -25,7 +25,7 @@ def loguru_config(
         rotation="1 day",
         colorize=file_colorize,
         retention="7 days",
-        format="<green>[{time:YYYY-MM-DD:HH:mm:ss.SSS}]</green>|<level>{level}</level>|<cyan>{name}</cyan>:<yellow>{line}</yellow>|<level>{message}</level>",
+        format="<green>[{time:YYYY-MM-DD:HH:mm:ss.SSS}]</green>|<level>{level}</level>|<level>{message}</level>",
     )
 
     if enable_console:

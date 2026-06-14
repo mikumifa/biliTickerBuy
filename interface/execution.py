@@ -257,7 +257,7 @@ def _run_buy_task(
     _update_task(task_id, status="running", started_at=time.time())
     succeeded = False
     try:
-        for message in buy_stream(
+        for event in buy_stream(
             json.dumps(config, ensure_ascii=False),
             runtime_options.get("time_start", ""),
             runtime_options.get("interval", 1000),
@@ -268,6 +268,7 @@ def _run_buy_task(
             use_local_token=runtime_options.get("use_local_token", False),
             use_local_ptoken=runtime_options.get("use_local_ptoken", False),
         ):
+            message = event.message
             if message is None:
                 continue
             _append_log(task_id, message)
@@ -376,7 +377,7 @@ def run_buy_sync(
     logs: list[str] = []
     payment_qr_url: str | None = None
     succeeded = False
-    for message in buy_stream(
+    for event in buy_stream(
         json.dumps(validation.normalized_config, ensure_ascii=False),
         runtime.get("time_start", ""),
         runtime.get("interval", 1000),
@@ -387,6 +388,7 @@ def run_buy_sync(
         use_local_token=runtime.get("use_local_token", False),
         use_local_ptoken=runtime.get("use_local_ptoken", False),
     ):
+        message = event.message
         if message is None:
             continue
         logs.append(message)

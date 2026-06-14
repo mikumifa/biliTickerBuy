@@ -105,7 +105,7 @@ def main(run_dir_arg: str) -> int:
 
     final_status = "completed"
     try:
-        for message in buy_stream(
+        for event in buy_stream(
             json.dumps(config, ensure_ascii=False),
             runtime.get("time_start", ""),
             runtime.get("interval", 1000),
@@ -116,6 +116,7 @@ def main(run_dir_arg: str) -> int:
             use_local_token=runtime.get("use_local_token", False),
             use_local_ptoken=runtime.get("use_local_ptoken", False),
         ):
+            message = event.message
             if message is not None:
                 _append_log(logs_path, message)
             with status_lock:

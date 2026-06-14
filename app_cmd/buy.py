@@ -135,7 +135,6 @@ def buy_cmd(args: Namespace):
                 build_notifier_config(),
                 args.https_proxys,
                 not args.hide_random_message,
-                readable=True,
                 use_local_token=args.use_local_token,
                 use_local_ptoken=args.use_local_ptoken,
             ),
