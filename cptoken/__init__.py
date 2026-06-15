@@ -2,6 +2,7 @@ import base64
 import random
 import struct
 import time
+from loguru import logger
 
 
 def generate_ctoken(
@@ -14,52 +15,46 @@ def generate_ctoken(
     openWindow: int = -1,
     m5: int = -1,
     timer: int = -1,
-    ticket_collection_t: int = 0,
+    timediff: float = 0,
     m6: int = -1,
     m7: int = -1,
     m8: int = -1,
     m9: int = -1,
 ) -> str:
-    def normalize_int(value: object) -> int:
-        if value is None:
-            return 0
-        return int(value)
+    def js_uint8(value: int | float) -> int:
+        v = int(float(value))
+        if v > 255:
+            v = 255
+        return v & 0xFF
 
-    def clamp8(value: object) -> int:
-        normalized = normalize_int(value)
-        return 255 if normalized > 255 else max(0, normalized)
-
-    def clamp16(value: object) -> int:
-        normalized = normalize_int(value)
-        return 65535 if normalized > 65535 else max(0, normalized)
+    def js_uint16(value: int | float) -> int:
+        v = int(float(value))
+        if v > 65535:
+            v = 65535
+        return v & 0xFFFF
 
     semantic_bytes = struct.pack(
         ">8B2H4B",
-        clamp8(m1),
-        clamp8(touchend),
-        clamp8(m2),
-        clamp8(visibilitychange),
-        clamp8(m3),
-        clamp8(m4),
-        clamp8(openWindow),
-        clamp8(m5),
-        clamp16(timer),
-        clamp16(ticket_collection_t),
-        clamp8(m6),
-        clamp8(m7),
-        clamp8(m8),
-        clamp8(m9),
+        js_uint8(m1),  # 0
+        js_uint8(touchend),  # 1
+        js_uint8(m2),  # 2
+        js_uint8(visibilitychange),  # 3
+        js_uint8(m3),  # 4
+        js_uint8(m4),  # 5
+        js_uint8(openWindow),  # 6
+        js_uint8(m5),  # 7
+        js_uint16(timer),  # 8-9
+        js_uint16(timediff),  # 10-11
+        js_uint8(m6),  # 12
+        js_uint8(m7),  # 13
+        js_uint8(m8),  # 14
+        js_uint8(m9),  # 15
     )
-
-    transport_bytes = bytearray()
-    for value in semantic_bytes:
-        transport_bytes.extend((value, 0))
-
-    return base64.b64encode(bytes(transport_bytes)).decode("utf-8")
+    transport_bytes = semantic_bytes.decode("latin1").encode("utf-16le")
+    return base64.b64encode(transport_bytes).decode("utf-8")
 
 
 def init_ctoken_state(
-    *,
     scroll_x: int = 0,
     scroll_y: int = 0,
     inner_width: int = 1280,
@@ -75,7 +70,6 @@ def init_ctoken_state(
     user_agent_length: int = 111,
     href_length: int = 80,
     device_pixel_ratio: float = 1.0,
-    random_events: bool = True,
 ) -> dict[str, int]:
     def derive_d(index: int) -> int:
         now_mod_256 = int(time.time() * 1000) % 256
@@ -99,20 +93,11 @@ def init_ctoken_state(
         ]
         return (values[index % 16] + values[(3 * index) % 16] + 17 * index) & 255
 
-    if random_events:
-        touchend = random.randint(0, 5)
-        visibilitychange = random.randint(0, 1)
-        open_window = random.randint(0, 1)
-        timer = random.randint(1, 10)
-        elapsed_seconds = timer
-    else:
-        touchend = 0
-        visibilitychange = 0
-        open_window = 0
-        timer = 0
-        elapsed_seconds = 0
+    touchend = 0
+    visibilitychange = 0
+    open_window = 1
 
-    return {
+    ret = {
         "m1": derive_d(1),
         "touchend": touchend,
         "m2": derive_d(2),
@@ -121,38 +106,46 @@ def init_ctoken_state(
         "m4": derive_d(4),
         "openWindow": open_window,
         "m5": derive_d(5),
-        "timer": timer,
-        "ticket_collection_t": elapsed_seconds,
+        "timer": 0,
+        "timediff": 0,
         "m6": derive_d(6),
         "m7": derive_d(7),
         "m8": derive_d(8),
         "m9": derive_d(9),
     }
+    logger.info(ret)
+    return ret
 
 
-def sim_ctoken_state(before_state: dict[str, int], started_ms: int) -> dict[str, int]:
-    now_ms = int(time.time() * 1000)
-    elapsed_seconds = max(0, int((now_ms - started_ms) / 1000))
-    timer_add = random.choice([0, 0, 0, 1])
-    touchend_add = random.choice([0, 0, 1, 2])
-    open_window_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
-    visibilitychange_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
-    return {
+def sim_ctoken_state(
+    before_state: dict[str, int],
+    ticket_collection_t: int,
+    now_ms: int | None = None,
+) -> dict[str, int]:
+    # randome update timer,touchend,visibilitychange,openWindow
+    timer_add = random.choice([0, 1, 2, 3])
+    # touchend_add = random.choice([0, 0, 1, 2])
+    # open_window_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
+    # visibilitychange_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
+    ret = {
         "m1": before_state["m1"],
-        "touchend": before_state["touchend"] + touchend_add,
+        "touchend": before_state["touchend"],
         "m2": before_state["m2"],
-        "visibilitychange": before_state["visibilitychange"] + visibilitychange_add,
+        "visibilitychange": before_state["visibilitychange"],
         "m3": before_state["m3"],
         "m4": before_state["m4"],
-        "openWindow": before_state["openWindow"] + open_window_add,
+        "openWindow": before_state["openWindow"] + 1,
         "m5": before_state["m5"],
         "timer": before_state["timer"] + timer_add,
-        "ticket_collection_t": elapsed_seconds,
+        "timediff": (now_ms - ticket_collection_t)
+        / 1000,  # payload.timestamp-ticket_collection_t
         "m6": before_state["m6"],
         "m7": before_state["m7"],
         "m8": before_state["m8"],
         "m9": before_state["m9"],
     }
+    logger.info(ret)
+    return ret
 
 
 __all__ = [

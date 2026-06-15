@@ -4,6 +4,28 @@ import ntplib
 from loguru import logger
 
 
+def current_time_ms(*, timeoffset: float = 0, base_ms: int | None = None) -> int:
+    """
+    Return a timeoffset-aware millisecond timestamp.
+    """
+    if base_ms is None:
+        base_ms = int(time.time() * 1000)
+    return int(base_ms + timeoffset * 1000)
+
+
+def elapsed_seconds_since(
+    started_ms: int,
+    *,
+    now_ms: int | None = None,
+    timeoffset: float = 0,
+) -> int:
+    """
+    Return elapsed whole seconds from started_ms using the same timeoffset-aware clock.
+    """
+    effective_now_ms = current_time_ms(timeoffset=timeoffset, base_ms=now_ms)
+    return max(0, int((effective_now_ms - started_ms) / 1000))
+
+
 class TimeUtil:
     # NTP服务器默认为ntp.aliyun.com, 可根据实际情况修改
     def __init__(self, _ntp_server="ntp.aliyun.com") -> None:
