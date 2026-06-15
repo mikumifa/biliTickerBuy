@@ -268,9 +268,6 @@ def go_start_tab():
         use_local_token = ConfigDB.get("useLocalToken")
         if use_local_token is None:
             use_local_token = False
-        use_local_ptoken = ConfigDB.get("useLocalPtoken")
-        if use_local_ptoken is None:
-            use_local_ptoken = False
 
         for idx, filename in enumerate(files):
             with open(filename, "r", encoding="utf-8") as file:
@@ -299,7 +296,6 @@ def go_start_tab():
                 https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
                 show_random_message=not hide_random_message,
                 use_local_token=use_local_token,
-                use_local_ptoken=use_local_ptoken,
                 log_file_path=log_file_path,
             )
             GlobalStatusInstance.register_task_log(
@@ -547,10 +543,6 @@ def go_settings_tab(header_ui):
         ConfigDB.insert("notifyProxyExhausted", value)
         return gr.update(value=ConfigDB.get("notifyProxyExhausted"))
 
-    def update_use_local_ptoken(value):
-        ConfigDB.insert("useLocalPtoken", value)
-        return gr.update(value=ConfigDB.get("useLocalPtoken"))
-
     def update_use_local_token(value):
         ConfigDB.insert("useLocalToken", value)
         return gr.update(value=ConfigDB.get("useLocalToken"))
@@ -570,9 +562,6 @@ def go_settings_tab(header_ui):
     use_local_token_default = ConfigDB.get("useLocalToken")
     if use_local_token_default is None:
         use_local_token_default = False
-    use_local_ptoken_default = ConfigDB.get("useLocalPtoken")
-    if use_local_ptoken_default is None:
-        use_local_ptoken_default = False
 
     with gr.Column(elem_classes="btb-page-section"):
         with gr.Tabs(elem_classes="btb-top-tabs"):
@@ -770,11 +759,6 @@ def go_settings_tab(header_ui):
                         value=use_local_token_default,
                         info="默认关闭。开启后，非 hotproject 直接使用本地生成 token。",
                     )
-                    use_local_ptoken_ui = gr.Checkbox(
-                        label="hotproject使用本地 ptoken",
-                        value=use_local_ptoken_default,
-                        info="已暂时停用。当前 hotproject 固定走服务端 prepare 获取 ptoken。",
-                    )
 
     save_proxy_btn.click(
         fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
@@ -839,11 +823,6 @@ def go_settings_tab(header_ui):
         fn=update_use_local_token,
         inputs=use_local_token_ui,
         outputs=use_local_token_ui,
-    )
-    use_local_ptoken_ui.change(
-        fn=update_use_local_ptoken,
-        inputs=use_local_ptoken_ui,
-        outputs=use_local_ptoken_ui,
     )
     test_audio_button.click(
         fn=test_terminal_audio,

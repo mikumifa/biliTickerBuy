@@ -114,7 +114,6 @@ def main(run_dir_arg: str) -> int:
             runtime.get("show_random_message", True),
             False,
             use_local_token=runtime.get("use_local_token", False),
-            use_local_ptoken=runtime.get("use_local_ptoken", False),
         ):
             message = event.message
             if message is not None:

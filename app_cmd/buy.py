@@ -136,7 +136,6 @@ def buy_cmd(args: Namespace):
                 args.https_proxys,
                 not args.hide_random_message,
                 use_local_token=args.use_local_token,
-                use_local_ptoken=args.use_local_ptoken,
             ),
             on_message=logger.info,
         )
@@ -177,7 +176,6 @@ def buy_cmd(args: Namespace):
                 args.notify_proxy_exhausted,
                 not args.hide_random_message,
                 use_local_token=args.use_local_token,
-                use_local_ptoken=args.use_local_ptoken,
             )
     except KeyboardInterrupt:
         logger.warning("收到 Ctrl+C，已停止当前抢票流程。")

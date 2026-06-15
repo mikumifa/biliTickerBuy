@@ -152,7 +152,7 @@ def _build_order_payload(tickets_info: dict, token: str) -> dict:
     return payload
 
 
-def _normalize_prepare_ptoken(value: object) -> str:
+def _normalize_prepare_ptoken(value: str | None) -> str:
     if value is None:
         return ""
     return str(value).replace("=", "")
@@ -287,7 +287,6 @@ def buy_stream(
     https_proxys,
     show_random_message=True,
     show_qrcode=True,
-    use_local_ptoken=False,
     use_local_token=False,
 ):
     state = BuyStreamState()
@@ -422,8 +421,6 @@ def buy_stream(
     proxy_backoff = ProxyBackoff()
 
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
-    requested_local_ptoken = bool(use_local_ptoken)
-    use_local_ptoken = False
     use_local_token = bool(use_local_token)
 
     token_payload = _build_token_payload(tickets_info)
@@ -447,11 +444,6 @@ def buy_stream(
         current_proxy=_request.current_proxy_status(),
         proxy_pool=_request.proxy_pool_status(),
     )
-    if requested_local_ptoken:
-        yield emit(
-            "status",
-            "本地 ptoken 已暂时禁用，回退到服务端 prepare",
-        )
 
     while isRunning:
         try:
@@ -485,9 +477,6 @@ def buy_stream(
                 )
                 started_ms = int(time.time() * 1000)
                 order_token = request_result["data"]["token"]  # type: ignore
-                request_result["data"]["ptoken"] = _normalize_prepare_ptoken(
-                    request_result["data"].get("ptoken")  # type: ignore[index]
-                )
             else:
                 # normal
                 yield emit("status", None, stage="订单准备")
@@ -723,7 +712,6 @@ def buy(
     notify_proxy_exhausted=False,
     show_random_message=True,
     show_qrcode=True,
-    use_local_ptoken=False,
     use_local_token=False,
 ):
     # 创建NotifierConfig对象
@@ -748,7 +736,6 @@ def buy(
         https_proxys,
         show_random_message,
         show_qrcode,
-        use_local_ptoken=use_local_ptoken,
         use_local_token=use_local_token,
     ):
         if msg.message is not None:
@@ -771,7 +758,6 @@ def buy_new_terminal(
     meowNickname=None,
     notify_proxy_exhausted=False,
     show_random_message=True,
-    use_local_ptoken=False,
     use_local_token=False,
     log_file_path: str | None = None,
 ) -> subprocess.Popen:
@@ -823,8 +809,6 @@ def buy_new_terminal(
         command.extend(["--https_proxys", https_proxys])
     if not show_random_message:
         command.extend(["--hide_random_message"])
-    if use_local_ptoken:
-        command.extend(["--use_local_ptoken"])
     if use_local_token:
         command.extend(["--use_local_token"])
     env = os.environ.copy()
