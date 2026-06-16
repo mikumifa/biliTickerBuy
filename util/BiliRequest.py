@@ -1,29 +1,42 @@
+import secrets
+import time
+
 import loguru
 import requests
 from requests import Response
+from util.BrowerState import (
+    BrowserFingerprintState,
+    build_headers_from_browser_state,
+    finalize_device_id,
+    generate_browser_fingerprint_state,
+)
 from util.CookieManager import CookieManager
 from util.ProxyManager import ProxyManager
 
 
 class BiliRequest:
     def __init__(
-        self, headers=None, cookies=None, cookies_config_path=None, proxy: str = "none"
+        self,
+        headers=None,
+        cookies=None,
+        cookies_config_path=None,
+        proxy: str = "none",
+        browser_state: BrowserFingerprintState | None = None,
     ):
+        self.browser_state = browser_state or generate_browser_fingerprint_state()
+        self.deviceId = finalize_device_id(secrets.token_hex(16))
         self.session = requests.Session()
-        # self.session.verify = False  # 禁用 SSL 验证，便于抓包测试
         self.proxy_manager = ProxyManager(proxy)
         self.cookieManager = CookieManager(cookies_config_path, cookies)
-        self.headers = headers or {
-            "accept": "*/*",
-            "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,zh-TW;q=0.5,ja;q=0.4",
-            "content-type": "application/x-www-form-urlencoded",
-            "cookie": "",
-            "referer": "https://show.bilibili.com/",
-            "priority": "u=1, i",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
-        }
+        self.headers = build_headers_from_browser_state(
+            self.browser_state,
+            base_headers=headers,
+            referer="https://show.bilibili.com/",
+            content_type="application/x-www-form-urlencoded",
+        )
         self.request_count = 0  # 记录请求次数
         self.proxy_manager.apply_to_session(self.session)
+        self.createTime = int(time.time() * 1000)
 
     def _rotate_proxy(self, reason: str) -> bool:
         if not self.proxy_manager.rotate():
