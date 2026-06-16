@@ -284,6 +284,7 @@ def _format_status_result(prefix: str, ret: dict) -> str:
 
 
 def _prepare_create_request(
+    base_timer: int,
     tickets_info: dict,
     order_token: str,
     *,
@@ -291,6 +292,7 @@ def _prepare_create_request(
     is_hot_project: bool,
     request_result: dict | None,
     ticket_collection_t: int,
+    add_action: bool,
     create_state_seed: dict[str, int] | None,
 ) -> tuple[str, dict, dict[str, int] | None]:
     payload = dict(tickets_info)
@@ -316,6 +318,7 @@ def _prepare_create_request(
     # clickPosition.origin < ticket_collection_t < clickPosition.now ~= payload.timestamp
     payload["clickPosition"] = _build_click_position(ticket_collection_t, now_ms)
     create_state = sim_ctoken_state(
+        base_timer=base_timer,
         before_state=create_state_seed,
         ticket_collection_t=ticket_collection_t,
         now_ms=now_ms,
@@ -323,9 +326,11 @@ def _prepare_create_request(
     payload["ctoken"] = generate_ctoken(  # type: ignore
         **create_state,
     )
+    logger.info(f"ctoken: {payload['ctoken']}")
     ptoken = _normalize_prepare_ptoken(
         request_result["data"].get("ptoken") if request_result else ""
     )
+    logger.info(f"ptoken: {ptoken}")
     payload["ptoken"] = ptoken
     payload["orderCreateUrl"] = "https://show.bilibili.com/api/ticket/order/createV2"
     url += "&ptoken=" + ptoken
@@ -507,6 +512,7 @@ def buy_stream(
                 yield emit("stage", "开始准备订单", stage="订单准备")
                 pre_state = init_ctoken_state()
                 token_payload["token"] = generate_ctoken(**pre_state)
+                logger.info(f"itoken: {token_payload['token']}")
                 request_result_normal = _request.post(
                     url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                     data=token_payload,
@@ -529,6 +535,8 @@ def buy_stream(
                     ),
                 )
                 order_token = request_result["data"]["token"]  # type: ignore
+                logger.info(f"token: {order_token}")
+
             else:
                 # normal
                 yield emit("status", None, stage="订单准备")
@@ -572,15 +580,6 @@ def buy_stream(
             token_expired = False
             attempt = 1
             while attempt <= CREATE_RETRY_LIMIT:
-                url, payload, create_state_seed = _prepare_create_request(
-                    tickets_info,
-                    order_token,
-                    timeoffset=timeoffset,
-                    is_hot_project=is_hot_project,
-                    request_result=request_result,
-                    ticket_collection_t=ticket_collection_t,
-                    create_state_seed=create_state_seed,
-                )
                 batch_end = min(
                     attempt + CREATE_REQUEST_BATCH_SIZE - 1,
                     CREATE_RETRY_LIMIT,
@@ -590,6 +589,17 @@ def buy_stream(
                         yield "抢票结束"
                         break
                     try:
+                        url, payload, create_state_seed = _prepare_create_request(
+                            pre_state["timer"],
+                            tickets_info,
+                            order_token,
+                            timeoffset=timeoffset,
+                            is_hot_project=is_hot_project,
+                            request_result=request_result,
+                            ticket_collection_t=ticket_collection_t,
+                            create_state_seed=create_state_seed,
+                            add_action=True,
+                        )
                         create_response = _request.post(
                             url=url,
                             data=payload,

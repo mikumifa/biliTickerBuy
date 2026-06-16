@@ -57,18 +57,18 @@ def generate_ctoken(
 def init_ctoken_state(
     scroll_x: int = 0,
     scroll_y: int = 0,
-    inner_width: int = 1280,
-    inner_height: int = 720,
-    outer_width: int = 1280,
-    outer_height: int = 800,
+    inner_width: int = 360,
+    inner_height: int = 740,
+    outer_width: int = 360,
+    outer_height: int = 740,
     screen_x: int = 0,
     screen_y: int = 0,
-    screen_width: int = 1920,
-    screen_height: int = 1080,
-    screen_avail_width: int = 1920,
-    history_length: int = 2,
-    user_agent_length: int = 111,
-    href_length: int = 80,
+    screen_width: int = 360,
+    screen_height: int = 740,
+    screen_avail_width: int = 360,
+    history_length: int = random.randint(2, 10),
+    user_agent_length: int = 140,
+    href_length: int = 140,
     device_pixel_ratio: float = 1.0,
 ) -> dict[str, int]:
     def derive_d(index: int) -> int:
@@ -106,7 +106,7 @@ def init_ctoken_state(
         "m4": derive_d(4),
         "openWindow": open_window,
         "m5": derive_d(5),
-        "timer": 0,
+        "timer": random.randint(10, 100),
         "timediff": 0,
         "m6": derive_d(6),
         "m7": derive_d(7),
@@ -121,22 +121,28 @@ def sim_ctoken_state(
     before_state: dict[str, int],
     ticket_collection_t: int,
     now_ms: int | None = None,
+    base_timer: int = 0,
+    add_action: bool = True,
 ) -> dict[str, int]:
     # randome update timer,touchend,visibilitychange,openWindow
-    timer_add = random.choice([0, 1, 2, 3])
-    # touchend_add = random.choice([0, 0, 1, 2])
-    # open_window_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
-    # visibilitychange_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
+    if add_action:
+        touchend_add = random.choice([0, 0, 1, 2])
+        open_window_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
+        visibilitychange_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
+    else:
+        touchend_add = 0
+        open_window_add = 0
+        visibilitychange_add = 0
     ret = {
         "m1": before_state["m1"],
-        "touchend": before_state["touchend"],
+        "touchend": before_state["touchend"] + touchend_add,
         "m2": before_state["m2"],
-        "visibilitychange": before_state["visibilitychange"],
+        "visibilitychange": before_state["visibilitychange"] + visibilitychange_add,
         "m3": before_state["m3"],
         "m4": before_state["m4"],
-        "openWindow": before_state["openWindow"] + 1,
+        "openWindow": before_state["openWindow"] + open_window_add,
         "m5": before_state["m5"],
-        "timer": before_state["timer"] + timer_add,
+        "timer": base_timer + int((now_ms - ticket_collection_t) / 1000),
         "timediff": (now_ms - ticket_collection_t)
         / 1000,  # payload.timestamp-ticket_collection_t
         "m6": before_state["m6"],
