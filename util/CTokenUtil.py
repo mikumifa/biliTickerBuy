@@ -122,30 +122,23 @@ def generate_browser_window_state(
 
     # 常见桌面分辨率
     common_screens = [
-        (1920, 1080),
-        (2560, 1440),
-        (1366, 768),
-        (1440, 900),
-        (1536, 864),
-        (1600, 900),
-        (1280, 720),
+        # (375, 667),
+        # (414, 896),
+        # (412, 715),
+        # (820, 1180),
+        # (375, 667),
+        # (390, 844),
+        (360, 740),
     ]
 
     if screen_width is None or screen_height is None:
         screen_width, screen_height = random.choice(common_screens)
 
-    # 任务栏 / Dock 占用高度
-    taskbar_height = random.choice([40, 48, 56, 64])
     screen_avail_width = screen_width
-    screen_avail_height = screen_height - taskbar_height
+    screen_avail_height = screen_height
 
     if maximized is None:
         maximized = random.random() < 0.65
-
-    # 浏览器外框与内容区的差值
-    # Chrome/Edge/Firefox 桌面端大概会有顶部工具栏、标签栏、边框等
-    chrome_width_delta = random.choice([0, 8, 12, 16])
-    chrome_height_delta = random.choice([80, 88, 96, 104, 112, 120])
 
     if maximized:
         outer_width = screen_avail_width
@@ -154,8 +147,8 @@ def generate_browser_window_state(
         screen_x = 0
         screen_y = 0
 
-        inner_width = outer_width - chrome_width_delta
-        inner_height = outer_height - chrome_height_delta
+        inner_width = outer_width
+        inner_height = outer_height
 
     else:
         # 非最大化窗口，一般占屏幕的 60% ~ 90%
@@ -174,12 +167,12 @@ def generate_browser_window_state(
         screen_x = random.randint(0, max_x)
         screen_y = random.randint(0, max_y)
 
-        inner_width = outer_width - chrome_width_delta
-        inner_height = outer_height - chrome_height_delta
+        inner_width = outer_width
+        inner_height = outer_height
 
     # 防止极端小值
-    inner_width = max(320, inner_width)
-    inner_height = max(240, inner_height)
+    inner_width = inner_width
+    inner_height = inner_height
 
     if scroll:
         scroll_x = random.choice([0, 0, 0, random.randint(1, 200)])
@@ -382,7 +375,7 @@ def init_ctoken_state(
             round(10 * (device_pixel_ratio or 1)),
             now_mod_256,
         ]
-
+        # values = [0, 0, 375, 667, 375, 667, 0, 0, 375, 667, 375, 5, 135, 76, 20, 219]
         return (values[index % 16] + values[(3 * index) % 16] + 17 * index) & 255
 
     state = CTokenRuntimeState(
@@ -392,8 +385,8 @@ def init_ctoken_state(
         visibilitychange=0,
         m3=derive_d(3),
         m4=derive_d(4),
-        openWindow=1,
-        m5=derive_d(5),
+        openWindow=0,
+        m5=derive_d(5),  # this will be random
         base_timer=0,
         m6=derive_d(6),
         m7=derive_d(7),
@@ -403,43 +396,25 @@ def init_ctoken_state(
         timeoffet=timeoffet,
         ticket_collection_t=ticket_collection_t,
     )
+    ticket_collection_v3 = [
+        state.m1,  # H
+        0,  # F
+        0,  # B
+        0,  # V
+        0,  # G
+        0,  # U
+        state.m2,  # Q
+        state.m3,  # z
+        state.m4,  # Y
+        state.openWindow,  # K
+        state.m5,  # W
+        state.m6,  # J
+        state.m7,  # X
+        state.m8,  # $
+        state.m9,  # Z
+        state.touchend,  # ee
+    ]
 
+    logger.info(f"ticket_collection_v3: {ticket_collection_v3}")
     logger.info(state.to_dict())
     return state
-
-
-def sim_ctoken_state(
-    before_state: dict[str, int],
-    ticket_collection_t: int,
-    now_ms: int | None = None,
-    base_timer: int = 0,
-    add_action: bool = True,
-) -> dict[str, int]:
-    # randome update timer,touchend,visibilitychange,openWindow
-    if add_action:
-        touchend_add = random.choice([0, 0, 1, 2])
-        open_window_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
-        visibilitychange_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
-    else:
-        touchend_add = 0
-        open_window_add = 0
-        visibilitychange_add = 0
-    ret = {
-        "m1": before_state["m1"],
-        "touchend": before_state["touchend"] + touchend_add,
-        "m2": before_state["m2"],
-        "visibilitychange": before_state["visibilitychange"] + visibilitychange_add,
-        "m3": before_state["m3"],
-        "m4": before_state["m4"],
-        "openWindow": before_state["openWindow"] + open_window_add,
-        "m5": before_state["m5"],
-        "timer": base_timer + int((now_ms - ticket_collection_t) / 1000),
-        "timediff": (now_ms - ticket_collection_t)
-        / 1000,  # payload.timestamp-ticket_collection_t
-        "m6": before_state["m6"],
-        "m7": before_state["m7"],
-        "m8": before_state["m8"],
-        "m9": before_state["m9"],
-    }
-    logger.info(ret)
-    return ret

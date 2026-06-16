@@ -506,7 +506,7 @@ def buy_stream(
                 browser_window_state=browser_window_state,
                 ticket_collection_t=current_time_ms(timeoffset=timeoffset),
                 href_length=len(
-                    f"https://mall.bilibili.com/neul-next/ticket-renovation/detail.html?id={tickets_info['project_id']}"
+                    f"https://mall.bilibili.com/neul-next/ticket-renovation/detail.html?id={tickets_info['project_id']}&noTitleBar=1&from=pc_order_detail"
                 ),
                 user_agent_length=len(_request.get_user_agent()),
             )
@@ -589,22 +589,22 @@ def buy_stream(
                     CREATE_RETRY_LIMIT,
                 )
                 ticket_collection.touch(min_count=2, max_count=5)  # 写订单中
+                url, payload = _prepare_create_request(
+                    _request,
+                    ticket_collection,
+                    tickets_info,
+                    order_token,
+                    timeoffset=timeoffset,
+                    is_hot_project=is_hot_project,
+                    request_result=request_result,
+                )
                 while attempt <= batch_end:
                     if not isRunning:
                         yield "抢票结束"
                         break
                     try:
                         try:
-                            ticket_collection.touch(1)  # 摸了一下
-                            url, payload = _prepare_create_request(
-                                _request,
-                                ticket_collection,
-                                tickets_info,
-                                order_token,
-                                timeoffset=timeoffset,
-                                is_hot_project=is_hot_project,
-                                request_result=request_result,
-                            )
+                            ticket_collection.touch(1)  # 写订单中
                             create_response = _request.post(
                                 url=url,
                                 data=payload,
@@ -619,8 +619,8 @@ def buy_stream(
                             )
                             if not handled_412:
                                 retry_outcome.set_exception(exc)
-                                time.sleep(interval / 1000)
                             attempt += 1
+                            time.sleep(interval / 1000)
                             continue
                         proxy_backoff.reset()
                         err = int(ret.get("errno", ret.get("code")))
@@ -654,7 +654,6 @@ def buy_stream(
                             )
                             tickets_info["pay_money"] = ret["data"]["pay_money"]
                         ticket_collection.visibility_change(probability=0.1)
-                        time.sleep(interval / 1000)
 
                     except RequestException as e:
                         retry_outcome.set_exception(e)
@@ -669,7 +668,6 @@ def buy_stream(
                             attempt_current=attempt,
                             attempt_total=CREATE_RETRY_LIMIT,
                         )
-                        time.sleep(interval / 1000)
 
                     except Exception as e:
                         retry_outcome.set_exception(e)
@@ -679,12 +677,13 @@ def buy_stream(
                             attempt_current=attempt,
                             attempt_total=CREATE_RETRY_LIMIT,
                         )
-                        time.sleep(interval / 1000)
 
                     if result is not None or token_expired:
                         break
                     attempt += 1
+                    time.sleep(randint(100, 300) / 1000)
 
+                time.sleep(interval / 1000)
                 if result is not None or token_expired or not isRunning:
                     break
 

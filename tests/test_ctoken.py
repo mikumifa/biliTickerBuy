@@ -1,4 +1,4 @@
-from util.CTokenUtil import CTokenSnapshot
+from util.CTokenUtil import CTokenSnapshot, init_ctoken_state
 
 
 def test_generate_ctoken_matches_real_sample():
@@ -68,3 +68,23 @@ if __name__ == "__main__":
     test_generate_ctoken_matches_third_real_sample()
     test_generate_ctoken_matches_second_real_sample()
     test_generate_ctoken_matches_real_sample()
+    snapshot = init_ctoken_state().snapshot()
+    snapshot.touchend = 3  # 位置 1
+    snapshot.visibilitychange = 0  # 位置3
+    snapshot.m5 = 145  # 位置7
+    snapshot.openWindow = 0  # 位置6
+    snapshot.timediff = 0  # 位置 10
+
+    #     [
+    #   [1, "H", H],
+    #   [2, "Q", Q],
+    #   [3, "z", z],
+    #   [4, "Y", Y],
+    #   [5, "K", K],
+    #   [6, "W", W],
+    #   [7, "J", J],
+    #   [8, "X", X],
+    #   [9, "$", $],
+    #   [10, "Z", Z],
+    #   [11, "ee", ee],
+    # ]
