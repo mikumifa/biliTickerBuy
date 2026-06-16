@@ -15,7 +15,12 @@ import qrcode
 from loguru import logger
 
 from requests import HTTPError, RequestException
-from cptoken import generate_ctoken, init_ctoken_state, sim_ctoken_state
+from cptoken import (
+    generate_browser_window_state,
+    generate_ctoken,
+    init_ctoken_state,
+    sim_ctoken_state,
+)
 
 from util import time_service
 from util.Notifier import NotifierManager, NotifierConfig
@@ -480,7 +485,7 @@ def buy_stream(
     timeoffset = time_service.get_timeoffset()
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
     use_local_token = bool(use_local_token)
-
+    browser_window_state = generate_browser_window_state()
     token_payload = _build_token_payload(tickets_info)
 
     for wait_message in _wait_until_start(time_start):
@@ -510,7 +515,13 @@ def buy_stream(
             if is_hot_project:
                 # hot
                 yield emit("stage", "开始准备订单", stage="订单准备")
-                pre_state = init_ctoken_state()
+                pre_state = init_ctoken_state(
+                    browser_window_state=browser_window_state,
+                    href_length=len(
+                        f"https://mall.bilibili.com/neul-next/ticket-renovation/detail.html?id={tickets_info['project_id']}"
+                    ),
+                    user_agent_length=len(_request.get_user_agent()),
+                )
                 token_payload["token"] = generate_ctoken(**pre_state)
                 logger.info(f"itoken: {token_payload['token']}")
                 request_result_normal = _request.post(

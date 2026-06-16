@@ -2,6 +2,7 @@ import base64
 import random
 import struct
 import time
+from typing import TypedDict
 from loguru import logger
 
 
@@ -54,37 +55,153 @@ def generate_ctoken(
     return base64.b64encode(transport_bytes).decode("utf-8")
 
 
+class BrowserWindowState(TypedDict):
+    scrollX: int
+    scrollY: int
+    innerWidth: int
+    innerHeight: int
+    outerWidth: int
+    outerHeight: int
+    screenX: int
+    screenY: int
+    screenWidth: int
+    screenHeight: int
+    screenAvailWidth: int
+    screenAvailHeight: int
+
+
+def generate_browser_window_state(
+    *,
+    screen_width: int | None = None,
+    screen_height: int | None = None,
+    maximized: bool | None = None,
+    scroll: bool = False,
+) -> BrowserWindowState:
+    """
+    生成一组自洽的浏览器窗口尺寸参数。
+
+    对应 JS 字段：
+    - window.scrollX
+    - window.scrollY
+    - window.innerWidth
+    - window.innerHeight
+    - window.outerWidth
+    - window.outerHeight
+    - window.screenX
+    - window.screenY
+    - window.screen.width
+    - window.screen.height
+    - window.screen.availWidth
+    - window.screen.availHeight
+    """
+
+    # 常见桌面分辨率
+    common_screens = [
+        (1920, 1080),
+        (2560, 1440),
+        (1366, 768),
+        (1440, 900),
+        (1536, 864),
+        (1600, 900),
+        (1280, 720),
+    ]
+
+    if screen_width is None or screen_height is None:
+        screen_width, screen_height = random.choice(common_screens)
+
+    # 任务栏 / Dock 占用高度
+    taskbar_height = random.choice([40, 48, 56, 64])
+    screen_avail_width = screen_width
+    screen_avail_height = screen_height - taskbar_height
+
+    if maximized is None:
+        maximized = random.random() < 0.65
+
+    # 浏览器外框与内容区的差值
+    # Chrome/Edge/Firefox 桌面端大概会有顶部工具栏、标签栏、边框等
+    chrome_width_delta = random.choice([0, 8, 12, 16])
+    chrome_height_delta = random.choice([80, 88, 96, 104, 112, 120])
+
+    if maximized:
+        outer_width = screen_avail_width
+        outer_height = screen_avail_height
+
+        screen_x = 0
+        screen_y = 0
+
+        inner_width = outer_width - chrome_width_delta
+        inner_height = outer_height - chrome_height_delta
+
+    else:
+        # 非最大化窗口，一般占屏幕的 60% ~ 90%
+        outer_width = random.randint(
+            int(screen_avail_width * 0.60),
+            int(screen_avail_width * 0.90),
+        )
+        outer_height = random.randint(
+            int(screen_avail_height * 0.60),
+            int(screen_avail_height * 0.90),
+        )
+
+        max_x = max(0, screen_avail_width - outer_width)
+        max_y = max(0, screen_avail_height - outer_height)
+
+        screen_x = random.randint(0, max_x)
+        screen_y = random.randint(0, max_y)
+
+        inner_width = outer_width - chrome_width_delta
+        inner_height = outer_height - chrome_height_delta
+
+    # 防止极端小值
+    inner_width = max(320, inner_width)
+    inner_height = max(240, inner_height)
+
+    if scroll:
+        scroll_x = random.choice([0, 0, 0, random.randint(1, 200)])
+        scroll_y = random.choice([0, random.randint(50, 2000)])
+    else:
+        scroll_x = 0
+        scroll_y = 0
+
+    return {
+        "scrollX": scroll_x,
+        "scrollY": scroll_y,
+        "innerWidth": inner_width,
+        "innerHeight": inner_height,
+        "outerWidth": outer_width,
+        "outerHeight": outer_height,
+        "screenX": screen_x,
+        "screenY": screen_y,
+        "screenWidth": screen_width,
+        "screenHeight": screen_height,
+        "screenAvailWidth": screen_avail_width,
+        "screenAvailHeight": screen_avail_height,
+    }
+
+
 def init_ctoken_state(
-    scroll_x: int = 0,
-    scroll_y: int = 0,
-    inner_width: int = random.randint(1000, 3000),
-    inner_height: int = random.randint(1000, 3000),
-    outer_width: int = random.randint(1000, 3000),
-    outer_height: int = random.randint(1000, 3000),
-    screen_x: int = 0,
-    screen_y: int = 0,
-    screen_width: int = random.randint(1000, 3000),
-    screen_height: int = random.randint(1000, 3000),
-    screen_avail_width: int = random.randint(1, 100),
+    ## BrowserWindowState
+    browser_window_state: BrowserWindowState | None = generate_browser_window_state(),
+    ## Other
     history_length: int = random.randint(2, 10),
     user_agent_length: int = 140,
-    href_length: int = 140,
-    device_pixel_ratio: float = 1.0,
+    href_length: int = 76,
+    device_pixel_ratio: float = 4.0,
 ) -> dict[str, int]:
     def derive_d(index: int) -> int:
         now_mod_256 = int(time.time() * 1000) % 256
         values = [
-            scroll_x,
-            scroll_y,
-            inner_width,
-            inner_height,
-            outer_width,
-            outer_height,
-            screen_x,
-            screen_y,
-            screen_width,
-            screen_height,
-            screen_avail_width,
+            browser_window_state["scrollX"],
+            browser_window_state["scrollY"],
+            browser_window_state["innerWidth"],
+            browser_window_state["innerHeight"],
+            browser_window_state["outerWidth"],
+            browser_window_state["outerHeight"],
+            browser_window_state["screenX"],
+            browser_window_state["screenY"],
+            browser_window_state["screenWidth"],
+            browser_window_state["screenHeight"],
+            browser_window_state["screenAvailWidth"],
             history_length,
             user_agent_length,
             href_length,

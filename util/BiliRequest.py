@@ -31,6 +31,9 @@ class BiliRequest:
         self.proxy_manager.apply_to_session(self.session)
         return True
 
+    def get_user_agent(self) -> str:
+        return self.headers.get("user-agent", "")
+
     def snapshot_proxy_state(self) -> int:
         return self.proxy_manager.snapshot()
 
