@@ -1,6 +1,5 @@
 import base64
 import random
-import struct
 import time
 from typing import TypedDict
 from loguru import logger
@@ -21,38 +20,43 @@ def generate_ctoken(
     m7: int = -1,
     m8: int = -1,
     m9: int = -1,
+    beforeunload: int = -1,
+    ticket_collection_t: int = 0,
 ) -> str:
-    def js_uint8(value: int | float) -> int:
-        v = int(float(value))
-        if v > 255:
-            v = 255
-        return v & 0xFF
+    _ = ticket_collection_t
 
-    def js_uint16(value: int | float) -> int:
-        v = int(float(value))
-        if v > 65535:
-            v = 65535
-        return v & 0xFFFF
+    if touchend == -1:
+        touchend = random.randint(30, 50)
+    if visibilitychange == -1:
+        visibilitychange = random.randint(10, 50)
+    if beforeunload == -1:
+        beforeunload = openWindow if openWindow != -1 else random.randint(10, 50)
+    if timer == -1:
+        timer = random.randint(1, 10)
 
-    semantic_bytes = struct.pack(
-        ">8B2H4B",
-        js_uint8(m1),  # 0
-        js_uint8(touchend),  # 1
-        js_uint8(m2),  # 2
-        js_uint8(visibilitychange),  # 3
-        js_uint8(m3),  # 4
-        js_uint8(m4),  # 5
-        js_uint8(openWindow),  # 6
-        js_uint8(m5),  # 7
-        js_uint16(timer),  # 8-9
-        js_uint16(timediff),  # 10-11
-        js_uint8(m6),  # 12
-        js_uint8(m7),  # 13
-        js_uint8(m8),  # 14
-        js_uint8(m9),  # 15
+    def _b1(x: int) -> bytes:
+        try:
+            return int(x).to_bytes(1, "big")
+        except OverflowError:
+            return b"\xff"
+
+    tb = (
+        _b1(m1) + b"\x00" + _b1(touchend) + b"\x00" + _b1(m2) + b"\x00"
+        + _b1(visibilitychange) + b"\x00" + _b1(m3) + b"\x00" + _b1(m4) + b"\x00"
+        + _b1(beforeunload) + b"\x00" + _b1(m5) + b"\x00"
     )
-    transport_bytes = semantic_bytes.decode("latin1").encode("utf-16le")
-    return base64.b64encode(transport_bytes).decode("utf-8")
+    try:
+        tt = int(timer).to_bytes(2, "big")
+        tb += _b1(tt[0]) + b"\x00" + _b1(tt[1]) + b"\x00"
+    except OverflowError:
+        tb += b"\xff\x00\xff\x00"
+    try:
+        tc = int(float(timediff)).to_bytes(2, "big")
+        tb += _b1(tc[0]) + b"\x00" + _b1(tc[1]) + b"\x00"
+    except OverflowError:
+        tb += b"\xff\x00\xff\x00"
+    tb += _b1(m6) + b"\x00" + _b1(m7) + b"\x00" + _b1(m8) + b"\x00" + _b1(m9) + b"\x00"
+    return base64.b64encode(tb).decode("utf-8")
 
 
 class BrowserWindowState(TypedDict):
@@ -77,25 +81,6 @@ def generate_browser_window_state(
     maximized: bool | None = None,
     scroll: bool = False,
 ) -> BrowserWindowState:
-    """
-    生成一组自洽的浏览器窗口尺寸参数。
-
-    对应 JS 字段：
-    - window.scrollX
-    - window.scrollY
-    - window.innerWidth
-    - window.innerHeight
-    - window.outerWidth
-    - window.outerHeight
-    - window.screenX
-    - window.screenY
-    - window.screen.width
-    - window.screen.height
-    - window.screen.availWidth
-    - window.screen.availHeight
-    """
-
-    # 常见桌面分辨率
     common_screens = [
         (1920, 1080),
         (2560, 1440),
@@ -109,7 +94,6 @@ def generate_browser_window_state(
     if screen_width is None or screen_height is None:
         screen_width, screen_height = random.choice(common_screens)
 
-    # 任务栏 / Dock 占用高度
     taskbar_height = random.choice([40, 48, 56, 64])
     screen_avail_width = screen_width
     screen_avail_height = screen_height - taskbar_height
@@ -117,23 +101,17 @@ def generate_browser_window_state(
     if maximized is None:
         maximized = random.random() < 0.65
 
-    # 浏览器外框与内容区的差值
-    # Chrome/Edge/Firefox 桌面端大概会有顶部工具栏、标签栏、边框等
     chrome_width_delta = random.choice([0, 8, 12, 16])
     chrome_height_delta = random.choice([80, 88, 96, 104, 112, 120])
 
     if maximized:
         outer_width = screen_avail_width
         outer_height = screen_avail_height
-
         screen_x = 0
         screen_y = 0
-
         inner_width = outer_width - chrome_width_delta
         inner_height = outer_height - chrome_height_delta
-
     else:
-        # 非最大化窗口，一般占屏幕的 60% ~ 90%
         outer_width = random.randint(
             int(screen_avail_width * 0.60),
             int(screen_avail_width * 0.90),
@@ -142,17 +120,13 @@ def generate_browser_window_state(
             int(screen_avail_height * 0.60),
             int(screen_avail_height * 0.90),
         )
-
         max_x = max(0, screen_avail_width - outer_width)
         max_y = max(0, screen_avail_height - outer_height)
-
         screen_x = random.randint(0, max_x)
         screen_y = random.randint(0, max_y)
-
         inner_width = outer_width - chrome_width_delta
         inner_height = outer_height - chrome_height_delta
 
-    # 防止极端小值
     inner_width = max(320, inner_width)
     inner_height = max(240, inner_height)
 
@@ -180,9 +154,7 @@ def generate_browser_window_state(
 
 
 def init_ctoken_state(
-    ## BrowserWindowState
     browser_window_state: BrowserWindowState | None = generate_browser_window_state(),
-    ## Other
     history_length: int = random.randint(2, 10),
     user_agent_length: int = 140,
     href_length: int = 76,
@@ -210,18 +182,14 @@ def init_ctoken_state(
         ]
         return (values[index % 16] + values[(3 * index) % 16] + 17 * index) & 255
 
-    touchend = 0
-    visibilitychange = 0
-    open_window = 1
-
     ret = {
         "m1": derive_d(1),
-        "touchend": touchend,
+        "touchend": 0,
         "m2": derive_d(2),
-        "visibilitychange": visibilitychange,
+        "visibilitychange": 0,
         "m3": derive_d(3),
         "m4": derive_d(4),
-        "openWindow": open_window,
+        "openWindow": 1,
         "m5": derive_d(5),
         "timer": random.randint(10, 100),
         "timediff": 0,
@@ -241,7 +209,6 @@ def sim_ctoken_state(
     base_timer: int = 0,
     add_action: bool = True,
 ) -> dict[str, int]:
-    # randome update timer,touchend,visibilitychange,openWindow
     if add_action:
         touchend_add = random.choice([0, 0, 1, 2])
         open_window_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
@@ -250,6 +217,7 @@ def sim_ctoken_state(
         touchend_add = 0
         open_window_add = 0
         visibilitychange_add = 0
+
     ret = {
         "m1": before_state["m1"],
         "touchend": before_state["touchend"] + touchend_add,
@@ -260,8 +228,7 @@ def sim_ctoken_state(
         "openWindow": before_state["openWindow"] + open_window_add,
         "m5": before_state["m5"],
         "timer": base_timer + int((now_ms - ticket_collection_t) / 1000),
-        "timediff": (now_ms - ticket_collection_t)
-        / 1000,  # payload.timestamp-ticket_collection_t
+        "timediff": max(0.0, (now_ms - ticket_collection_t) / 1000),
         "m6": before_state["m6"],
         "m7": before_state["m7"],
         "m8": before_state["m8"],
