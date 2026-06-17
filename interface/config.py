@@ -261,7 +261,7 @@ def build_runtime_options(
     proxy_max_consecutive_failures: int = 2,
     proxy_cooldown_seconds: int = 180,
     proxy_backoff_max_seconds: int = 600,
-    auto_open_payment_url: bool = False,
+    auto_open_payment_url: bool = True,
     log_level: str = "standard",
     log_retention_days: int = 7,
 ) -> dict[str, Any]:

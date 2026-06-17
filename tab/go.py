@@ -380,7 +380,7 @@ def go_start_tab():
             notify_proxy_exhausted = False
         auto_open_payment_url = ConfigDB.get("autoOpenPaymentUrl")
         if auto_open_payment_url is None:
-            auto_open_payment_url = False
+            auto_open_payment_url = True
         show_qrcode = ConfigDB.get("showQrcode")
         if show_qrcode is None:
             show_qrcode = True
@@ -878,7 +878,7 @@ def go_settings_tab(header_ui):
         show_qrcode_default = True
     auto_open_payment_url_default = ConfigDB.get("autoOpenPaymentUrl")
     if auto_open_payment_url_default is None:
-        auto_open_payment_url_default = False
+        auto_open_payment_url_default = True
     use_local_token_default = ConfigDB.get("useLocalToken")
     if use_local_token_default is None:
         use_local_token_default = False

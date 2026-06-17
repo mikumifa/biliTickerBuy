@@ -1,10 +1,11 @@
+import ctypes
 import gradio as gr
 import html
+import json
 import os
 import signal
 import subprocess
 import time
-import ctypes
 from datetime import datetime
 
 from util import GlobalStatusInstance
@@ -21,6 +22,33 @@ OPEN_LOG_JS = """
 (url) => {
     if (url) {
         window.open(url, "_blank", "noopener,noreferrer");
+    }
+}
+"""
+OPEN_PAYMENT_URLS_JS = """
+(payload) => {
+    if (!payload) {
+        return;
+    }
+    let urls = [];
+    try {
+        urls = JSON.parse(payload);
+    } catch (_err) {
+        return;
+    }
+    const storageKey = "btb-opened-payment-urls";
+    const opened = new Set(JSON.parse(window.localStorage.getItem(storageKey) || "[]"));
+    let changed = false;
+    for (const url of urls) {
+        if (!url || opened.has(url)) {
+            continue;
+        }
+        window.open(url, "_blank", "noopener,noreferrer");
+        opened.add(url);
+        changed = true;
+    }
+    if (changed) {
+        window.localStorage.setItem(storageKey, JSON.stringify(Array.from(opened)));
     }
 }
 """
@@ -226,6 +254,9 @@ def terminate_task(pid: int) -> str:
 def sync_task_statuses() -> list:
     entries = GlobalStatusInstance.get_task_logs()
     for entry in entries:
+        payment_qr_url = extract_payment_qr_url(entry.log_file)
+        if payment_qr_url:
+            entry.payment_qr_url = payment_qr_url
         if not entry.pid:
             continue
         if entry.status == TASK_STATUS_STOPPED:
@@ -261,8 +292,35 @@ def log_contains_marker(log_file: str, marker: str) -> bool:
         return False
 
 
+def extract_payment_qr_url(log_file: str) -> str | None:
+    try:
+        with open(log_file, "rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - 16384))
+            content = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return None
+
+    marker = "PAYMENT_QR_URL="
+    for line in reversed(content.splitlines()):
+        if marker in line:
+            return line.split(marker, 1)[1].strip()
+    return None
+
+
 def refresh_task_panel():
     return _refresh_token(), gr.update(visible=bool(visible_task_entries()))
+
+
+def refresh_task_panel_with_payments():
+    entries = visible_task_entries()
+    urls = [entry.payment_qr_url for entry in entries if entry.payment_qr_url]
+    return (
+        _refresh_token(),
+        gr.update(visible=bool(entries)),
+        json.dumps(urls, ensure_ascii=False),
+    )
 
 
 def refresh_log_panel():
@@ -349,6 +407,8 @@ def read_task_log_locations():
 
 def render_task_manager_panel(task_panel):
     refresh_token = gr.State(_refresh_token())
+    payment_url_bus = gr.Textbox(visible=False)
+    auto_refresh_timer = gr.Timer(value=2.0)
     with gr.Row(elem_classes="btb-task-toolbar-row"):
         gr.HTML("""<div class="btb-card-head"><div><h3>抢票任务管理</h3></div></div>""")
         refresh_btn = gr.Button(
@@ -421,9 +481,21 @@ def render_task_manager_panel(task_panel):
                         )
 
     refresh_btn.click(
-        fn=refresh_task_panel,
+        fn=refresh_task_panel_with_payments,
         inputs=None,
-        outputs=[refresh_token, task_panel],
+        outputs=[refresh_token, task_panel, payment_url_bus],
+    )
+    auto_refresh_timer.tick(
+        fn=refresh_task_panel_with_payments,
+        inputs=None,
+        outputs=[refresh_token, task_panel, payment_url_bus],
+        show_progress="hidden",
+    )
+    payment_url_bus.change(
+        fn=None,
+        inputs=payment_url_bus,
+        outputs=None,
+        js=OPEN_PAYMENT_URLS_JS,
     )
     return refresh_token
 
