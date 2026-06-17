@@ -5,6 +5,7 @@ import sys
 import time
 import uuid
 import copy
+import webbrowser
 from random import randint
 import datetime
 from collections.abc import Generator
@@ -350,6 +351,10 @@ def buy_stream(
     create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
     create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
     outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
+    proxy_max_consecutive_failures: int = 2,
+    proxy_cooldown_seconds: int = 180,
+    proxy_backoff_max_seconds: int = 600,
+    auto_open_payment_url: bool = False,
 ):
     state = BuyStreamState()
 
@@ -481,8 +486,13 @@ def buy_stream(
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
     masked_proxies = ProxyManager.mask_proxy_string(https_proxys)
     logger.info(f"目前已配置代理：{masked_proxies or '直连'}")
-    _request = BiliRequest(cookies=cookies, proxy=https_proxys)
-    proxy_backoff = ProxyBackoff()
+    _request = BiliRequest(
+        cookies=cookies,
+        proxy=https_proxys,
+        proxy_failure_threshold=proxy_max_consecutive_failures,
+        proxy_cooldown_seconds=proxy_cooldown_seconds,
+    )
+    proxy_backoff = ProxyBackoff(max_seconds=proxy_backoff_max_seconds)
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
     _request.use_h2 = is_hot_project
     use_local_token = bool(use_local_token)
@@ -709,12 +719,6 @@ def buy_stream(
                 if result is not None or token_expired or not isRunning:
                     break
 
-                yield emit(
-                    "status",
-                    "本批次创建订单未成功，重新准备 CreateV2 请求",
-                    attempt_current=None,
-                    attempt_total=effective_retry_limit,
-                )
                 if effective_outer_loop_interval > 0:
                     time.sleep(effective_outer_loop_interval / 1000)
             else:
@@ -755,6 +759,17 @@ def buy_stream(
                     _request,
                     request_result["data"]["orderId"],  # type: ignore
                 )
+                if auto_open_payment_url:
+                    try:
+                        webbrowser.open(qrcode_url)
+                        yield emit(
+                            "status",
+                            "已自动打开支付链接",
+                            payment_qr_url=qrcode_url,
+                            status="succeeded",
+                        )
+                    except Exception as exc:
+                        yield emit("status", f"自动打开支付链接失败: {exc}")
                 if show_qrcode:
                     qr_gen = qrcode.QRCode()
                     qr_gen.add_data(qrcode_url)
@@ -805,6 +820,10 @@ def buy(
     create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
     create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
     outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
+    proxy_max_consecutive_failures: int = 2,
+    proxy_cooldown_seconds: int = 180,
+    proxy_backoff_max_seconds: int = 600,
+    auto_open_payment_url: bool = False,
 ):
     notifier_config = NotifierConfig(
         serverchan_key=serverchanKey,
@@ -831,6 +850,10 @@ def buy(
         create_retry_limit=create_retry_limit,
         create_request_batch_size=create_request_batch_size,
         outer_loop_interval=outer_loop_interval,
+        proxy_max_consecutive_failures=proxy_max_consecutive_failures,
+        proxy_cooldown_seconds=proxy_cooldown_seconds,
+        proxy_backoff_max_seconds=proxy_backoff_max_seconds,
+        auto_open_payment_url=auto_open_payment_url,
     ):
         if msg.message is not None:
             logger.info(msg.message)
@@ -852,11 +875,18 @@ def buy_new_terminal(
     meowNickname=None,
     notify_proxy_exhausted=False,
     show_random_message=True,
+    show_qrcode=True,
     use_local_token=False,
     log_file_path: str | None = None,
     create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
     create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
     outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
+    proxy_max_consecutive_failures: int = 2,
+    proxy_cooldown_seconds: int = 180,
+    proxy_backoff_max_seconds: int = 600,
+    auto_open_payment_url: bool = False,
+    log_level: str | None = None,
+    log_retention_days: int | None = None,
 ) -> subprocess.Popen:
     command = None
 
@@ -883,6 +913,11 @@ def buy_new_terminal(
     command.extend(["--outer_interval", str(outer_loop_interval)])
     command.extend(["--create_retry_limit", str(create_retry_limit)])
     command.extend(["--create_request_batch_size", str(create_request_batch_size)])
+    command.extend(
+        ["--proxy_max_consecutive_failures", str(proxy_max_consecutive_failures)]
+    )
+    command.extend(["--proxy_cooldown_seconds", str(proxy_cooldown_seconds)])
+    command.extend(["--proxy_backoff_max_seconds", str(proxy_backoff_max_seconds)])
     if time_start:
         command.extend(["--time_start", time_start])
     if audio_path:
@@ -909,10 +944,27 @@ def buy_new_terminal(
         command.extend(["--https_proxys", https_proxys])
     if not show_random_message:
         command.extend(["--hide_random_message"])
+    if not show_qrcode:
+        command.extend(["--hide_qrcode"])
+    if auto_open_payment_url:
+        command.extend(["--auto_open_payment_url"])
     if use_local_token:
         command.extend(["--use_local_token"])
     env = os.environ.copy()
     env["BTB_PARENT_PID"] = str(os.getpid())
+    if log_level:
+        normalized_log_level = str(log_level).lower()
+        if normalized_log_level == "simple":
+            env["BTB_LOG_LEVEL"] = "INFO"
+            env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
+        elif normalized_log_level == "debug":
+            env["BTB_LOG_LEVEL"] = "DEBUG"
+            env["BTB_CONSOLE_LOG_LEVEL"] = "DEBUG"
+        else:
+            env["BTB_LOG_LEVEL"] = "DEBUG"
+            env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
+    if log_retention_days is not None:
+        env["BTB_LOG_RETENTION_DAYS"] = str(log_retention_days)
     if log_file_path:
         env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)
     else:

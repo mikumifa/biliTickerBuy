@@ -9,6 +9,22 @@ from util.task_markers import TASK_STOPPED_MARKER
 
 
 def buy_cmd(args: Namespace):
+    normalized_log_level = str(
+        getattr(args, "log_level", "standard") or "standard"
+    ).lower()
+    if normalized_log_level == "simple":
+        os.environ["BTB_LOG_LEVEL"] = "INFO"
+        os.environ["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
+    elif normalized_log_level == "debug":
+        os.environ["BTB_LOG_LEVEL"] = "DEBUG"
+        os.environ["BTB_CONSOLE_LOG_LEVEL"] = "DEBUG"
+    else:
+        os.environ["BTB_LOG_LEVEL"] = "DEBUG"
+        os.environ["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
+    os.environ["BTB_LOG_RETENTION_DAYS"] = str(
+        max(1, int(getattr(args, "log_retention_days", 7)))
+    )
+
     from util.LogConfig import loguru_config
     import uuid
 
@@ -197,11 +213,15 @@ def buy_cmd(args: Namespace):
                 build_notifier_config(),
                 args.https_proxys,
                 not args.hide_random_message,
-                False,
+                not args.hide_qrcode,
                 args.use_local_token,
                 args.create_retry_limit,
                 args.create_request_batch_size,
                 args.outer_interval,
+                args.proxy_max_consecutive_failures,
+                args.proxy_cooldown_seconds,
+                args.proxy_backoff_max_seconds,
+                args.auto_open_payment_url,
             ),
             on_message=logger.info,
         )
@@ -242,11 +262,15 @@ def buy_cmd(args: Namespace):
                 args.meowNickname,
                 args.notify_proxy_exhausted,
                 not args.hide_random_message,
-                True,
+                not args.hide_qrcode,
                 use_local_token=args.use_local_token,
                 create_retry_limit=args.create_retry_limit,
                 create_request_batch_size=args.create_request_batch_size,
                 outer_loop_interval=args.outer_interval,
+                proxy_max_consecutive_failures=args.proxy_max_consecutive_failures,
+                proxy_cooldown_seconds=args.proxy_cooldown_seconds,
+                proxy_backoff_max_seconds=args.proxy_backoff_max_seconds,
+                auto_open_payment_url=args.auto_open_payment_url,
             )
     except KeyboardInterrupt:
         logger.warning("收到 Ctrl+C，已停止当前抢票流程。")

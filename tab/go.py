@@ -3,6 +3,7 @@ import html
 import json
 import os
 import re
+import threading
 import time
 import uuid
 
@@ -27,6 +28,12 @@ DEFAULT_REQUEST_INTERVAL = 1000
 DEFAULT_OUTER_INTERVAL = 0
 DEFAULT_CREATE_RETRY_LIMIT = 20
 DEFAULT_CREATE_REQUEST_BATCH_SIZE = 3
+DEFAULT_PROXY_MAX_CONSECUTIVE_FAILURES = 2
+DEFAULT_PROXY_COOLDOWN_SECONDS = 180
+DEFAULT_PROXY_BACKOFF_MAX_SECONDS = 600
+DEFAULT_LOG_RETENTION_DAYS = 7
+DEFAULT_MAX_LOG_FILES = 200
+DEFAULT_MAX_RUN_DIRS = 100
 
 
 def _get_config_int(key: str, default: int) -> int:
@@ -283,6 +290,69 @@ def go_start_tab():
             assigned_proxies[i % task_num].append(proxy)
         return assigned_proxies
 
+    def launch_task(
+        filename: str,
+        *,
+        assigned_proxy: str,
+        time_start: str,
+        interval: int,
+        audio_path: str,
+        hide_random_message: bool,
+        notify_proxy_exhausted: bool,
+        show_qrcode: bool,
+        use_local_token: bool,
+        outer_interval: int,
+        create_retry_limit: int,
+        create_request_batch_size: int,
+        proxy_max_consecutive_failures: int,
+        proxy_cooldown_seconds: int,
+        proxy_backoff_max_seconds: int,
+        auto_open_payment_url: bool,
+        log_level: str,
+        log_retention_days: int,
+    ):
+        with open(filename, "r", encoding="utf-8") as file:
+            content = file.read()
+        filename_only = os.path.basename(filename)
+        logger.info(f"启动 {filename_only}")
+        log_file_path = _build_task_log_path(filename_only)
+        logger.info(f"任务 {filename_only} 的日志文件：{log_file_path}")
+        proc = buy_new_terminal(
+            tickets_info=content,
+            time_start=time_start,
+            interval=interval,
+            audio_path=audio_path,
+            pushplusToken=ConfigDB.get("pushplusToken"),
+            serverchanKey=ConfigDB.get("serverchanKey"),
+            serverchan3ApiUrl=ConfigDB.get("serverchan3ApiUrl"),
+            barkToken=ConfigDB.get("barkToken"),
+            ntfy_url=ConfigDB.get("ntfyUrl"),
+            ntfy_username=ConfigDB.get("ntfyUsername"),
+            ntfy_password=ConfigDB.get("ntfyPassword"),
+            notify_proxy_exhausted=notify_proxy_exhausted,
+            https_proxys=assigned_proxy,
+            show_random_message=not hide_random_message,
+            show_qrcode=show_qrcode,
+            use_local_token=use_local_token,
+            log_file_path=log_file_path,
+            create_retry_limit=create_retry_limit,
+            create_request_batch_size=create_request_batch_size,
+            outer_loop_interval=outer_interval,
+            proxy_max_consecutive_failures=proxy_max_consecutive_failures,
+            proxy_cooldown_seconds=proxy_cooldown_seconds,
+            proxy_backoff_max_seconds=proxy_backoff_max_seconds,
+            auto_open_payment_url=auto_open_payment_url,
+            log_level=log_level,
+            log_retention_days=log_retention_days,
+        )
+        GlobalStatusInstance.register_task_log(
+            title=filename_only,
+            mode="终端",
+            log_file=log_file_path,
+            pid=proc.pid,
+        )
+        return proc
+
     def start_go(files, time_start, interval):
         if not files:
             gr.Warning("未提交抢票配置。")
@@ -307,9 +377,19 @@ def go_start_tab():
         notify_proxy_exhausted = ConfigDB.get("notifyProxyExhausted")
         if notify_proxy_exhausted is None:
             notify_proxy_exhausted = False
+        auto_open_payment_url = ConfigDB.get("autoOpenPaymentUrl")
+        if auto_open_payment_url is None:
+            auto_open_payment_url = False
+        show_qrcode = ConfigDB.get("showQrcode")
+        if show_qrcode is None:
+            show_qrcode = True
         use_local_token = ConfigDB.get("useLocalToken")
         if use_local_token is None:
             use_local_token = False
+        proxy_assignment_strategy = str(
+            ConfigDB.get("proxyAssignmentStrategy") or "balanced"
+        ).lower()
+        log_level = str(ConfigDB.get("logLevel") or "standard").lower()
         outer_interval = _get_config_int("outerLoopInterval", DEFAULT_OUTER_INTERVAL)
         create_retry_limit = _get_config_int(
             "createRetryLimit",
@@ -319,44 +399,98 @@ def go_start_tab():
             "createRequestBatchSize",
             DEFAULT_CREATE_REQUEST_BATCH_SIZE,
         )
+        proxy_max_consecutive_failures = _get_config_int(
+            "proxyMaxConsecutiveFailures",
+            DEFAULT_PROXY_MAX_CONSECUTIVE_FAILURES,
+        )
+        proxy_cooldown_seconds = _get_config_int(
+            "proxyCooldownSeconds",
+            DEFAULT_PROXY_COOLDOWN_SECONDS,
+        )
+        proxy_backoff_max_seconds = _get_config_int(
+            "proxyBackoffMaxSeconds",
+            DEFAULT_PROXY_BACKOFF_MAX_SECONDS,
+        )
+        queue_concurrency_limit = _get_config_int("queueConcurrencyLimit", 0)
+        log_retention_days = _get_config_int(
+            "logRetentionDays",
+            DEFAULT_LOG_RETENTION_DAYS,
+        )
+        auto_cleanup_logs = ConfigDB.get("autoCleanupLogs")
+        if auto_cleanup_logs is None:
+            auto_cleanup_logs = True
+        if auto_cleanup_logs:
+            from util.CleanupUtil import cleanup_runtime_artifacts
+
+            cleanup_runtime_artifacts(
+                logs_dir=LOG_DIR,
+                runs_dir=os.path.join(os.path.dirname(LOG_DIR), "btb_runs"),
+                retention_days=log_retention_days,
+                max_log_files=_get_config_int("maxLogFiles", DEFAULT_MAX_LOG_FILES),
+                max_run_dirs=_get_config_int("maxRunDirs", DEFAULT_MAX_RUN_DIRS),
+            )
+
+        launch_kwargs = {
+            "time_start": time_start,
+            "interval": interval,
+            "audio_path": audio_path,
+            "hide_random_message": hide_random_message,
+            "notify_proxy_exhausted": notify_proxy_exhausted,
+            "show_qrcode": show_qrcode,
+            "use_local_token": use_local_token,
+            "outer_interval": outer_interval,
+            "create_retry_limit": create_retry_limit,
+            "create_request_batch_size": create_request_batch_size,
+            "proxy_max_consecutive_failures": proxy_max_consecutive_failures,
+            "proxy_cooldown_seconds": proxy_cooldown_seconds,
+            "proxy_backoff_max_seconds": proxy_backoff_max_seconds,
+            "auto_open_payment_url": auto_open_payment_url,
+            "log_level": log_level,
+            "log_retention_days": log_retention_days,
+        }
+
+        if proxy_assignment_strategy == "queue":
+            worker_count = len(https_proxy_list)
+            if queue_concurrency_limit > 0:
+                worker_count = min(worker_count, queue_concurrency_limit)
+            worker_count = max(1, min(worker_count, len(files)))
+            pending_files = list(files)
+            pending_lock = threading.Lock()
+
+            def queue_worker(proxy_slot: str):
+                while True:
+                    with pending_lock:
+                        if not pending_files:
+                            return
+                        current_file = pending_files.pop(0)
+                    try:
+                        proc = launch_task(
+                            current_file,
+                            assigned_proxy=proxy_slot,
+                            **launch_kwargs,
+                        )
+                        proc.wait()
+                    except Exception as exc:
+                        logger.exception(exc)
+
+            for worker_idx in range(worker_count):
+                threading.Thread(
+                    target=queue_worker,
+                    args=(https_proxy_list[worker_idx % len(https_proxy_list)],),
+                    name=f"btb-queue-worker-{worker_idx + 1}",
+                    daemon=True,
+                ).start()
+            gr.Info("抢票任务已按队列模式启动。")
+            return gr.update(visible=True)
 
         for idx, filename in enumerate(files):
-            with open(filename, "r", encoding="utf-8") as file:
-                content = file.read()
-            filename_only = os.path.basename(filename)
-            logger.info(f"启动 {filename_only}")
             if assigned_proxies == []:
                 left_task_num = len(files) - idx
                 assigned_proxies = split_proxies(https_proxy_list, left_task_num)
-
-            log_file_path = _build_task_log_path(filename_only)
-            logger.info(f"任务 {filename_only} 的日志文件：{log_file_path}")
-            proc = buy_new_terminal(
-                tickets_info=content,
-                time_start=time_start,
-                interval=interval,
-                audio_path=audio_path,
-                pushplusToken=ConfigDB.get("pushplusToken"),
-                serverchanKey=ConfigDB.get("serverchanKey"),
-                serverchan3ApiUrl=ConfigDB.get("serverchan3ApiUrl"),
-                barkToken=ConfigDB.get("barkToken"),
-                ntfy_url=ConfigDB.get("ntfyUrl"),
-                ntfy_username=ConfigDB.get("ntfyUsername"),
-                ntfy_password=ConfigDB.get("ntfyPassword"),
-                notify_proxy_exhausted=notify_proxy_exhausted,
-                https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
-                show_random_message=not hide_random_message,
-                use_local_token=use_local_token,
-                log_file_path=log_file_path,
-                create_retry_limit=create_retry_limit,
-                create_request_batch_size=create_request_batch_size,
-                outer_loop_interval=outer_interval,
-            )
-            GlobalStatusInstance.register_task_log(
-                title=filename_only,
-                mode="终端",
-                log_file=log_file_path,
-                pid=proc.pid,
+            launch_task(
+                filename,
+                assigned_proxy=",".join(assigned_proxies[assigned_proxies_next_idx]),
+                **launch_kwargs,
             )
             assigned_proxies_next_idx += 1
         gr.Info("抢票任务已启动，下面可以直接查看日志链接或停止任务。")
@@ -597,9 +731,29 @@ def go_settings_tab(header_ui):
         ConfigDB.insert("notifyProxyExhausted", value)
         return gr.update(value=ConfigDB.get("notifyProxyExhausted"))
 
+    def update_show_qrcode(value):
+        ConfigDB.insert("showQrcode", value)
+        return gr.update(value=ConfigDB.get("showQrcode"))
+
+    def update_auto_open_payment_url(value):
+        ConfigDB.insert("autoOpenPaymentUrl", value)
+        return gr.update(value=ConfigDB.get("autoOpenPaymentUrl"))
+
     def update_use_local_token(value):
         ConfigDB.insert("useLocalToken", value)
         return gr.update(value=ConfigDB.get("useLocalToken"))
+
+    def update_proxy_assignment_strategy(value):
+        ConfigDB.insert("proxyAssignmentStrategy", value)
+        return gr.update(value=ConfigDB.get("proxyAssignmentStrategy"))
+
+    def update_log_level(value):
+        ConfigDB.insert("logLevel", value)
+        return gr.update(value=ConfigDB.get("logLevel"))
+
+    def update_auto_cleanup_logs(value):
+        ConfigDB.insert("autoCleanupLogs", value)
+        return gr.update(value=ConfigDB.get("autoCleanupLogs"))
 
     def update_request_interval(value):
         try:
@@ -644,6 +798,64 @@ def go_settings_tab(header_ui):
             )
         )
 
+    def _update_positive_int_config(key: str, value, default: int):
+        try:
+            parsed = max(1, int(value))
+        except (TypeError, ValueError):
+            parsed = default
+        ConfigDB.insert(key, parsed)
+        return gr.update(value=_get_config_int(key, default))
+
+    def update_proxy_max_consecutive_failures(value):
+        return _update_positive_int_config(
+            "proxyMaxConsecutiveFailures",
+            value,
+            DEFAULT_PROXY_MAX_CONSECUTIVE_FAILURES,
+        )
+
+    def update_proxy_cooldown_seconds(value):
+        return _update_positive_int_config(
+            "proxyCooldownSeconds",
+            value,
+            DEFAULT_PROXY_COOLDOWN_SECONDS,
+        )
+
+    def update_proxy_backoff_max_seconds(value):
+        return _update_positive_int_config(
+            "proxyBackoffMaxSeconds",
+            value,
+            DEFAULT_PROXY_BACKOFF_MAX_SECONDS,
+        )
+
+    def update_queue_concurrency_limit(value):
+        try:
+            parsed = max(0, int(value))
+        except (TypeError, ValueError):
+            parsed = 0
+        ConfigDB.insert("queueConcurrencyLimit", parsed)
+        return gr.update(value=_get_config_int("queueConcurrencyLimit", 0))
+
+    def update_log_retention_days(value):
+        return _update_positive_int_config(
+            "logRetentionDays",
+            value,
+            DEFAULT_LOG_RETENTION_DAYS,
+        )
+
+    def update_max_log_files(value):
+        return _update_positive_int_config(
+            "maxLogFiles",
+            value,
+            DEFAULT_MAX_LOG_FILES,
+        )
+
+    def update_max_run_dirs(value):
+        return _update_positive_int_config(
+            "maxRunDirs",
+            value,
+            DEFAULT_MAX_RUN_DIRS,
+        )
+
     hide_random_message_default = ConfigDB.get("hideRandomMessage")
     if hide_random_message_default is None:
         hide_random_message_default = True
@@ -656,9 +868,22 @@ def go_settings_tab(header_ui):
     notify_proxy_exhausted_default = ConfigDB.get("notifyProxyExhausted")
     if notify_proxy_exhausted_default is None:
         notify_proxy_exhausted_default = False
+    show_qrcode_default = ConfigDB.get("showQrcode")
+    if show_qrcode_default is None:
+        show_qrcode_default = True
+    auto_open_payment_url_default = ConfigDB.get("autoOpenPaymentUrl")
+    if auto_open_payment_url_default is None:
+        auto_open_payment_url_default = False
     use_local_token_default = ConfigDB.get("useLocalToken")
     if use_local_token_default is None:
         use_local_token_default = False
+    auto_cleanup_logs_default = ConfigDB.get("autoCleanupLogs")
+    if auto_cleanup_logs_default is None:
+        auto_cleanup_logs_default = True
+    proxy_assignment_strategy_default = str(
+        ConfigDB.get("proxyAssignmentStrategy") or "balanced"
+    ).lower()
+    log_level_default = str(ConfigDB.get("logLevel") or "standard").lower()
     request_interval_default = _get_config_int(
         "requestInterval",
         DEFAULT_REQUEST_INTERVAL,
@@ -675,6 +900,25 @@ def go_settings_tab(header_ui):
         "createRequestBatchSize",
         DEFAULT_CREATE_REQUEST_BATCH_SIZE,
     )
+    proxy_max_consecutive_failures_default = _get_config_int(
+        "proxyMaxConsecutiveFailures",
+        DEFAULT_PROXY_MAX_CONSECUTIVE_FAILURES,
+    )
+    proxy_cooldown_seconds_default = _get_config_int(
+        "proxyCooldownSeconds",
+        DEFAULT_PROXY_COOLDOWN_SECONDS,
+    )
+    proxy_backoff_max_seconds_default = _get_config_int(
+        "proxyBackoffMaxSeconds",
+        DEFAULT_PROXY_BACKOFF_MAX_SECONDS,
+    )
+    queue_concurrency_limit_default = _get_config_int("queueConcurrencyLimit", 0)
+    log_retention_days_default = _get_config_int(
+        "logRetentionDays",
+        DEFAULT_LOG_RETENTION_DAYS,
+    )
+    max_log_files_default = _get_config_int("maxLogFiles", DEFAULT_MAX_LOG_FILES)
+    max_run_dirs_default = _get_config_int("maxRunDirs", DEFAULT_MAX_RUN_DIRS)
 
     with gr.Column(elem_classes="btb-page-section"):
         with gr.Tabs(elem_classes="btb-top-tabs"):
@@ -728,6 +972,33 @@ def go_settings_tab(header_ui):
                           <p><strong>完整搭建说明：</strong><a href="https://github.com/mikumifa/biliTickerBuy/blob/main/docs/proxy-self-hosting.md" target="_blank" rel="noopener noreferrer">GitHub 查看自建代理指南</a></p>
                         </div>
                         """
+                    )
+                    gr.Markdown("## 代理策略")
+                    proxy_max_consecutive_failures_ui = gr.Number(
+                        label="单代理最大连续失败次数",
+                        value=proxy_max_consecutive_failures_default,
+                        minimum=1,
+                        step=1,
+                        info="同一代理在短时间内连续失败多少次后进入冷却。",
+                    )
+                    proxy_cooldown_seconds_ui = gr.Number(
+                        label="代理冷却时间（秒）",
+                        value=proxy_cooldown_seconds_default,
+                        minimum=1,
+                        step=1,
+                        info="代理进入冷却后，多久恢复可用。",
+                    )
+                    proxy_backoff_max_seconds_ui = gr.Number(
+                        label="风控后休眠上限（秒）",
+                        value=proxy_backoff_max_seconds_default,
+                        minimum=1,
+                        step=1,
+                        info="当所有代理都暂时不可用时，程序退避休眠的最大时长。",
+                    )
+                    notify_proxy_exhausted_ui = gr.Checkbox(
+                        label="无可用代理时发送提醒",
+                        value=notify_proxy_exhausted_default,
+                        info="默认关闭。开启后，当所有代理都进入冷却且程序需要休息时，会通过已配置的推送渠道提醒你补充代理。",
                     )
 
             with gr.Tab("音乐"):
@@ -847,6 +1118,73 @@ def go_settings_tab(header_ui):
             with gr.Tab("杂项"):
                 with gr.Column(elem_classes="btb-card btb-layout-card"):
                     gr.Markdown("### 杂项配置")
+                    gr.Markdown("## 支付")
+                    show_qrcode_ui = gr.Checkbox(
+                        label="抢票成功后显示付款二维码",
+                        value=show_qrcode_default,
+                        info="默认开启。关闭后，抢票成功时不再弹出付款二维码。",
+                    )
+                    auto_open_payment_url_ui = gr.Checkbox(
+                        label="抢票成功后自动打开支付链接",
+                        value=auto_open_payment_url_default,
+                        info="默认关闭。开启后，成功获取支付链接时会尝试用系统默认浏览器打开。",
+                    )
+                    gr.Markdown("## 并发")
+                    proxy_assignment_strategy_ui = gr.Dropdown(
+                        label="任务代理分配策略",
+                        choices=[
+                            ("均匀分配", "balanced"),
+                            ("队列模式", "queue"),
+                        ],
+                        value=proxy_assignment_strategy_default,
+                        interactive=True,
+                        allow_custom_value=False,
+                        filterable=False,
+                    )
+                    queue_concurrency_limit_ui = gr.Number(
+                        label="队列并发上限（仅队列模式）",
+                        value=queue_concurrency_limit_default,
+                        minimum=0,
+                        step=1,
+                        info="填 0 表示等于代理数量。",
+                    )
+                    gr.Markdown("## 日志")
+                    log_level_ui = gr.Dropdown(
+                        label="日志级别",
+                        choices=[
+                            ("简洁", "simple"),
+                            ("标准", "standard"),
+                            ("调试", "debug"),
+                        ],
+                        value=log_level_default,
+                        interactive=True,
+                        allow_custom_value=False,
+                        filterable=False,
+                    )
+                    auto_cleanup_logs_ui = gr.Checkbox(
+                        label="启动时自动清理日志",
+                        value=auto_cleanup_logs_default,
+                        info="默认开启。会清理 btb_logs 和 btb_runs 中过旧或过多的内容。",
+                    )
+                    log_retention_days_ui = gr.Number(
+                        label="日志保留天数",
+                        value=log_retention_days_default,
+                        minimum=1,
+                        step=1,
+                    )
+                    max_log_files_ui = gr.Number(
+                        label="最多保留日志文件数",
+                        value=max_log_files_default,
+                        minimum=1,
+                        step=1,
+                    )
+                    max_run_dirs_ui = gr.Number(
+                        label="最多保留运行目录数",
+                        value=max_run_dirs_default,
+                        minimum=1,
+                        step=1,
+                    )
+                    gr.Markdown("## 其他")
                     auto_fill_time_ui = gr.Checkbox(
                         label="默认自动填写抢票时间",
                         value=auto_fill_time_default,
@@ -861,11 +1199,6 @@ def go_settings_tab(header_ui):
                         label="隐藏顶部大 Header",
                         value=hide_header_default,
                         info="默认显示。开启后将隐藏顶部包含项目地址和图标的区域。",
-                    )
-                    notify_proxy_exhausted_ui = gr.Checkbox(
-                        label="无可用代理时发送提醒",
-                        value=notify_proxy_exhausted_default,
-                        info="默认关闭。开启后，当所有代理都进入冷却且程序需要休息时，会通过已配置的推送渠道提醒你补充代理。",
                     )
                     use_local_token_ui = gr.Checkbox(
                         label="使用本地 token",
@@ -959,6 +1292,66 @@ def go_settings_tab(header_ui):
         fn=update_notify_proxy_exhausted,
         inputs=notify_proxy_exhausted_ui,
         outputs=notify_proxy_exhausted_ui,
+    )
+    proxy_max_consecutive_failures_ui.change(
+        fn=update_proxy_max_consecutive_failures,
+        inputs=proxy_max_consecutive_failures_ui,
+        outputs=proxy_max_consecutive_failures_ui,
+    )
+    proxy_cooldown_seconds_ui.change(
+        fn=update_proxy_cooldown_seconds,
+        inputs=proxy_cooldown_seconds_ui,
+        outputs=proxy_cooldown_seconds_ui,
+    )
+    proxy_backoff_max_seconds_ui.change(
+        fn=update_proxy_backoff_max_seconds,
+        inputs=proxy_backoff_max_seconds_ui,
+        outputs=proxy_backoff_max_seconds_ui,
+    )
+    show_qrcode_ui.change(
+        fn=update_show_qrcode,
+        inputs=show_qrcode_ui,
+        outputs=show_qrcode_ui,
+    )
+    auto_open_payment_url_ui.change(
+        fn=update_auto_open_payment_url,
+        inputs=auto_open_payment_url_ui,
+        outputs=auto_open_payment_url_ui,
+    )
+    proxy_assignment_strategy_ui.change(
+        fn=update_proxy_assignment_strategy,
+        inputs=proxy_assignment_strategy_ui,
+        outputs=proxy_assignment_strategy_ui,
+    )
+    queue_concurrency_limit_ui.change(
+        fn=update_queue_concurrency_limit,
+        inputs=queue_concurrency_limit_ui,
+        outputs=queue_concurrency_limit_ui,
+    )
+    log_level_ui.change(
+        fn=update_log_level,
+        inputs=log_level_ui,
+        outputs=log_level_ui,
+    )
+    auto_cleanup_logs_ui.change(
+        fn=update_auto_cleanup_logs,
+        inputs=auto_cleanup_logs_ui,
+        outputs=auto_cleanup_logs_ui,
+    )
+    log_retention_days_ui.change(
+        fn=update_log_retention_days,
+        inputs=log_retention_days_ui,
+        outputs=log_retention_days_ui,
+    )
+    max_log_files_ui.change(
+        fn=update_max_log_files,
+        inputs=max_log_files_ui,
+        outputs=max_log_files_ui,
+    )
+    max_run_dirs_ui.change(
+        fn=update_max_run_dirs,
+        inputs=max_run_dirs_ui,
+        outputs=max_run_dirs_ui,
     )
     use_local_token_ui.change(
         fn=update_use_local_token,

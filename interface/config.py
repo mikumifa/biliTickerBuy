@@ -256,8 +256,14 @@ def build_runtime_options(
     ntfy_password: str = "",
     notify_proxy_exhausted: bool = False,
     show_random_message: bool = True,
-    show_qrcode: bool = False,
+    show_qrcode: bool = True,
     use_local_token: bool = False,
+    proxy_max_consecutive_failures: int = 2,
+    proxy_cooldown_seconds: int = 180,
+    proxy_backoff_max_seconds: int = 600,
+    auto_open_payment_url: bool = False,
+    log_level: str = "standard",
+    log_retention_days: int = 7,
 ) -> dict[str, Any]:
     return {
         "interval": normalize_interval(interval),
@@ -285,6 +291,21 @@ def build_runtime_options(
         "show_random_message": show_random_message,
         "show_qrcode": show_qrcode,
         "use_local_token": use_local_token,
+        "proxy_max_consecutive_failures": normalize_positive_int(
+            proxy_max_consecutive_failures,
+            default=2,
+        ),
+        "proxy_cooldown_seconds": normalize_positive_int(
+            proxy_cooldown_seconds,
+            default=180,
+        ),
+        "proxy_backoff_max_seconds": normalize_positive_int(
+            proxy_backoff_max_seconds,
+            default=600,
+        ),
+        "auto_open_payment_url": auto_open_payment_url,
+        "log_level": str(log_level or "standard").lower(),
+        "log_retention_days": normalize_positive_int(log_retention_days, default=7),
     }
 
 

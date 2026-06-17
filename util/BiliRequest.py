@@ -24,11 +24,17 @@ class BiliRequest:
         cookies_config_path=None,
         proxy: str = "none",
         browser_state: BrowserFingerprintState | None = None,
+        proxy_failure_threshold: int = 2,
+        proxy_cooldown_seconds: float = 180.0,
     ):
         self.browser_state = browser_state or generate_browser_fingerprint_state()
         self.deviceId = finalize_device_id(secrets.token_hex(16))
         self.session = requests.Session()
-        self.proxy_manager = ProxyManager(proxy)
+        self.proxy_manager = ProxyManager(
+            proxy,
+            failure_threshold=proxy_failure_threshold,
+            cooldown_seconds=proxy_cooldown_seconds,
+        )
         self.cookieManager = CookieManager(cookies_config_path, cookies)
         self.headers = build_headers_from_browser_state(
             self.browser_state,

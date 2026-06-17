@@ -117,6 +117,13 @@ def main(run_dir_arg: str) -> int:
             create_retry_limit=runtime.get("create_retry_limit", 20),
             create_request_batch_size=runtime.get("create_request_batch_size", 3),
             outer_loop_interval=runtime.get("outer_interval", 0),
+            proxy_max_consecutive_failures=runtime.get(
+                "proxy_max_consecutive_failures",
+                2,
+            ),
+            proxy_cooldown_seconds=runtime.get("proxy_cooldown_seconds", 180),
+            proxy_backoff_max_seconds=runtime.get("proxy_backoff_max_seconds", 600),
+            auto_open_payment_url=runtime.get("auto_open_payment_url", False),
         ):
             message = event.message
             if message is not None:

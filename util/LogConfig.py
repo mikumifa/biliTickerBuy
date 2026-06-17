@@ -8,6 +8,9 @@ def loguru_config(
     log_file_name: str,
     file_colorize: bool = False,
     enable_console: bool = True,
+    file_level: str | None = None,
+    console_level: str | None = None,
+    retention_days: int | None = None,
 ) -> str:
     """
     配置 Loguru 日志系统。
@@ -18,20 +21,33 @@ def loguru_config(
     """
     logger.remove()
 
+    resolved_file_level = (
+        file_level or os.environ.get("BTB_LOG_LEVEL") or "DEBUG"
+    ).upper()
+    resolved_console_level = (
+        console_level or os.environ.get("BTB_CONSOLE_LOG_LEVEL") or "INFO"
+    ).upper()
+    resolved_retention_days = retention_days
+    if resolved_retention_days is None:
+        try:
+            resolved_retention_days = int(os.environ.get("BTB_LOG_RETENTION_DAYS", "7"))
+        except ValueError:
+            resolved_retention_days = 7
+
     logger.add(
         os.path.join(log_dir, log_file_name),
-        level="DEBUG",  # DEBUG
+        level=resolved_file_level,
         encoding="utf-8",
         rotation="1 day",
         colorize=file_colorize,
-        retention="7 days",
+        retention=f"{max(1, int(resolved_retention_days))} days",
         format="<green>[{time:YYYY-MM-DD:HH:mm:ss.SSS}]</green>|<level>{level}</level>|<level>{message}</level>",
     )
 
     if enable_console:
         logger.add(
             sys.stderr,
-            level="INFO",  # INFO
+            level=resolved_console_level,
             colorize=True,
             format="<green>[{time:MM-DD:HH:mm:ss.SSS}]</green>|<level>{level}</level>|<level>{message}</level>",
         )
