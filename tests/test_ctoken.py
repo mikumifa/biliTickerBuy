@@ -2,7 +2,7 @@ from cptoken import generate_ctoken
 
 
 def test_generate_ctoken_matches_real_sample():
-    token = generate_ctoken(
+    token = CTokenSnapshot(
         m1=245,
         touchend=0,
         m2=58,
@@ -19,11 +19,11 @@ def test_generate_ctoken_matches_real_sample():
         m9=62,
     )
 
-    assert token == "9QAAADoAAAC3AL0AAQDkAAAABAAAAOIAfgCBAIgAPgA="
+    assert token.generate_ctoken() == "9QAAADoAAAC3AL0AAQDkAAAABAAAAOIAfgCBAIgAPgA="
 
 
 def test_generate_ctoken_matches_second_real_sample():
-    token = generate_ctoken(
+    token = CTokenSnapshot(
         m1=245,
         touchend=0,
         m2=58,
@@ -40,11 +40,11 @@ def test_generate_ctoken_matches_second_real_sample():
         m9=62,
     )
 
-    assert token == "9QAAADoAAAC3AL0AAQDkAAAABQACAMkAfgCBAIgAPgA="
+    assert token.generate_ctoken() == "9QAAADoAAAC3AL0AAQDkAAAABQACAMkAfgCBAIgAPgA="
 
 
 def test_generate_ctoken_matches_third_real_sample():
-    token = generate_ctoken(
+    token = CTokenSnapshot(
         m1=245,
         touchend=0,
         m2=58,
@@ -61,4 +61,30 @@ def test_generate_ctoken_matches_third_real_sample():
         m9=62,
     )
 
-    assert token == "9QAAADoAAAC3AL0AAQDkAAAACAACAP4AfgCBAIgAPgA="
+    assert token.generate_ctoken() == "9QAAADoAAAC3AL0AAQDkAAAACAACAP4AfgCBAIgAPgA="
+
+
+if __name__ == "__main__":
+    test_generate_ctoken_matches_third_real_sample()
+    test_generate_ctoken_matches_second_real_sample()
+    test_generate_ctoken_matches_real_sample()
+    snapshot = init_ctoken_state().snapshot()
+    snapshot.touchend = 3  # 位置 1
+    snapshot.visibilitychange = 0  # 位置3
+    snapshot.m5 = 145  # 位置7
+    snapshot.openWindow = 0  # 位置6
+    snapshot.timediff = 0  # 位置 10
+
+    #     [
+    #   [1, "H", H],
+    #   [2, "Q", Q],
+    #   [3, "z", z],
+    #   [4, "Y", Y],
+    #   [5, "K", K],
+    #   [6, "W", W],
+    #   [7, "J", J],
+    #   [8, "X", X],
+    #   [9, "$", $],
+    #   [10, "Z", Z],
+    #   [11, "ee", ee],
+    # ]

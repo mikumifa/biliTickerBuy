@@ -15,11 +15,10 @@ import qrcode
 from loguru import logger
 
 from requests import HTTPError, RequestException
-from cptoken import (
+from util.CTokenUtil import (
+    CTokenRuntimeState,
     generate_browser_window_state,
-    generate_ctoken,
     init_ctoken_state,
-    sim_ctoken_state,
 )
 
 from util import time_service
@@ -297,7 +296,6 @@ def _format_status_result(prefix: str, ret: dict) -> str:
 def _prepare_create_request(
     tickets_info: dict,
     order_token: str,
-    *,
     timeoffset: float,
     is_hot_project: bool,
     request_result: dict | None,
@@ -308,8 +306,7 @@ def _prepare_create_request(
     payload = dict(tickets_info)
     payload["again"] = 1
     payload["token"] = order_token
-    now_ms = current_time_ms(timeoffset=timeoffset)
-    payload["timestamp"] = now_ms
+    payload["timestamp"] = current_time_ms(timeoffset=timeoffset)
     payload["newRisk"] = True
     payload["requestSource"] = "neul-next"
     payload.pop("detail", None)
@@ -343,7 +340,7 @@ def _prepare_create_request(
     payload["ptoken"] = ptoken
     payload["orderCreateUrl"] = "https://show.bilibili.com/api/ticket/order/createV2"
     url += "&ptoken=" + ptoken
-    return url, payload, create_state
+    return url, payload
 
 
 def buy_stream(
@@ -484,14 +481,17 @@ def buy_stream(
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
     masked_proxies = ProxyManager.mask_proxy_string(https_proxys)
     logger.info(f"目前已配置代理：{masked_proxies or '直连'}")
-    _request = BiliRequest(cookies=cookies, proxy=https_proxys)
+    # requenst
+    browser_window_state = generate_browser_window_state()
+    _request = BiliRequest(
+        cookies=cookies, proxy=https_proxys, browser_state=browser_window_state
+    )
     proxy_backoff = ProxyBackoff()
     timeoffset = time_service.get_timeoffset()
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
     # 热门项目 createV2 对 HTTP/2 与基础头顺序敏感；普通项目仍沿用 requests。
     _request.use_h2 = is_hot_project
     use_local_token = bool(use_local_token)
-    browser_window_state = generate_browser_window_state()
     token_payload = _build_token_payload(tickets_info)
 
     def refresh_hot_and_warm():
@@ -594,6 +594,7 @@ def buy_stream(
                 order_token = request_result["data"]["token"]  # type: ignore
                 logger.info(f"token: {order_token}")
 
+                # createTime
             else:
                 # normal
                 yield emit("status", None, stage="订单准备")
@@ -633,9 +634,9 @@ def buy_stream(
             )
             result = None
             retry_outcome = RetryOutcome()
-            create_state_seed = pre_state if is_hot_project else None
             token_expired = False
             attempt = 1
+            _request.createTime = current_time_ms(timeoffset=timeoffset)
             while attempt <= CREATE_RETRY_LIMIT:
                 batch_end = min(
                     attempt + CREATE_REQUEST_BATCH_SIZE - 1,
@@ -673,8 +674,8 @@ def buy_stream(
                             )
                             if not handled_412:
                                 retry_outcome.set_exception(exc)
-                                time.sleep(interval / 1000)
                             attempt += 1
+                            time.sleep(interval / 1000)
                             continue
                         proxy_backoff.reset()
                         err = int(ret.get("errno", ret.get("code")))
@@ -707,7 +708,7 @@ def buy_stream(
                                 attempt_total=CREATE_RETRY_LIMIT,
                             )
                             tickets_info["pay_money"] = ret["data"]["pay_money"]
-                        time.sleep(interval / 1000)
+                        ticket_collection.visibility_change(probability=0.1)
 
                     except RequestException as e:
                         retry_outcome.set_exception(e)
@@ -722,7 +723,6 @@ def buy_stream(
                             attempt_current=attempt,
                             attempt_total=CREATE_RETRY_LIMIT,
                         )
-                        time.sleep(interval / 1000)
 
                     except Exception as e:
                         retry_outcome.set_exception(e)
@@ -732,12 +732,13 @@ def buy_stream(
                             attempt_current=attempt,
                             attempt_total=CREATE_RETRY_LIMIT,
                         )
-                        time.sleep(interval / 1000)
 
                     if result is not None or token_expired:
                         break
                     attempt += 1
+                    time.sleep(randint(100, 300) / 1000)
 
+                time.sleep(interval / 1000)
                 if result is not None or token_expired or not isRunning:
                     break
 
