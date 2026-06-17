@@ -340,6 +340,7 @@ def go_start_tab():
                 serverchanKey=ConfigDB.get("serverchanKey"),
                 serverchan3ApiUrl=ConfigDB.get("serverchan3ApiUrl"),
                 barkToken=ConfigDB.get("barkToken"),
+                meowNickname=ConfigDB.get("meowNickname"),
                 ntfy_url=ConfigDB.get("ntfyUrl"),
                 ntfy_username=ConfigDB.get("ntfyUsername"),
                 ntfy_password=ConfigDB.get("ntfyPassword"),
@@ -517,6 +518,10 @@ def go_settings_tab(header_ui):
     def inner_input_bark(x):
         ConfigDB.insert("barkToken", x)
         return gr.update(value=ConfigDB.get("barkToken"))
+
+    def inner_input_meow(x):
+        ConfigDB.insert("meowNickname", x)
+        return gr.update(value=ConfigDB.get("meowNickname"))
 
     def inner_input_ntfy(x):
         ConfigDB.insert("ntfyUrl", x)
@@ -761,7 +766,7 @@ def go_settings_tab(header_ui):
                         🗨️ **抢票成功提醒**
 
                         > 你需要去对应的网站获取 key 或 token，然后填入下面的输入框  
-                        > [Server酱<sup>Turbo</sup>](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html) | [Server酱<sup>3</sup>](https://sc3.ft07.com/sendkey) | [ntfy](https://ntfy.sh/) | [Bark](https://bark.day.app/)  
+                        > [Server酱<sup>Turbo</sup>](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html) | [Server酱<sup>3</sup>](https://sc3.ft07.com/sendkey) | [ntfy](https://ntfy.sh/) | [Bark](https://bark.day.app/) | MeoW  
                         > 留空以不启用提醒功能
 
                         ### 🔍 推送服务对比
@@ -773,9 +778,11 @@ def go_settings_tab(header_ui):
                         | Server酱<sup>3</sup> | APP推送，有中文文档              | 配置复杂 |
                         | ntfy     | APP推送, 功能强大, 支持长期响铃 | 配置复杂，需要手动搭建或注册公网地址 |
                         | Bark     | iOS通知推送，配置简单，无视静音和勿扰模式，支持APP跳转 | 仅支持iOS设备 |
+                        | MeoW     | HMS系统级通知推送，配置简单，无需后台常驻 | 仅支持鸿蒙设备 |
 
                         ✅ 推荐：初次使用建议选择 **pushplus** 或 **Server酱ᵀᵘʳᵇᵒ**，配置最简单  
                         🍎 iOS用户推荐使用 **Bark**，通知效果最佳  
+                        ⭕ 鸿蒙用户推荐使用 **MeoW**，HMS系统级推送  
                         🛠️ 追求高度自由/有自建服务器/需要在抢票成功时通过手机播放铃声时，建议用 **ntfy** 或 **Server酱³**
                         """
                     )
@@ -805,6 +812,13 @@ def go_settings_tab(header_ui):
                         label="Bark的Token｜输入完成后，回车键保存",
                         interactive=True,
                         info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)；自托管服务请输入完整推送地址，例如: https://bark.example.app/jmGYK*****',
+                    )
+                    gr.Markdown("#### Meow")
+                    meow_ui = gr.Textbox(
+                        value=(ConfigDB.get("meowNickname") or ""),
+                        label="MeoW昵称｜输入完成后，回车键保存",
+                        interactive=True,
+                        info="https://www.chuckfang.com/MeoW/api_doc.html",
                     )
                     gr.Markdown("#### Ntfy")
                     ntfy_ui = gr.Textbox(
@@ -924,6 +938,7 @@ def go_settings_tab(header_ui):
     )
     pushplus_ui.submit(fn=inner_input_pushplus, inputs=pushplus_ui, outputs=pushplus_ui)
     bark_ui.submit(fn=inner_input_bark, inputs=bark_ui, outputs=bark_ui)
+    meow_ui.submit(fn=inner_input_meow, inputs=meow_ui, outputs=meow_ui)
     ntfy_ui.submit(fn=inner_input_ntfy, inputs=ntfy_ui, outputs=ntfy_ui)
     ntfy_username_ui.submit(
         fn=inner_input_ntfy_username,
