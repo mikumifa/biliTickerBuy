@@ -1,4 +1,4 @@
-from util.CTokenUtil import CTokenSnapshot, init_ctoken_state
+from cptoken import generate_ctoken
 
 
 def test_generate_ctoken_matches_real_sample():

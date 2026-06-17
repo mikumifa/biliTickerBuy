@@ -88,7 +88,7 @@ def _format_countdown(seconds: float) -> str:
     return f"{hours}小时{minutes}分{secs}秒"
 
 
-def _wait_until_start(time_start: str):
+def _wait_until_start(time_start: str, warmup=None, warmup_at_seconds: float = 3.0):
     if not time_start:
         return
 
@@ -117,10 +117,16 @@ def _wait_until_start(time_start: str):
     time_difference = target_time.timestamp() - time.time() + timeoffset
     end_time = time.perf_counter() + time_difference
     next_report_at = float("inf")
+    warmed = False
     while True:
         remaining = end_time - time.perf_counter()
         if remaining <= 0:
             return
+        if not warmed and warmup is not None and remaining <= warmup_at_seconds:
+            warmed = True
+            for warm_message in warmup() or []:
+                yield warm_message
+            continue
         if remaining <= next_report_at:
             yield f"距离开始抢票还有: {_format_countdown(remaining)}"
             next_report_at = max(0.0, remaining - 5)
@@ -288,13 +294,14 @@ def _format_status_result(prefix: str, ret: dict) -> str:
 
 
 def _prepare_create_request(
-    request: BiliRequest,
-    ticket_collection: CTokenRuntimeState,
     tickets_info: dict,
     order_token: str,
     timeoffset: float,
     is_hot_project: bool,
     request_result: dict | None,
+    ticket_collection_t: int,
+    create_state_seed: dict[str, int] | None = None,
+    ctoken_base_timer: int = 0,
 ) -> tuple[str, dict, dict[str, int] | None]:
     payload = dict(tickets_info)
     payload["again"] = 1
@@ -311,14 +318,20 @@ def _prepare_create_request(
     )
 
     if not is_hot_project:
-        return url, payload
+        return url, payload, create_state_seed
 
-    payload["clickPosition"] = _build_click_position(
-        request.createTime, current_time_ms(timeoffset=timeoffset)
+    if create_state_seed is None:
+        raise ValueError("热项目创建订单时缺少 ctoken 状态")
+    payload["clickPosition"] = _build_click_position(ticket_collection_t, now_ms)
+    create_state = sim_ctoken_state(
+        before_state=create_state_seed,
+        ticket_collection_t=ticket_collection_t,
+        now_ms=now_ms,
+        base_timer=ctoken_base_timer,
     )
-    snapshot = ticket_collection.snapshot()
-    payload["ctoken"] = snapshot.generate_ctoken()
-    logger.info(snapshot)
+    ctoken_fields = dict(create_state)
+    ctoken_fields.pop("openWindow", None)
+    payload["ctoken"] = generate_ctoken(**ctoken_fields)
     logger.info(f"ctoken: {payload['ctoken']}")
     ptoken = _normalize_prepare_ptoken(
         request_result["data"].get("ptoken") if request_result else ""
@@ -476,10 +489,48 @@ def buy_stream(
     proxy_backoff = ProxyBackoff()
     timeoffset = time_service.get_timeoffset()
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
+    # 热门项目 createV2 对 HTTP/2 与基础头顺序敏感；普通项目仍沿用 requests。
+    _request.use_h2 = is_hot_project
     use_local_token = bool(use_local_token)
     token_payload = _build_token_payload(tickets_info)
 
-    for wait_message in _wait_until_start(time_start):
+    def refresh_hot_and_warm():
+        nonlocal is_hot_project
+        messages: list[str] = []
+        try:
+            _request.session.head(f"{base_url}/", timeout=(3.05, 3))
+        except Exception:
+            pass
+        try:
+            from interface.project import fetch_project_payload
+
+            payload = fetch_project_payload(
+                request=_request, project_id=int(tickets_info["project_id"])
+            )
+            if "hotProject" not in payload:
+                messages.append("hotProject 复检：响应缺该字段，沿用配置值，连接已预热")
+            elif bool(payload["hotProject"]) and not is_hot_project:
+                is_hot_project = True
+                tickets_info["is_hot_project"] = True
+                _request.use_h2 = True
+                messages.append(
+                    "运行时检测到 hotProject=True，已升级为 hot 抢票策略"
+                )
+            else:
+                messages.append(
+                    f"hotProject 复检：实时={bool(payload['hotProject'])}，"
+                    f"保持 is_hot_project={is_hot_project}，连接已预热"
+                )
+        except Exception as exc:
+            messages.append(
+                f"hotProject 复检/预热失败（忽略，沿用配置值 {is_hot_project}）：{exc}"
+            )
+        return messages
+
+    for warm_message in refresh_hot_and_warm():
+        yield emit("status", warm_message)
+
+    for wait_message in _wait_until_start(time_start, warmup=refresh_hot_and_warm):
         countdown_value = None
         stage_value = None
         if wait_message.startswith("0)"):
@@ -502,19 +553,22 @@ def buy_stream(
     while isRunning:
         try:
             request_result: dict | None = None
-            ticket_collection: CTokenRuntimeState = init_ctoken_state(
-                browser_window_state=browser_window_state,
-                ticket_collection_t=current_time_ms(timeoffset=timeoffset),
-                href_length=len(
-                    f"https://mall.bilibili.com/neul-next/ticket-renovation/detail.html?id={tickets_info['project_id']}&noTitleBar=1&from=pc_order_detail"
-                ),
-                user_agent_length=len(_request.get_user_agent()),
-            )
-            ticket_collection.touch(min_count=5, max_count=20)
+            pre_state: dict[str, int] | None = None
+            ticket_collection_t = current_time_ms(timeoffset=timeoffset)
             if is_hot_project:
                 # hot
                 yield emit("stage", "开始准备订单", stage="订单准备")
-                token_payload["token"] = ticket_collection.snapshot().generate_ctoken()
+                pre_state = init_ctoken_state(
+                    browser_window_state=browser_window_state,
+                    href_length=len(
+                        f"https://mall.bilibili.com/neul-next/ticket-renovation/detail.html?id={tickets_info['project_id']}"
+                    ),
+                    user_agent_length=len(_request.get_user_agent()),
+                )
+                prepare_ctoken_state = dict(pre_state)
+                prepare_ctoken_state["beforeunload"] = randint(1, 3)
+                prepare_ctoken_state["openWindow"] = randint(1, 3)
+                token_payload["token"] = generate_ctoken(**prepare_ctoken_state)
                 logger.info(f"itoken: {token_payload['token']}")
                 request_result_normal = _request.post(
                     url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
@@ -588,28 +642,29 @@ def buy_stream(
                     attempt + CREATE_REQUEST_BATCH_SIZE - 1,
                     CREATE_RETRY_LIMIT,
                 )
-                ticket_collection.touch(min_count=2, max_count=5)  # 写订单中
-                url, payload = _prepare_create_request(
-                    _request,
-                    ticket_collection,
-                    tickets_info,
-                    order_token,
-                    timeoffset=timeoffset,
-                    is_hot_project=is_hot_project,
-                    request_result=request_result,
-                )
                 while attempt <= batch_end:
                     if not isRunning:
                         yield "抢票结束"
                         break
                     try:
+                        url, payload, create_state_seed = _prepare_create_request(
+                            tickets_info,
+                            order_token,
+                            timeoffset=timeoffset,
+                            is_hot_project=is_hot_project,
+                            request_result=request_result,
+                            ticket_collection_t=ticket_collection_t,
+                            create_state_seed=create_state_seed,
+                            ctoken_base_timer=(
+                                pre_state["timer"] if pre_state is not None else 0
+                            ),
+                        )
+                        create_response = _request.post(
+                            url=url,
+                            data=payload,
+                            isJson=True,
+                        )
                         try:
-                            ticket_collection.touch(1)  # 写订单中
-                            create_response = _request.post(
-                                url=url,
-                                data=payload,
-                                isJson=True,
-                            )
                             ret = create_response.json()
                         except JSONDecodeError as exc:
                             handled_412 = yield from handle_non_json_response(
