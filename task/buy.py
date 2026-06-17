@@ -319,7 +319,7 @@ def _prepare_create_request(
     )
 
     if not is_hot_project:
-        return url, payload, ticket_state
+        return url, payload
     payload["clickPosition"] = _build_click_position(
         _request.createTime,
         now_ms,
