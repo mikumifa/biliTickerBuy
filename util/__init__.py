@@ -98,6 +98,7 @@ class TaskLogEntry:
     pid: int | None = None
     status: str = "运行中"
     finished_at: float | None = None
+    payment_qr_url: str | None = None
 
 
 @dataclass

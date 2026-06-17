@@ -408,6 +408,28 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
         self.app = TicketTerminalApp()
         self.thread = None
 
+    def _dump_final_snapshot(self) -> None:
+        state = self.app.state
+        print(
+            f"[抢票终端] 配置: {self.context.config_name} | 日志: {self.context.log_file}",
+            flush=True,
+        )
+        print(
+            (
+                "[状态] "
+                f"阶段: {state.stage} | "
+                f"倒计时: {state.countdown} | "
+                f"代理: {state.current_proxy} | "
+                f"冷却: {state.cooldown}"
+            ),
+            flush=True,
+        )
+        if not self.app.log_items:
+            print("等待日志输出...", flush=True)
+            return
+        for item in self.app.log_items:
+            print(item.display_message, flush=True)
+
     def render_header(self) -> None:
         def run_app() -> None:
             try:
@@ -449,6 +471,12 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
             self.app.call_from_thread(self.app.exit)
         except Exception:
             pass
+        try:
+            if self.thread is not None:
+                self.thread.join(timeout=2)
+        except Exception:
+            pass
+        self._dump_final_snapshot()
 
 
 def create_terminal_renderer(

@@ -75,12 +75,23 @@ class RetryOutcome:
         self.exc = exc
 
 
+@dataclass(frozen=True)
+class CreateOrderTerminalRule:
+    status: str
+    message: str
+    expose_payment_url: bool = False
+
+
 def get_qrcode_url(_request, order_id) -> str:
     url = f"{base_url}/api/ticket/order/getPayParam?order_id={order_id}"
     data = _request.get(url).json()
     if data.get("errno", data.get("code")) == 0:
         return data["data"]["code_url"]
     raise ValueError("获取二维码失败")
+
+
+def get_order_detail_url(order_id: int | str) -> str:
+    return f"{base_url}/platform/orderDetail.html?order_id={order_id}"
 
 
 def _format_countdown(seconds: float) -> str:
@@ -184,11 +195,40 @@ def _build_click_position(origin_ms: int, now_ms: int) -> dict[str, int]:
     }
 
 
+CREATE_ORDER_TERMINAL_RULES: dict[int, CreateOrderTerminalRule] = {
+    100003: CreateOrderTerminalRule(
+        status="completed",
+        message="该项目每人限购1张，已存在购买订单，停止重试",
+    ),
+    100048: CreateOrderTerminalRule(
+        status="completed",
+        message="有尚未完成订单，停止重试",
+        expose_payment_url=True,
+    ),
+    100079: CreateOrderTerminalRule(
+        status="completed",
+        message="有重复订单，停止重试",
+    ),
+}
+
+
+def _create_order_terminal_rule(err: int) -> CreateOrderTerminalRule | None:
+    return CREATE_ORDER_TERMINAL_RULES.get(err)
+
+
 def _is_create_success(ret: dict, err: int) -> bool:
-    if err in {100048, 100079}:
-        return True
     resp_message = str(ret.get("msg", ret.get("message", "")) or "")
     return err == 0 and "defaultBBR" not in resp_message
+
+
+def _extract_order_id(ret: dict | None) -> int | str | None:
+    if not isinstance(ret, dict):
+        return None
+    data = ret.get("data")
+    if not isinstance(data, dict):
+        return None
+    order_id = data.get("orderId")
+    return order_id if order_id not in (None, "", 0) else None
 
 
 DEFAULT_CREATE_RETRY_LIMIT = 20
@@ -624,6 +664,7 @@ def buy_stream(
             result = None
             retry_outcome = RetryOutcome()
             token_expired = False
+            terminal_result: tuple[int, dict, CreateOrderTerminalRule] | None = None
             attempt = 1
             while attempt <= effective_retry_limit:
                 batch_end = min(
@@ -660,6 +701,21 @@ def buy_stream(
                                 attempt_total=effective_retry_limit,
                             )
                             result = (ret, err)
+                            break
+                        terminal_rule = _create_order_terminal_rule(err)
+                        if terminal_rule is not None:
+                            terminal_result = (err, ret, terminal_rule)
+                            yield emit(
+                                "status",
+                                ErrorCodes.append_response_message(
+                                    err,
+                                    terminal_rule.message,
+                                    ret,
+                                ),
+                                attempt_current=attempt,
+                                attempt_total=effective_retry_limit,
+                                status=terminal_rule.status,
+                            )
                             break
                         if err == 100051:
                             yield emit("status", "token过期，需要重新准备订单")
@@ -711,12 +767,21 @@ def buy_stream(
                             attempt_current=attempt,
                             attempt_total=effective_retry_limit,
                         )
-                    if result is not None or token_expired:
+                    if (
+                        result is not None
+                        or token_expired
+                        or terminal_result is not None
+                    ):
                         break
                     attempt += 1
                     time.sleep(inner_loop_interval / 1000)
 
-                if result is not None or token_expired or not isRunning:
+                if (
+                    result is not None
+                    or token_expired
+                    or terminal_result is not None
+                    or not isRunning
+                ):
                     break
 
                 if effective_outer_loop_interval > 0:
@@ -732,6 +797,29 @@ def buy_stream(
                 )
                 continue
             if result is None:
+                if terminal_result is not None:
+                    errno, terminal_ret, terminal_rule = terminal_result
+                    order_id = _extract_order_id(terminal_ret)
+                    if terminal_rule.expose_payment_url and order_id is not None:
+                        payment_url = get_order_detail_url(order_id)
+                        yield emit(
+                            "payment_qr",
+                            "PAYMENT_QR_URL={0}".format(payment_url),
+                            payment_qr_url=payment_url,
+                            status=terminal_rule.status,
+                        )
+                        if auto_open_payment_url:
+                            try:
+                                webbrowser.open(payment_url)
+                                yield emit(
+                                    "status",
+                                    "已自动打开现有订单链接",
+                                    payment_qr_url=payment_url,
+                                    status=terminal_rule.status,
+                                )
+                            except Exception as exc:
+                                yield emit("status", f"自动打开订单链接失败: {exc}")
+                    break
                 yield emit(
                     "status",
                     "本轮创建订单未成功，"
@@ -755,17 +843,25 @@ def buy_stream(
                     stage="抢票成功",
                     status="succeeded",
                 )
+                order_id = request_result["data"]["orderId"]  # type: ignore
+                payment_url = get_order_detail_url(order_id)
                 qrcode_url = get_qrcode_url(
                     _request,
-                    request_result["data"]["orderId"],  # type: ignore
+                    order_id,
+                )
+                yield emit(
+                    "payment_qr",
+                    "PAYMENT_QR_URL={0}".format(payment_url),
+                    payment_qr_url=payment_url,
+                    status="succeeded",
                 )
                 if auto_open_payment_url:
                     try:
-                        webbrowser.open(qrcode_url)
+                        webbrowser.open(payment_url)
                         yield emit(
                             "status",
                             "已自动打开支付链接",
-                            payment_qr_url=qrcode_url,
+                            payment_qr_url=payment_url,
                             status="succeeded",
                         )
                     except Exception as exc:
@@ -776,16 +872,6 @@ def buy_stream(
                     qr_gen.make(fit=True)
                     qr_gen_image = qr_gen.make_image()
                     qr_gen_image.show()  # type: ignore
-                else:
-                    yield emit(
-                        "payment_qr",
-                        "PAYMENT_QR_URL={0}".format(qrcode_url),
-                        payment_qr_url=qrcode_url,
-                        status="succeeded",
-                    )
-                break
-            if errno == 100079:
-                yield emit("status", "有重复订单，停止重试", status="completed")
                 break
         except (HTTPError, RequestException) as e:
             logger.exception(e)
