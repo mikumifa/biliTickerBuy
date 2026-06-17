@@ -4,13 +4,21 @@ from util.ProxyState import ProxyStateRegistry
 
 
 class ProxyManager:
-    def __init__(self, proxy_string: str = "none"):
+    def __init__(
+        self,
+        proxy_string: str = "none",
+        *,
+        failure_threshold: int = 2,
+        cooldown_seconds: float = 180.0,
+    ):
         self.proxy_list = self.parse_proxy_list(proxy_string)
         if not self.proxy_list:
             raise ValueError("at least have none proxy")
         self.state_registry = ProxyStateRegistry(
             self.proxy_list,
             mask_proxy=self.mask_proxy_value,
+            failure_threshold=failure_threshold,
+            cooldown_seconds=cooldown_seconds,
         )
 
     @property

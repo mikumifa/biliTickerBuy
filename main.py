@@ -175,10 +175,50 @@ def main():
         help="Hide random message when fail.",
     )
     runtime.add_argument(
+        "--hide_qrcode",
+        action="store_true",
+        help="Do not show payment QR code after success.",
+    )
+    runtime.add_argument(
+        "--auto_open_payment_url",
+        action="store_true",
+        help="Open payment URL in system browser after success.",
+    )
+    runtime.add_argument(
         "--use_local_token",
         action="store_true",
         default=get_env_default("USE_LOCAL_TOKEN", False, str_to_bool),
         help="Use locally generated token instead of prepare token when allowed.",
+    )
+    runtime.add_argument(
+        "--proxy_max_consecutive_failures",
+        type=int,
+        default=int(os.environ.get("BTB_PROXY_MAX_CONSECUTIVE_FAILURES", "2")),
+        help="Max consecutive failures before one proxy enters cooldown.",
+    )
+    runtime.add_argument(
+        "--proxy_cooldown_seconds",
+        type=int,
+        default=int(os.environ.get("BTB_PROXY_COOLDOWN_SECONDS", "180")),
+        help="Proxy cooldown duration in seconds.",
+    )
+    runtime.add_argument(
+        "--proxy_backoff_max_seconds",
+        type=int,
+        default=int(os.environ.get("BTB_PROXY_BACKOFF_MAX_SECONDS", "600")),
+        help="Max rest time when all proxies are exhausted.",
+    )
+    runtime.add_argument(
+        "--log_level",
+        type=str,
+        default=os.environ.get("BTB_LOG_LEVEL", "standard"),
+        help="Log level preset: simple, standard, debug.",
+    )
+    runtime.add_argument(
+        "--log_retention_days",
+        type=int,
+        default=int(os.environ.get("BTB_LOG_RETENTION_DAYS", "7")),
+        help="Retention days for log files.",
     )
 
     args = parser.parse_args()
