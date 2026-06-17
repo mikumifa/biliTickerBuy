@@ -41,9 +41,22 @@ def generate_ctoken(
             return b"\xff"
 
     tb = (
-        _b1(m1) + b"\x00" + _b1(touchend) + b"\x00" + _b1(m2) + b"\x00"
-        + _b1(visibilitychange) + b"\x00" + _b1(m3) + b"\x00" + _b1(m4) + b"\x00"
-        + _b1(beforeunload) + b"\x00" + _b1(m5) + b"\x00"
+        _b1(m1)
+        + b"\x00"
+        + _b1(touchend)
+        + b"\x00"
+        + _b1(m2)
+        + b"\x00"
+        + _b1(visibilitychange)
+        + b"\x00"
+        + _b1(m3)
+        + b"\x00"
+        + _b1(m4)
+        + b"\x00"
+        + _b1(beforeunload)
+        + b"\x00"
+        + _b1(m5)
+        + b"\x00"
     )
     try:
         tt = int(timer).to_bytes(2, "big")
