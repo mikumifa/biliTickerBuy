@@ -81,6 +81,27 @@ def _format_price_cents(value) -> str:
     return f"¥{amount / 100:.2f}"
 
 
+def _format_buyer_identity(buyer_info) -> str:
+    if not isinstance(buyer_info, list) or not buyer_info:
+        return "-"
+
+    id_type_map = {
+        0: "身份证",
+        1: "护照",
+        2: "港澳居民来往内地通行证",
+        3: "台湾居民来往大陆通行证",
+        4: "外国人永久居留身份证",
+    }
+    items: list[str] = []
+    for buyer in buyer_info:
+        if not isinstance(buyer, dict):
+            continue
+        name = _preview_value(buyer.get("name"))
+        id_type = id_type_map.get(buyer.get("id_type"), "未知证件")
+        items.append(f"{name}（{id_type}）")
+    return "、".join(items) if items else "-"
+
+
 def _render_ticket_preview(config: dict) -> str:
     items = [
         ("账号", _preview_value(config.get("username"))),
@@ -102,6 +123,7 @@ def _render_ticket_preview(config: dict) -> str:
         <div class="btb-mini-card btb-ticket-panel__delivery">
             <strong>详细信息</strong>
             <span>{html.escape(_preview_value(config.get("detail") or "-"))}</span>
+            <span>{html.escape(f"实名：{_format_buyer_identity(config.get('buyer_info'))}")}</span>
         </div>
     </div>
     """

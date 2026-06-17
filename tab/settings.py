@@ -486,6 +486,21 @@ def upload_file(filepath):
 
 def login_tab():
     with gr.Column(elem_classes="btb-page-section"):
+        with gr.Accordion(
+            label="填写当前账号绑定的手机号（可选）",
+            open=False,
+            elem_classes="btb-card btb-soft-accordion",
+        ):
+            phone_gate_ui = gr.Textbox(
+                label="手机号",
+                info="手机验证出现概率较低，可以留空",
+                value=util.main_request.cookieManager.get_config_value("phone", ""),
+            )
+
+            def input_phone(_phone):
+                util.main_request.cookieManager.set_config_value("phone", _phone)
+
+            phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
 
         def generate_qrcode():
             headers = {
@@ -787,22 +802,6 @@ def login_tab():
 
 def setting_tab():
     with gr.Column(elem_classes="btb-page-section"):
-        with gr.Accordion(
-            label="填写当前账号绑定的手机号（可选）",
-            open=False,
-            elem_classes="btb-card btb-soft-accordion",
-        ):
-            phone_gate_ui = gr.Textbox(
-                label="手机号",
-                info="手机验证出现概率较低，可以留空",
-                value=util.main_request.cookieManager.get_config_value("phone", ""),
-            )
-
-            def input_phone(_phone):
-                util.main_request.cookieManager.set_config_value("phone", _phone)
-
-            phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
-
         with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
             gr.HTML(
                 """
