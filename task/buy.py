@@ -16,8 +16,8 @@ from loguru import logger
 
 from requests import HTTPError, RequestException
 from cptoken import (
+    CTokenRuntimeState,
     generate_browser_window_state,
-    generate_ctoken,
     init_ctoken_state,
     sim_ctoken_state,
 )
@@ -178,7 +178,7 @@ def _build_click_position(origin_ms: int, now_ms: int) -> dict[str, int]:
     return {
         "x": randint(400, 900),
         "y": randint(400, 900),
-        "origin": origin_ms - randint(0, 1000),
+        "origin": origin_ms,
         "now": now_ms,
     }
 
@@ -190,8 +190,9 @@ def _is_create_success(ret: dict, err: int) -> bool:
     return err == 0 and "defaultBBR" not in resp_message
 
 
-CREATE_RETRY_LIMIT = 60
-CREATE_REQUEST_BATCH_SIZE = 30
+DEFAULT_CREATE_RETRY_LIMIT = 20
+DEFAULT_CREATE_REQUEST_BATCH_SIZE = 3
+DEFAULT_OUTER_LOOP_INTERVAL = 0
 
 
 def _extract_response_message(ret: dict) -> str:
@@ -295,20 +296,17 @@ def _format_status_result(prefix: str, ret: dict) -> str:
 
 
 def _prepare_create_request(
+    _request: BiliRequest,
     tickets_info: dict,
     order_token: str,
-    *,
-    timeoffset: float,
     is_hot_project: bool,
     request_result: dict | None,
-    ticket_collection_t: int,
-    create_state_seed: dict[str, int] | None = None,
-    ctoken_base_timer: int = 0,
-) -> tuple[str, dict, dict[str, int] | None]:
+    ticket_state: CTokenRuntimeState,
+) -> tuple[str, dict]:
     payload = dict(tickets_info)
     payload["again"] = 1
     payload["token"] = order_token
-    now_ms = current_time_ms(timeoffset=timeoffset)
+    now_ms = current_time_ms()
     payload["timestamp"] = now_ms
     payload["newRisk"] = True
     payload["requestSource"] = "neul-next"
@@ -321,29 +319,23 @@ def _prepare_create_request(
     )
 
     if not is_hot_project:
-        return url, payload, create_state_seed
-
-    if create_state_seed is None:
-        raise ValueError("热项目创建订单时缺少 ctoken 状态")
-    payload["clickPosition"] = _build_click_position(ticket_collection_t, now_ms)
-    create_state = sim_ctoken_state(
-        before_state=create_state_seed,
-        ticket_collection_t=ticket_collection_t,
-        now_ms=now_ms,
-        base_timer=ctoken_base_timer,
+        return url, payload, ticket_state
+    payload["clickPosition"] = _build_click_position(
+        _request.createTime,
+        now_ms,
     )
-    ctoken_fields = dict(create_state)
-    ctoken_fields.pop("openWindow", None)
-    payload["ctoken"] = generate_ctoken(**ctoken_fields)
-    logger.info(f"ctoken: {payload['ctoken']}")
+    create_state = sim_ctoken_state(
+        before_state=ticket_state,
+        now_ms=now_ms,
+    )
+    payload["ctoken"] = create_state.generate_create_ctoken()
     ptoken = _normalize_prepare_ptoken(
         request_result["data"].get("ptoken") if request_result else ""
     )
-    logger.info(f"ptoken: {ptoken}")
     payload["ptoken"] = ptoken
     payload["orderCreateUrl"] = "https://show.bilibili.com/api/ticket/order/createV2"
     url += "&ptoken=" + ptoken
-    return url, payload, create_state
+    return url, payload
 
 
 def buy_stream(
@@ -355,6 +347,9 @@ def buy_stream(
     show_random_message=True,
     show_qrcode=True,
     use_local_token=False,
+    create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
+    create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
+    outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
 ):
     state = BuyStreamState()
 
@@ -399,7 +394,7 @@ def buy_stream(
             notifier_config,
         )
         attempt_total = (
-            CREATE_RETRY_LIMIT if attempt is not None else state.attempt_total
+            effective_retry_limit if attempt is not None else state.attempt_total
         )
         if immediate_message:
             for message in immediate_message.splitlines():
@@ -457,7 +452,9 @@ def buy_stream(
                 proxy_pool=_request.proxy_pool_status(),
                 attempt_current=attempt,
                 attempt_total=(
-                    CREATE_RETRY_LIMIT if attempt is not None else state.attempt_total
+                    effective_retry_limit
+                    if attempt is not None
+                    else state.attempt_total
                 ),
             )
             yield from handle_proxy_failure(f"{prefix} 412 风控", attempt=attempt)
@@ -469,7 +466,7 @@ def buy_stream(
             proxy_pool=_request.proxy_pool_status(),
             attempt_current=attempt,
             attempt_total=(
-                CREATE_RETRY_LIMIT if attempt is not None else state.attempt_total
+                effective_retry_limit if attempt is not None else state.attempt_total
             ),
         )
         return False
@@ -486,13 +483,15 @@ def buy_stream(
     logger.info(f"目前已配置代理：{masked_proxies or '直连'}")
     _request = BiliRequest(cookies=cookies, proxy=https_proxys)
     proxy_backoff = ProxyBackoff()
-    timeoffset = time_service.get_timeoffset()
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
-    # 热门项目 createV2 对 HTTP/2 与基础头顺序敏感；普通项目仍沿用 requests。
     _request.use_h2 = is_hot_project
     use_local_token = bool(use_local_token)
     browser_window_state = generate_browser_window_state()
     token_payload = _build_token_payload(tickets_info)
+    inner_loop_interval = max(1, int(interval))
+    effective_retry_limit = max(1, int(create_retry_limit))
+    effective_batch_size = max(1, int(create_request_batch_size))
+    effective_outer_loop_interval = max(0, int(outer_loop_interval))
 
     def refresh_hot_and_warm():
         nonlocal is_hot_project
@@ -551,36 +550,26 @@ def buy_stream(
     while isRunning:
         try:
             request_result: dict | None = None
-            pre_state: dict[str, int] | None = None
-            ticket_collection_t = current_time_ms(timeoffset=timeoffset)
+            ticket_collection_t = current_time_ms()
+            ticket_state = init_ctoken_state(
+                browser_window_state=browser_window_state,
+                href_length=len(
+                    f"https://mall.bilibili.com/neul-next/ticket-renovation/detail.html?id={tickets_info['project_id']}"
+                ),
+                user_agent_length=len(_request.get_user_agent()),
+                ticket_collection_t=ticket_collection_t,
+            )
             if is_hot_project:
                 # hot
                 yield emit("stage", "开始准备订单", stage="订单准备")
-                pre_state = init_ctoken_state(
-                    browser_window_state=browser_window_state,
-                    href_length=len(
-                        f"https://mall.bilibili.com/neul-next/ticket-renovation/detail.html?id={tickets_info['project_id']}"
-                    ),
-                    user_agent_length=len(_request.get_user_agent()),
-                )
-                prepare_ctoken_state = dict(pre_state)
-                prepare_ctoken_state["beforeunload"] = randint(1, 3)
-                prepare_ctoken_state["openWindow"] = randint(1, 3)
-                token_payload["token"] = generate_ctoken(**prepare_ctoken_state)
-                logger.info(f"itoken: {token_payload['token']}")
+                prepare_ctoken_state = ticket_state.snapshot(now_ms=ticket_collection_t)
+                token_payload["token"] = prepare_ctoken_state.generate_prepare_ctoken()
                 request_result_normal = _request.post(
                     url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
                     data=token_payload,
                     isJson=True,
                 )
-                try:
-                    request_result = request_result_normal.json()
-                except JSONDecodeError:
-                    yield from handle_non_json_response(
-                        "订单准备接口",
-                        request_result_normal,
-                    )
-                    continue
+                request_result = request_result_normal.json()
                 proxy_backoff.reset()
                 yield emit(
                     "status",
@@ -607,14 +596,7 @@ def buy_stream(
                         data=token_payload,
                         isJson=True,
                     )
-                    try:
-                        request_result = request_result_normal.json()
-                    except JSONDecodeError:
-                        yield from handle_non_json_response(
-                            "订单准备接口",
-                            request_result_normal,
-                        )
-                        continue
+                    request_result = request_result_normal.json()
                     proxy_backoff.reset()
                     yield emit(
                         "status",
@@ -627,53 +609,36 @@ def buy_stream(
                 "开始创建订单",
                 stage="创建订单",
                 attempt_current=None,
-                attempt_total=CREATE_RETRY_LIMIT,
+                attempt_total=effective_retry_limit,
             )
             result = None
             retry_outcome = RetryOutcome()
-            create_state_seed = pre_state if is_hot_project else None
             token_expired = False
             attempt = 1
-            while attempt <= CREATE_RETRY_LIMIT:
+            while attempt <= effective_retry_limit:
                 batch_end = min(
-                    attempt + CREATE_REQUEST_BATCH_SIZE - 1,
-                    CREATE_RETRY_LIMIT,
+                    attempt + effective_batch_size - 1,
+                    effective_retry_limit,
+                )
+                url, payload = _prepare_create_request(
+                    _request,
+                    tickets_info,
+                    order_token,
+                    is_hot_project=is_hot_project,
+                    request_result=request_result,
+                    ticket_state=ticket_state,
                 )
                 while attempt <= batch_end:
                     if not isRunning:
                         yield "抢票结束"
                         break
                     try:
-                        url, payload, create_state_seed = _prepare_create_request(
-                            tickets_info,
-                            order_token,
-                            timeoffset=timeoffset,
-                            is_hot_project=is_hot_project,
-                            request_result=request_result,
-                            ticket_collection_t=ticket_collection_t,
-                            create_state_seed=create_state_seed,
-                            ctoken_base_timer=(
-                                pre_state["timer"] if pre_state is not None else 0
-                            ),
-                        )
                         create_response = _request.post(
                             url=url,
                             data=payload,
                             isJson=True,
                         )
-                        try:
-                            ret = create_response.json()
-                        except JSONDecodeError as exc:
-                            handled_412 = yield from handle_non_json_response(
-                                "创建订单接口",
-                                create_response,
-                                attempt=attempt,
-                            )
-                            if not handled_412:
-                                retry_outcome.set_exception(exc)
-                                time.sleep(interval / 1000)
-                            attempt += 1
-                            continue
+                        ret = create_response.json()
                         proxy_backoff.reset()
                         err = int(ret.get("errno", ret.get("code")))
                         retry_outcome.set_response(err, ret)
@@ -682,7 +647,7 @@ def buy_stream(
                                 "success",
                                 "创建订单成功",
                                 attempt_current=attempt,
-                                attempt_total=CREATE_RETRY_LIMIT,
+                                attempt_total=effective_retry_limit,
                             )
                             result = (ret, err)
                             break
@@ -690,23 +655,31 @@ def buy_stream(
                             yield emit("status", "token过期，需要重新准备订单")
                             token_expired = True
                             break
-
                         yield emit(
                             "attempt",
                             ErrorCodes.format_attempt_result(err, ret),
                             attempt_current=attempt,
-                            attempt_total=CREATE_RETRY_LIMIT,
+                            attempt_total=effective_retry_limit,
                         )
                         if err == 100034:
                             yield emit(
                                 "status",
                                 f"更新票价为：{ret['data']['pay_money'] / 100}",
                                 attempt_current=attempt,
-                                attempt_total=CREATE_RETRY_LIMIT,
+                                attempt_total=effective_retry_limit,
                             )
                             tickets_info["pay_money"] = ret["data"]["pay_money"]
-                        time.sleep(interval / 1000)
-
+                        time.sleep(inner_loop_interval / 1000)
+                    except JSONDecodeError as exc:
+                        handled_412 = yield from handle_non_json_response(
+                            "创建订单接口",
+                            create_response,
+                            attempt=attempt,
+                        )
+                        if not handled_412:
+                            retry_outcome.set_exception(exc)
+                            time.sleep(inner_loop_interval / 1000)
+                        attempt += 1
                     except RequestException as e:
                         retry_outcome.set_exception(e)
                         for message in handle_proxy_failure(
@@ -718,23 +691,20 @@ def buy_stream(
                             "attempt",
                             str(e),
                             attempt_current=attempt,
-                            attempt_total=CREATE_RETRY_LIMIT,
+                            attempt_total=effective_retry_limit,
                         )
-                        time.sleep(interval / 1000)
-
                     except Exception as e:
                         retry_outcome.set_exception(e)
                         yield emit(
                             "attempt",
                             str(e),
                             attempt_current=attempt,
-                            attempt_total=CREATE_RETRY_LIMIT,
+                            attempt_total=effective_retry_limit,
                         )
-                        time.sleep(interval / 1000)
-
                     if result is not None or token_expired:
                         break
                     attempt += 1
+                    time.sleep(inner_loop_interval / 1000)
 
                 if result is not None or token_expired or not isRunning:
                     break
@@ -743,8 +713,10 @@ def buy_stream(
                     "status",
                     "本批次创建订单未成功，重新准备 CreateV2 请求",
                     attempt_current=None,
-                    attempt_total=CREATE_RETRY_LIMIT,
+                    attempt_total=effective_retry_limit,
                 )
+                if effective_outer_loop_interval > 0:
+                    time.sleep(effective_outer_loop_interval / 1000)
             else:
                 if show_random_message:
                     yield emit("status", f"群友说👴： {get_random_fail_message()}")
@@ -752,7 +724,7 @@ def buy_stream(
                     "status",
                     None,
                     attempt_current=None,
-                    attempt_total=CREATE_RETRY_LIMIT,
+                    attempt_total=effective_retry_limit,
                 )
                 continue
             if result is None:
@@ -762,7 +734,6 @@ def buy_stream(
                     f"{_format_retry_reason(retry_outcome)}，重新准备订单",
                 )
                 continue
-
             # win了
             request_result, errno = result
             if errno == 0:
@@ -801,8 +772,6 @@ def buy_stream(
             if errno == 100079:
                 yield emit("status", "有重复订单，停止重试", status="completed")
                 break
-        except JSONDecodeError as e:
-            yield emit("error", f"配置文件格式错误: {e}", status="failed")
         except (HTTPError, RequestException) as e:
             logger.exception(e)
             yield emit("error", f"请求错误: {e}")
@@ -833,8 +802,10 @@ def buy(
     show_random_message=True,
     show_qrcode=True,
     use_local_token=False,
+    create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
+    create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
+    outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
 ):
-    # 创建NotifierConfig对象
     notifier_config = NotifierConfig(
         serverchan_key=serverchanKey,
         serverchan3_api_url=serverchan3ApiUrl,
@@ -857,6 +828,9 @@ def buy(
         show_random_message,
         show_qrcode,
         use_local_token=use_local_token,
+        create_retry_limit=create_retry_limit,
+        create_request_batch_size=create_request_batch_size,
+        outer_loop_interval=outer_loop_interval,
     ):
         if msg.message is not None:
             logger.info(msg.message)
@@ -880,6 +854,9 @@ def buy_new_terminal(
     show_random_message=True,
     use_local_token=False,
     log_file_path: str | None = None,
+    create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
+    create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
+    outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
 ) -> subprocess.Popen:
     command = None
 
@@ -903,6 +880,9 @@ def buy_new_terminal(
     command.extend(["buy", tickets_info])
     if interval is not None:
         command.extend(["--interval", str(interval)])
+    command.extend(["--outer_interval", str(outer_loop_interval)])
+    command.extend(["--create_retry_limit", str(create_retry_limit)])
+    command.extend(["--create_request_batch_size", str(create_request_batch_size)])
     if time_start:
         command.extend(["--time_start", time_start])
     if audio_path:
@@ -932,6 +912,7 @@ def buy_new_terminal(
     if use_local_token:
         command.extend(["--use_local_token"])
     env = os.environ.copy()
+    env["BTB_PARENT_PID"] = str(os.getpid())
     if log_file_path:
         env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)
     else:

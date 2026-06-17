@@ -2,6 +2,7 @@ from argparse import Namespace
 import os
 import re
 import sys
+import threading
 import time
 
 from util.task_markers import TASK_STOPPED_MARKER
@@ -103,6 +104,67 @@ def buy_cmd(args: Namespace):
         if child_process_mode:
             os._exit(0)
 
+    def parent_pid_is_running(pid: int) -> bool:
+        if pid <= 0:
+            return False
+        if os.name == "nt":
+            import ctypes
+
+            process_query_limited_information = 0x1000
+            synchronize = 0x00100000
+            still_active = 259
+
+            handle = ctypes.windll.kernel32.OpenProcess(
+                process_query_limited_information | synchronize,
+                False,
+                pid,
+            )
+            if not handle:
+                return False
+            try:
+                exit_code = ctypes.c_ulong()
+                if not ctypes.windll.kernel32.GetExitCodeProcess(
+                    handle,
+                    ctypes.byref(exit_code),
+                ):
+                    return False
+                return exit_code.value == still_active
+            finally:
+                ctypes.windll.kernel32.CloseHandle(handle)
+        try:
+            os.kill(pid, 0)
+        except (OSError, SystemError):
+            return False
+        return True
+
+    def start_parent_watchdog() -> None:
+        raw_parent_pid = os.environ.get("BTB_PARENT_PID", "").strip()
+        if not raw_parent_pid:
+            return
+        try:
+            parent_pid = int(raw_parent_pid)
+        except ValueError:
+            return
+        if parent_pid <= 0 or parent_pid == os.getpid():
+            return
+
+        def _watch_parent() -> None:
+            while True:
+                time.sleep(1.0)
+                if parent_pid_is_running(parent_pid):
+                    continue
+                try:
+                    logger.warning("检测到主进程已退出，当前抢票子进程即将结束。")
+                except Exception:
+                    pass
+                os._exit(0)
+
+        threading.Thread(
+            target=_watch_parent,
+            name="btb-parent-watchdog",
+            daemon=True,
+        ).start()
+
     def build_notifier_config() -> NotifierConfig:
         return NotifierConfig(
             serverchan_key=args.serverchanKey,
@@ -135,7 +197,11 @@ def buy_cmd(args: Namespace):
                 build_notifier_config(),
                 args.https_proxys,
                 not args.hide_random_message,
-                use_local_token=args.use_local_token,
+                False,
+                args.use_local_token,
+                args.create_retry_limit,
+                args.create_request_batch_size,
+                args.outer_interval,
             ),
             on_message=logger.info,
         )
@@ -153,6 +219,7 @@ def buy_cmd(args: Namespace):
         enable_console=enable_console_log,
     )
     install_console_close_handler()
+    start_parent_watchdog()
     if enable_console_log:
         logger.info(f"抢票日志路径：{log_file}")
     try:
@@ -175,7 +242,11 @@ def buy_cmd(args: Namespace):
                 args.meowNickname,
                 args.notify_proxy_exhausted,
                 not args.hide_random_message,
+                True,
                 use_local_token=args.use_local_token,
+                create_retry_limit=args.create_retry_limit,
+                create_request_batch_size=args.create_request_batch_size,
+                outer_loop_interval=args.outer_interval,
             )
     except KeyboardInterrupt:
         logger.warning("收到 Ctrl+C，已停止当前抢票流程。")

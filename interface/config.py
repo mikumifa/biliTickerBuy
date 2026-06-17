@@ -109,6 +109,61 @@ def normalize_interval(value: Any) -> int:
     return max(1, int(round(amount * multiplier)))
 
 
+def normalize_non_negative_interval(value: Any, *, default: int = 0) -> int:
+    if value in (None, ""):
+        return default
+    if isinstance(value, bool):
+        raise ValueError("interval must be a non-negative duration")
+    if isinstance(value, int):
+        if value < 0:
+            raise ValueError("interval must be greater than or equal to 0")
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value) or value < 0:
+            raise ValueError("interval must be greater than or equal to 0")
+        return int(round(value))
+
+    text = str(value).strip().lower()
+    if not text:
+        return default
+    if text.isdigit():
+        return int(text)
+
+    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)\s*(ms|s|sec|secs|m|min|mins)?", text)
+    if not match:
+        raise ValueError(
+            "interval must be milliseconds or a duration like 0, 500ms, 0.5s, 0.36m"
+        )
+    amount = float(match.group(1))
+    unit = match.group(2) or "ms"
+    if amount < 0:
+        raise ValueError("interval must be greater than or equal to 0")
+    multiplier = {
+        "ms": 1,
+        "s": 1000,
+        "sec": 1000,
+        "secs": 1000,
+        "m": 60000,
+        "min": 60000,
+        "mins": 60000,
+    }[unit]
+    return max(0, int(round(amount * multiplier)))
+
+
+def normalize_positive_int(value: Any, *, default: int) -> int:
+    if value in (None, ""):
+        return default
+    if isinstance(value, bool):
+        raise ValueError("value must be a positive integer")
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("value must be a positive integer") from None
+    if parsed <= 0:
+        raise ValueError("value must be greater than 0")
+    return parsed
+
+
 def load_ticket_config(path: str | Path) -> dict[str, Any]:
     return _load_config(path)
 
@@ -185,6 +240,9 @@ def generate_ticket_config(
 def build_runtime_options(
     *,
     interval: int = 1000,
+    outer_interval: int = 0,
+    create_retry_limit: int = 20,
+    create_request_batch_size: int = 3,
     time_start: str = "",
     audio_path: str = "",
     pushplusToken: str = "",
@@ -203,6 +261,15 @@ def build_runtime_options(
 ) -> dict[str, Any]:
     return {
         "interval": normalize_interval(interval),
+        "outer_interval": normalize_non_negative_interval(outer_interval, default=0),
+        "create_retry_limit": normalize_positive_int(
+            create_retry_limit,
+            default=20,
+        ),
+        "create_request_batch_size": normalize_positive_int(
+            create_request_batch_size,
+            default=3,
+        ),
         "time_start": normalize_time_start(time_start),
         "audio_path": audio_path,
         "pushplusToken": pushplusToken,

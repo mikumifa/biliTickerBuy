@@ -114,6 +114,9 @@ def main(run_dir_arg: str) -> int:
             runtime.get("show_random_message", True),
             False,
             use_local_token=runtime.get("use_local_token", False),
+            create_retry_limit=runtime.get("create_retry_limit", 20),
+            create_request_batch_size=runtime.get("create_request_batch_size", 3),
+            outer_loop_interval=runtime.get("outer_interval", 0),
         ):
             message = event.message
             if message is not None:

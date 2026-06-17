@@ -23,6 +23,19 @@ from util import (
 
 BEIJING_TZ = datetime.timezone(datetime.timedelta(hours=8), name="Asia/Shanghai")
 GO_UPLOADED_FILES_STATE_KEY = "go.uploaded_config_files"
+DEFAULT_REQUEST_INTERVAL = 1000
+DEFAULT_OUTER_INTERVAL = 0
+DEFAULT_CREATE_RETRY_LIMIT = 20
+DEFAULT_CREATE_REQUEST_BATCH_SIZE = 3
+
+
+def _get_config_int(key: str, default: int) -> int:
+    raw = ConfigDB.get(key)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value
 
 
 def withTimeString(string):
@@ -173,7 +186,7 @@ def go_start_tab():
         with gr.Row(elem_classes="btb-inline-actions !justify-end"):
             interval_ui = gr.Number(
                 label="抢票间隔",
-                value=1000,
+                value=_get_config_int("requestInterval", DEFAULT_REQUEST_INTERVAL),
                 minimum=1,
                 info="抢票请求之间的时间间隔（单位：毫秒）",
             )
@@ -253,6 +266,13 @@ def go_start_tab():
             gr.Warning("未提交抢票配置。")
             return gr.update(visible=False)
 
+        try:
+            interval = int(interval)
+        except (TypeError, ValueError):
+            interval = DEFAULT_REQUEST_INTERVAL
+        interval = max(1, interval)
+        ConfigDB.insert("requestInterval", interval)
+
         https_proxys = ConfigDB.get("https_proxy") or ""
         https_proxy_list = ["none"] + https_proxys.split(",")
         assigned_proxies: list[list[str]] = []
@@ -268,6 +288,15 @@ def go_start_tab():
         use_local_token = ConfigDB.get("useLocalToken")
         if use_local_token is None:
             use_local_token = False
+        outer_interval = _get_config_int("outerLoopInterval", DEFAULT_OUTER_INTERVAL)
+        create_retry_limit = _get_config_int(
+            "createRetryLimit",
+            DEFAULT_CREATE_RETRY_LIMIT,
+        )
+        create_request_batch_size = _get_config_int(
+            "createRequestBatchSize",
+            DEFAULT_CREATE_REQUEST_BATCH_SIZE,
+        )
 
         for idx, filename in enumerate(files):
             with open(filename, "r", encoding="utf-8") as file:
@@ -297,6 +326,9 @@ def go_start_tab():
                 show_random_message=not hide_random_message,
                 use_local_token=use_local_token,
                 log_file_path=log_file_path,
+                create_retry_limit=create_retry_limit,
+                create_request_batch_size=create_request_batch_size,
+                outer_loop_interval=outer_interval,
             )
             GlobalStatusInstance.register_task_log(
                 title=filename_only,
@@ -547,6 +579,49 @@ def go_settings_tab(header_ui):
         ConfigDB.insert("useLocalToken", value)
         return gr.update(value=ConfigDB.get("useLocalToken"))
 
+    def update_request_interval(value):
+        try:
+            parsed = max(1, int(value))
+        except (TypeError, ValueError):
+            parsed = DEFAULT_REQUEST_INTERVAL
+        ConfigDB.insert("requestInterval", parsed)
+        return gr.update(
+            value=_get_config_int("requestInterval", DEFAULT_REQUEST_INTERVAL)
+        )
+
+    def update_outer_loop_interval(value):
+        try:
+            parsed = max(0, int(value))
+        except (TypeError, ValueError):
+            parsed = DEFAULT_OUTER_INTERVAL
+        ConfigDB.insert("outerLoopInterval", parsed)
+        return gr.update(
+            value=_get_config_int("outerLoopInterval", DEFAULT_OUTER_INTERVAL)
+        )
+
+    def update_create_retry_limit(value):
+        try:
+            parsed = max(1, int(value))
+        except (TypeError, ValueError):
+            parsed = DEFAULT_CREATE_RETRY_LIMIT
+        ConfigDB.insert("createRetryLimit", parsed)
+        return gr.update(
+            value=_get_config_int("createRetryLimit", DEFAULT_CREATE_RETRY_LIMIT)
+        )
+
+    def update_create_request_batch_size(value):
+        try:
+            parsed = max(1, int(value))
+        except (TypeError, ValueError):
+            parsed = DEFAULT_CREATE_REQUEST_BATCH_SIZE
+        ConfigDB.insert("createRequestBatchSize", parsed)
+        return gr.update(
+            value=_get_config_int(
+                "createRequestBatchSize",
+                DEFAULT_CREATE_REQUEST_BATCH_SIZE,
+            )
+        )
+
     hide_random_message_default = ConfigDB.get("hideRandomMessage")
     if hide_random_message_default is None:
         hide_random_message_default = True
@@ -562,6 +637,22 @@ def go_settings_tab(header_ui):
     use_local_token_default = ConfigDB.get("useLocalToken")
     if use_local_token_default is None:
         use_local_token_default = False
+    request_interval_default = _get_config_int(
+        "requestInterval",
+        DEFAULT_REQUEST_INTERVAL,
+    )
+    outer_loop_interval_default = _get_config_int(
+        "outerLoopInterval",
+        DEFAULT_OUTER_INTERVAL,
+    )
+    create_retry_limit_default = _get_config_int(
+        "createRetryLimit",
+        DEFAULT_CREATE_RETRY_LIMIT,
+    )
+    create_request_batch_size_default = _get_config_int(
+        "createRequestBatchSize",
+        DEFAULT_CREATE_REQUEST_BATCH_SIZE,
+    )
 
     with gr.Column(elem_classes="btb-page-section"):
         with gr.Tabs(elem_classes="btb-top-tabs"):
@@ -759,6 +850,34 @@ def go_settings_tab(header_ui):
                         value=use_local_token_default,
                         info="默认关闭。开启后，非 hotproject 直接使用本地生成 token。",
                     )
+                    request_interval_ui = gr.Number(
+                        label="内层请求间隔（毫秒）",
+                        value=request_interval_default,
+                        minimum=1,
+                        step=1,
+                        info="创建订单内层循环的请求间隔。",
+                    )
+                    outer_loop_interval_ui = gr.Number(
+                        label="外层批次间隔（毫秒）",
+                        value=outer_loop_interval_default,
+                        minimum=0,
+                        step=1,
+                        info="每批 create 请求失败后，下一批前等待多久。",
+                    )
+                    create_retry_limit_ui = gr.Number(
+                        label="最大重试次数",
+                        value=create_retry_limit_default,
+                        minimum=1,
+                        step=1,
+                        info="create 阶段最多尝试多少次。",
+                    )
+                    create_request_batch_size_ui = gr.Number(
+                        label="单批请求数",
+                        value=create_request_batch_size_default,
+                        minimum=1,
+                        step=1,
+                        info="每一批会连续发送多少次 create 请求。",
+                    )
 
     save_proxy_btn.click(
         fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
@@ -823,6 +942,26 @@ def go_settings_tab(header_ui):
         fn=update_use_local_token,
         inputs=use_local_token_ui,
         outputs=use_local_token_ui,
+    )
+    request_interval_ui.change(
+        fn=update_request_interval,
+        inputs=request_interval_ui,
+        outputs=request_interval_ui,
+    )
+    outer_loop_interval_ui.change(
+        fn=update_outer_loop_interval,
+        inputs=outer_loop_interval_ui,
+        outputs=outer_loop_interval_ui,
+    )
+    create_retry_limit_ui.change(
+        fn=update_create_retry_limit,
+        inputs=create_retry_limit_ui,
+        outputs=create_retry_limit_ui,
+    )
+    create_request_batch_size_ui.change(
+        fn=update_create_request_batch_size,
+        inputs=create_request_batch_size_ui,
+        outputs=create_request_batch_size_ui,
     )
     test_audio_button.click(
         fn=test_terminal_audio,

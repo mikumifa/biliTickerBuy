@@ -73,6 +73,24 @@ def main():
         help="Interval time (ms). Defaults to 1000 if omitted.",
     )
     buy_core.add_argument(
+        "--outer_interval",
+        type=int,
+        default=int(os.environ.get("BTB_OUTER_INTERVAL", "0")),
+        help="Outer batch interval time (ms). Defaults to 0 if omitted.",
+    )
+    buy_core.add_argument(
+        "--create_retry_limit",
+        type=int,
+        default=int(os.environ.get("BTB_CREATE_RETRY_LIMIT", "20")),
+        help="Max create-order retry attempts. Defaults to 20 if omitted.",
+    )
+    buy_core.add_argument(
+        "--create_request_batch_size",
+        type=int,
+        default=int(os.environ.get("BTB_CREATE_REQUEST_BATCH_SIZE", "3")),
+        help="Create-order requests per batch. Defaults to 3 if omitted.",
+    )
+    buy_core.add_argument(
         "--time_start",
         type=str,
         default=os.environ.get("BTB_TIME_START", ""),

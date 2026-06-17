@@ -40,6 +40,7 @@ class BiliRequest:
         self.proxy_manager.apply_to_session(self.session)
         self.use_h2 = False
         self._h2_client = None
+        self.createTime = int(time.time() * 1000)
 
     def _rotate_proxy(self, reason: str) -> bool:
         if not self.proxy_manager.rotate():
@@ -129,8 +130,11 @@ class BiliRequest:
 
         proxies = self.session.proxies or {}
         proxy = proxies.get("https") or proxies.get("http") or None
-        verify = self.session.verify if isinstance(self.session.verify, (bool, str)) else True
-        # hot createV2 对请求协议和头顺序敏感：用 httpx 的 HTTP/2 client 固定基础头顺序。
+        verify = (
+            self.session.verify
+            if isinstance(self.session.verify, (bool, str))
+            else True
+        )
         return httpx.Client(
             http2=True,
             verify=verify,
@@ -155,7 +159,9 @@ class BiliRequest:
             if name and value is not None:
                 client.cookies.set(name, value, domain=".bilibili.com")
         if method.lower() == "post":
-            return client.post(url, json=data) if isJson else client.post(url, data=data)
+            return (
+                client.post(url, json=data) if isJson else client.post(url, data=data)
+            )
         return client.get(url, params=data)
 
     def _request(self, method: str, url, data=None, isJson=False):
