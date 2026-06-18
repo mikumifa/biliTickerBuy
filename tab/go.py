@@ -11,6 +11,7 @@ import gradio as gr
 from gradio import SelectData
 from loguru import logger
 
+from config.BuyConfig import BuyConfig
 from tab.log import refresh_task_panel, render_task_manager_panel, visible_task_entries
 from task.buy import buy_new_terminal
 from util import (
@@ -293,23 +294,7 @@ def go_start_tab():
     def launch_task(
         filename: str,
         *,
-        assigned_proxy: str,
-        time_start: str,
-        interval: int,
-        audio_path: str,
-        hide_random_message: bool,
-        notify_proxy_exhausted: bool,
-        show_qrcode: bool,
-        use_local_token: bool,
-        outer_interval: int,
-        create_retry_limit: int,
-        create_request_batch_size: int,
-        proxy_max_consecutive_failures: int,
-        proxy_cooldown_seconds: int,
-        proxy_backoff_max_seconds: int,
-        auto_open_payment_url: bool,
-        log_level: str,
-        log_retention_days: int,
+        config: BuyConfig,
     ):
         with open(filename, "r", encoding="utf-8") as file:
             content = file.read()
@@ -318,33 +303,8 @@ def go_start_tab():
         log_file_path = _build_task_log_path(filename_only)
         logger.info(f"任务 {filename_only} 的日志文件：{log_file_path}")
         proc = buy_new_terminal(
-            tickets_info=content,
-            time_start=time_start,
-            interval=interval,
-            audio_path=audio_path,
-            pushplusToken=ConfigDB.get("pushplusToken"),
-            serverchanKey=ConfigDB.get("serverchanKey"),
-            serverchan3ApiUrl=ConfigDB.get("serverchan3ApiUrl"),
-            barkToken=ConfigDB.get("barkToken"),
-            ntfy_url=ConfigDB.get("ntfyUrl"),
-            ntfy_username=ConfigDB.get("ntfyUsername"),
-            ntfy_password=ConfigDB.get("ntfyPassword"),
-            meowNickname=ConfigDB.get("meowNickname"),
-            notify_proxy_exhausted=notify_proxy_exhausted,
-            https_proxys=assigned_proxy,
-            show_random_message=not hide_random_message,
-            show_qrcode=show_qrcode,
-            use_local_token=use_local_token,
+            config=config.with_overrides(tickets_info=content),
             log_file_path=log_file_path,
-            create_retry_limit=create_retry_limit,
-            create_request_batch_size=create_request_batch_size,
-            outer_loop_interval=outer_interval,
-            proxy_max_consecutive_failures=proxy_max_consecutive_failures,
-            proxy_cooldown_seconds=proxy_cooldown_seconds,
-            proxy_backoff_max_seconds=proxy_backoff_max_seconds,
-            auto_open_payment_url=auto_open_payment_url,
-            log_level=log_level,
-            log_retention_days=log_retention_days,
         )
         GlobalStatusInstance.register_task_log(
             title=filename_only,
@@ -371,57 +331,20 @@ def go_start_tab():
         assigned_proxies: list[list[str]] = []
         assigned_proxies_next_idx = 0
 
-        audio_path = ConfigDB.get("audioPath") or ""
-        hide_random_message = ConfigDB.get("hideRandomMessage")
-        if hide_random_message is None:
-            hide_random_message = True
-        notify_proxy_exhausted = ConfigDB.get("notifyProxyExhausted")
-        if notify_proxy_exhausted is None:
-            notify_proxy_exhausted = False
-        auto_open_payment_url = ConfigDB.get("autoOpenPaymentUrl")
-        if auto_open_payment_url is None:
-            auto_open_payment_url = True
-        show_qrcode = ConfigDB.get("showQrcode")
-        if show_qrcode is None:
-            show_qrcode = True
-        use_local_token = ConfigDB.get("useLocalToken")
-        if use_local_token is None:
-            use_local_token = False
+        buy_config = BuyConfig.from_config_db(
+            time_start=time_start,
+            interval=interval,
+        )
         proxy_assignment_strategy = str(
             ConfigDB.get("proxyAssignmentStrategy") or "balanced"
         ).lower()
-        log_level = str(ConfigDB.get("logLevel") or "standard").lower()
-        outer_interval = _get_config_int("outerLoopInterval", DEFAULT_OUTER_INTERVAL)
-        create_retry_limit = _get_config_int(
-            "createRetryLimit",
-            DEFAULT_CREATE_RETRY_LIMIT,
-        )
-        create_request_batch_size = _get_config_int(
-            "createRequestBatchSize",
-            DEFAULT_CREATE_REQUEST_BATCH_SIZE,
-        )
-        proxy_max_consecutive_failures = _get_config_int(
-            "proxyMaxConsecutiveFailures",
-            DEFAULT_PROXY_MAX_CONSECUTIVE_FAILURES,
-        )
-        proxy_cooldown_seconds = _get_config_int(
-            "proxyCooldownSeconds",
-            DEFAULT_PROXY_COOLDOWN_SECONDS,
-        )
-        proxy_backoff_max_seconds = _get_config_int(
-            "proxyBackoffMaxSeconds",
-            DEFAULT_PROXY_BACKOFF_MAX_SECONDS,
-        )
         queue_concurrency_limit = _get_config_int("queueConcurrencyLimit", 0)
-        log_retention_days = _get_config_int(
-            "logRetentionDays",
-            DEFAULT_LOG_RETENTION_DAYS,
-        )
+        log_retention_days = buy_config.log_retention_days
         auto_cleanup_logs = ConfigDB.get("autoCleanupLogs")
         if auto_cleanup_logs is None:
             auto_cleanup_logs = True
         if auto_cleanup_logs:
-            from util.CleanupUtil import cleanup_runtime_artifacts
+            from util.Storage.CleanupUtil import cleanup_runtime_artifacts
 
             cleanup_runtime_artifacts(
                 logs_dir=LOG_DIR,
@@ -430,26 +353,6 @@ def go_start_tab():
                 max_log_files=_get_config_int("maxLogFiles", DEFAULT_MAX_LOG_FILES),
                 max_run_dirs=_get_config_int("maxRunDirs", DEFAULT_MAX_RUN_DIRS),
             )
-
-        launch_kwargs = {
-            "time_start": time_start,
-            "interval": interval,
-            "audio_path": audio_path,
-            "hide_random_message": hide_random_message,
-            "notify_proxy_exhausted": notify_proxy_exhausted,
-            "show_qrcode": show_qrcode,
-            "use_local_token": use_local_token,
-            "outer_interval": outer_interval,
-            "create_retry_limit": create_retry_limit,
-            "create_request_batch_size": create_request_batch_size,
-            "proxy_max_consecutive_failures": proxy_max_consecutive_failures,
-            "proxy_cooldown_seconds": proxy_cooldown_seconds,
-            "proxy_backoff_max_seconds": proxy_backoff_max_seconds,
-            "auto_open_payment_url": auto_open_payment_url,
-            "log_level": log_level,
-            "log_retention_days": log_retention_days,
-        }
-
         if proxy_assignment_strategy == "queue":
             worker_count = len(https_proxy_list)
             if queue_concurrency_limit > 0:
@@ -467,8 +370,9 @@ def go_start_tab():
                     try:
                         proc = launch_task(
                             current_file,
-                            assigned_proxy=proxy_slot,
-                            **launch_kwargs,
+                            config=buy_config.with_overrides(
+                                https_proxys=proxy_slot,
+                            ),
                         )
                         proc.wait()
                     except Exception as exc:
@@ -490,8 +394,9 @@ def go_start_tab():
                 assigned_proxies = split_proxies(https_proxy_list, left_task_num)
             launch_task(
                 filename,
-                assigned_proxy=",".join(assigned_proxies[assigned_proxies_next_idx]),
-                **launch_kwargs,
+                config=buy_config.with_overrides(
+                    https_proxys=",".join(assigned_proxies[assigned_proxies_next_idx]),
+                ),
             )
             assigned_proxies_next_idx += 1
         gr.Info("抢票任务已启动，下面可以直接查看日志链接或停止任务。")
@@ -624,7 +529,7 @@ def go_settings_tab(header_ui):
 
     def test_proxy_connectivity(proxy_string, timeout):
         try:
-            from util.ProxyTester import test_proxy_connectivity
+            from util.proxy.ProxyTester import test_proxy_connectivity
 
             proxy_string = _serialize_proxy_text(proxy_string)
             if not proxy_string or proxy_string.strip() == "":
@@ -684,7 +589,7 @@ def go_settings_tab(header_ui):
             return "错误: 请先上传提示音"
 
         try:
-            from util.AudioUtil import AudioNotifier
+            from util.notifer.AudioUtil import AudioNotifier
 
             AudioNotifier(audio_path).send_message(
                 "🎫 抢票测试",
@@ -697,7 +602,7 @@ def go_settings_tab(header_ui):
 
     def test_all_push():
         try:
-            from util.Notifier import NotifierManager
+            from util.notifer.Notifier import NotifierManager
 
             return NotifierManager.test_all_notifiers(include_audio=False)
         except Exception as e:
@@ -712,7 +617,7 @@ def go_settings_tab(header_ui):
         if not url:
             return "错误: 请先设置Ntfy服务器URL"
 
-        from util import NtfyUtil
+        from util.notifer import NtfyUtil
 
         success, message = NtfyUtil.test_connection(url, username, password)
         return f"成功: {message}" if success else f"错误: {message}"
@@ -861,62 +766,32 @@ def go_settings_tab(header_ui):
             DEFAULT_MAX_RUN_DIRS,
         )
 
-    hide_random_message_default = ConfigDB.get("hideRandomMessage")
-    if hide_random_message_default is None:
-        hide_random_message_default = True
+    buy_defaults = BuyConfig.from_config_db()
+    hide_random_message_default = not buy_defaults.show_random_message
     hide_header_default = ConfigDB.get("hideHeader")
     if hide_header_default is None:
         hide_header_default = False
     auto_fill_time_default = ConfigDB.get("autoFillTime")
     if auto_fill_time_default is None:
         auto_fill_time_default = True
-    notify_proxy_exhausted_default = ConfigDB.get("notifyProxyExhausted")
-    if notify_proxy_exhausted_default is None:
-        notify_proxy_exhausted_default = False
-    show_qrcode_default = ConfigDB.get("showQrcode")
-    if show_qrcode_default is None:
-        show_qrcode_default = True
-    auto_open_payment_url_default = ConfigDB.get("autoOpenPaymentUrl")
-    if auto_open_payment_url_default is None:
-        auto_open_payment_url_default = True
-    use_local_token_default = ConfigDB.get("useLocalToken")
-    if use_local_token_default is None:
-        use_local_token_default = False
+    notify_proxy_exhausted_default = buy_defaults.notifier_config.notify_proxy_exhausted
+    show_qrcode_default = buy_defaults.show_qrcode
+    auto_open_payment_url_default = buy_defaults.auto_open_payment_url
+    use_local_token_default = buy_defaults.use_local_token
     auto_cleanup_logs_default = ConfigDB.get("autoCleanupLogs")
     if auto_cleanup_logs_default is None:
         auto_cleanup_logs_default = True
     proxy_assignment_strategy_default = str(
         ConfigDB.get("proxyAssignmentStrategy") or "balanced"
     ).lower()
-    log_level_default = str(ConfigDB.get("logLevel") or "standard").lower()
-    request_interval_default = _get_config_int(
-        "requestInterval",
-        DEFAULT_REQUEST_INTERVAL,
-    )
-    outer_loop_interval_default = _get_config_int(
-        "outerLoopInterval",
-        DEFAULT_OUTER_INTERVAL,
-    )
-    create_retry_limit_default = _get_config_int(
-        "createRetryLimit",
-        DEFAULT_CREATE_RETRY_LIMIT,
-    )
-    create_request_batch_size_default = _get_config_int(
-        "createRequestBatchSize",
-        DEFAULT_CREATE_REQUEST_BATCH_SIZE,
-    )
-    proxy_max_consecutive_failures_default = _get_config_int(
-        "proxyMaxConsecutiveFailures",
-        DEFAULT_PROXY_MAX_CONSECUTIVE_FAILURES,
-    )
-    proxy_cooldown_seconds_default = _get_config_int(
-        "proxyCooldownSeconds",
-        DEFAULT_PROXY_COOLDOWN_SECONDS,
-    )
-    proxy_backoff_max_seconds_default = _get_config_int(
-        "proxyBackoffMaxSeconds",
-        DEFAULT_PROXY_BACKOFF_MAX_SECONDS,
-    )
+    log_level_default = buy_defaults.log_level
+    request_interval_default = int(buy_defaults.interval or DEFAULT_REQUEST_INTERVAL)
+    outer_loop_interval_default = buy_defaults.outer_loop_interval
+    create_retry_limit_default = buy_defaults.create_retry_limit
+    create_request_batch_size_default = buy_defaults.create_request_batch_size
+    proxy_max_consecutive_failures_default = buy_defaults.proxy_max_consecutive_failures
+    proxy_cooldown_seconds_default = buy_defaults.proxy_cooldown_seconds
+    proxy_backoff_max_seconds_default = buy_defaults.proxy_backoff_max_seconds
     queue_concurrency_limit_default = _get_config_int("queueConcurrencyLimit", 0)
     log_retention_days_default = _get_config_int(
         "logRetentionDays",

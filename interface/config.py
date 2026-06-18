@@ -4,6 +4,7 @@ import copy
 import json
 import math
 import re
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,54 @@ from .common import (
     _load_json_file,
 )
 from .types import ValidationResult
+
+
+@dataclass(slots=True)
+class RuntimeOptions:
+    interval: int = 1000
+    outer_interval: int = 0
+    create_retry_limit: int = 20
+    create_request_batch_size: int = 3
+    time_start: str = ""
+    audio_path: str = ""
+    pushplusToken: str = ""
+    serverchanKey: str = ""
+    barkToken: str = ""
+    meowNickname: str = ""
+    https_proxys: str = "none"
+    serverchan3ApiUrl: str = ""
+    ntfy_url: str = ""
+    ntfy_username: str = ""
+    ntfy_password: str = ""
+    notify_proxy_exhausted: bool = False
+    show_random_message: bool = True
+    show_qrcode: bool = True
+    use_local_token: bool = False
+    proxy_max_consecutive_failures: int = 2
+    proxy_cooldown_seconds: int = 180
+    proxy_backoff_max_seconds: int = 600
+    auto_open_payment_url: bool = True
+    log_level: str = "standard"
+    log_retention_days: int = 7
+
+    @classmethod
+    def from_mapping(cls, data: dict[str, Any]) -> "RuntimeOptions":
+        return build_runtime_options(**data)
+
+    def merged_with(
+        self,
+        overrides: dict[str, Any] | "RuntimeOptions" | None,
+    ) -> "RuntimeOptions":
+        if overrides is None:
+            return copy.deepcopy(self)
+        if isinstance(overrides, RuntimeOptions):
+            return copy.deepcopy(overrides)
+        merged = self.to_dict()
+        merged.update(copy.deepcopy(overrides))
+        return RuntimeOptions.from_mapping(merged)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 def normalize_time_start(value: Any) -> str:
@@ -264,49 +313,49 @@ def build_runtime_options(
     auto_open_payment_url: bool = True,
     log_level: str = "standard",
     log_retention_days: int = 7,
-) -> dict[str, Any]:
-    return {
-        "interval": normalize_interval(interval),
-        "outer_interval": normalize_non_negative_interval(outer_interval, default=0),
-        "create_retry_limit": normalize_positive_int(
+) -> RuntimeOptions:
+    return RuntimeOptions(
+        interval=normalize_interval(interval),
+        outer_interval=normalize_non_negative_interval(outer_interval, default=0),
+        create_retry_limit=normalize_positive_int(
             create_retry_limit,
             default=20,
         ),
-        "create_request_batch_size": normalize_positive_int(
+        create_request_batch_size=normalize_positive_int(
             create_request_batch_size,
             default=3,
         ),
-        "time_start": normalize_time_start(time_start),
-        "audio_path": audio_path,
-        "pushplusToken": pushplusToken,
-        "serverchanKey": serverchanKey,
-        "barkToken": barkToken,
-        "meowNickname": meowNickname,
-        "https_proxys": https_proxys,
-        "serverchan3ApiUrl": serverchan3ApiUrl,
-        "ntfy_url": ntfy_url,
-        "ntfy_username": ntfy_username,
-        "ntfy_password": ntfy_password,
-        "notify_proxy_exhausted": notify_proxy_exhausted,
-        "show_random_message": show_random_message,
-        "show_qrcode": show_qrcode,
-        "use_local_token": use_local_token,
-        "proxy_max_consecutive_failures": normalize_positive_int(
+        time_start=normalize_time_start(time_start),
+        audio_path=audio_path,
+        pushplusToken=pushplusToken,
+        serverchanKey=serverchanKey,
+        barkToken=barkToken,
+        meowNickname=meowNickname,
+        https_proxys=https_proxys,
+        serverchan3ApiUrl=serverchan3ApiUrl,
+        ntfy_url=ntfy_url,
+        ntfy_username=ntfy_username,
+        ntfy_password=ntfy_password,
+        notify_proxy_exhausted=notify_proxy_exhausted,
+        show_random_message=show_random_message,
+        show_qrcode=show_qrcode,
+        use_local_token=use_local_token,
+        proxy_max_consecutive_failures=normalize_positive_int(
             proxy_max_consecutive_failures,
             default=2,
         ),
-        "proxy_cooldown_seconds": normalize_positive_int(
+        proxy_cooldown_seconds=normalize_positive_int(
             proxy_cooldown_seconds,
             default=180,
         ),
-        "proxy_backoff_max_seconds": normalize_positive_int(
+        proxy_backoff_max_seconds=normalize_positive_int(
             proxy_backoff_max_seconds,
             default=600,
         ),
-        "auto_open_payment_url": auto_open_payment_url,
-        "log_level": str(log_level or "standard").lower(),
-        "log_retention_days": normalize_positive_int(log_retention_days, default=7),
-    }
+        auto_open_payment_url=auto_open_payment_url,
+        log_level=str(log_level or "standard").lower(),
+        log_retention_days=normalize_positive_int(log_retention_days, default=7),
+    )
 
 
 def build_ticket_config_from_selection(

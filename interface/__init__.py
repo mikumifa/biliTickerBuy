@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .auth import get_login_state, login_with_cookies, poll_qr_login, start_qr_login
 from .config import (
+    RuntimeOptions,
     build_runtime_options,
     build_ticket_config_from_selection,
     generate_ticket_config,
@@ -32,6 +33,7 @@ from .types import BuyTaskRecord, ValidationResult
 
 __all__ = [
     "BuyTaskRecord",
+    "RuntimeOptions",
     "ValidationResult",
     "build_runtime_options",
     "build_ticket_config_from_selection",

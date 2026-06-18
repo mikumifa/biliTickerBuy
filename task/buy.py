@@ -7,6 +7,7 @@ import uuid
 import copy
 import webbrowser
 from collections.abc import Generator
+from dataclasses import dataclass
 from json import JSONDecodeError
 import shutil
 import qrcode
@@ -18,19 +19,16 @@ from cptoken import (
     init_ctoken_state,
 )
 
-from util.Notifier import NotifierManager, NotifierConfig
-from util.ProxyBackoff import ProxyBackoff
-from util.BiliRequest import BiliRequest
-from util.ProxyManager import ProxyManager
-from util.RandomMessages import get_random_fail_message
+from config.BuyConfig import BuyConfig
+from util.notifer.Notifier import NotifierManager
+from util.proxy.ProxyBackoff import ProxyBackoff
+from util.proxy.ProxyManager import ProxyManager
+from util.notifer.RandomMessages import get_random_fail_message
 from util.TimeUtil import current_time_ms
-from util.error_codes import ErrorCodes
+from util.ErrorCodes import ErrorCodes
 from interface.project import fetch_project_payload
 from task.buy_helpers import (
     BASE_URL as base_url,
-    DEFAULT_CREATE_REQUEST_BATCH_SIZE,
-    DEFAULT_CREATE_RETRY_LIMIT,
-    DEFAULT_OUTER_LOOP_INTERVAL,
     build_order_token as _build_order_token,
     build_token_payload as _build_token_payload,
     create_order_terminal_rule as _create_order_terminal_rule,
@@ -53,25 +51,115 @@ from task.buy_types import (
     CreateOrderTerminalRule,
     RetryOutcome,
 )
+from util.request.BiliRequest import BiliRequest
 
 
-def buy_stream(
-    tickets_info,
-    time_start,
-    interval,
-    notifier_config,
-    https_proxys,
-    show_random_message=True,
-    show_qrcode=True,
-    use_local_token=False,
-    create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
-    create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
-    outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
-    proxy_max_consecutive_failures: int = 2,
-    proxy_cooldown_seconds: int = 180,
-    proxy_backoff_max_seconds: int = 600,
-    auto_open_payment_url: bool = False,
-):
+@dataclass(slots=True)
+class Buy:
+    config: BuyConfig
+
+    def stream(self):
+        yield from buy_stream(self.config)
+
+    def start_worker(self) -> BuyStreamWorker:
+        return BuyStreamWorker.start_buy_stream_worker(self.stream)
+
+    def to_cli_args(self) -> list[str]:
+        return ["buy", self.config.tickets_info, *self.config.to_cli_args()]
+
+    def run(self, on_message=None) -> None:
+        worker = self.start_worker()
+        for event in worker.iter_events():
+            if event.message is not None and on_message is not None:
+                on_message(event.message)
+
+    def buy(self) -> None:
+        self.run(logger.info)
+
+    def start_new_terminal(
+        self,
+        *,
+        log_file_path: str | None = None,
+        log_level: str | None = None,
+        log_retention_days: int | None = None,
+    ) -> subprocess.Popen:
+        command = None
+
+        if getattr(sys, "frozen", False):
+            command = [sys.executable]
+        else:
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            main_py = os.path.join(script_dir, "main.py")
+
+            if os.path.exists(main_py):
+                command = [sys.executable, main_py]
+            else:
+                btb_path = shutil.which("btb")
+                if not btb_path:
+                    raise RuntimeError("Cannot find main.py or btb command")
+                command = [btb_path]
+        command.extend(self.to_cli_args())
+        env = os.environ.copy()
+        env["BTB_PARENT_PID"] = str(os.getpid())
+        effective_log_level = log_level or self.config.log_level
+        if effective_log_level:
+            normalized_log_level = str(effective_log_level).lower()
+            if normalized_log_level == "simple":
+                env["BTB_LOG_LEVEL"] = "INFO"
+                env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
+            elif normalized_log_level == "debug":
+                env["BTB_LOG_LEVEL"] = "DEBUG"
+                env["BTB_CONSOLE_LOG_LEVEL"] = "DEBUG"
+            else:
+                env["BTB_LOG_LEVEL"] = "DEBUG"
+                env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
+        env["BTB_LOG_RETENTION_DAYS"] = str(
+            log_retention_days
+            if log_retention_days is not None
+            else self.config.log_retention_days
+        )
+        if log_file_path:
+            env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)
+        else:
+            env.setdefault("BTB_APP_LOG_NAME", f"{uuid.uuid4()}.log")
+        kwargs = {}
+        if os.name == "nt":
+            kwargs["creationflags"] = (
+                subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NEW_CONSOLE
+            )
+            env["BTB_HOLD_TERMINAL"] = "1"
+        else:
+            env["BTB_CHILD_PROCESS"] = "1"
+            kwargs["start_new_session"] = True
+
+        if os.name == "nt":
+            return subprocess.Popen(command, env=env, **kwargs)
+
+        with open(os.devnull, "r") as devnull_in, open(os.devnull, "a") as devnull_out:
+            return subprocess.Popen(
+                command,
+                env=env,
+                stdin=devnull_in,
+                stdout=devnull_out,
+                stderr=devnull_out,
+                **kwargs,
+            )
+
+    def buy_new_terminal(
+        self,
+        *,
+        log_file_path: str | None = None,
+        log_level: str | None = None,
+        log_retention_days: int | None = None,
+    ) -> subprocess.Popen:
+        return self.start_new_terminal(
+            log_file_path=log_file_path,
+            log_level=log_level,
+            log_retention_days=log_retention_days,
+        )
+
+
+def buy_stream(config: BuyConfig):
     state = BuyStreamState()
 
     def emit(
@@ -100,7 +188,7 @@ def buy_stream(
             _request,
             reason,
             proxy_backoff,
-            notifier_config,
+            config.notifier_config,
         )
         attempt_total = (
             effective_retry_limit if attempt is not None else state.attempt_total
@@ -193,30 +281,30 @@ def buy_stream(
         return False
 
     isRunning = True
-    tickets_info = json.loads(tickets_info)
+    tickets_info = json.loads(config.tickets_info)
     detail = tickets_info["detail"]
     cookies = tickets_info["cookies"]
     tickets_info.pop("cookies", None)
     tickets_info["_prepare_buyer_info"] = copy.deepcopy(tickets_info["buyer_info"])
     tickets_info["buyer_info"] = json.dumps(tickets_info["buyer_info"])
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
-    masked_proxies = ProxyManager.mask_proxy_string(https_proxys)
+    masked_proxies = ProxyManager.mask_proxy_string(config.https_proxys)
     logger.info(f"目前已配置代理：{masked_proxies or '直连'}")
     _request = BiliRequest(
         cookies=cookies,
-        proxy=https_proxys,
-        proxy_failure_threshold=proxy_max_consecutive_failures,
-        proxy_cooldown_seconds=proxy_cooldown_seconds,
+        proxy=config.https_proxys,
+        proxy_failure_threshold=config.proxy_max_consecutive_failures,
+        proxy_cooldown_seconds=config.proxy_cooldown_seconds,
     )
-    proxy_backoff = ProxyBackoff(max_seconds=proxy_backoff_max_seconds)
+    proxy_backoff = ProxyBackoff(max_seconds=config.proxy_backoff_max_seconds)
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
-    use_local_token = bool(use_local_token)
+    use_local_token = bool(config.use_local_token)
     browser_window_state = generate_browser_window_state()
     token_payload = _build_token_payload(tickets_info)
-    inner_loop_interval = max(1, int(interval))
-    effective_retry_limit = max(1, int(create_retry_limit))
-    effective_batch_size = max(1, int(create_request_batch_size))
-    effective_outer_loop_interval = max(0, int(outer_loop_interval))
+    inner_loop_interval = max(1, int(config.interval or 1000))
+    effective_retry_limit = max(1, int(config.create_retry_limit))
+    effective_batch_size = max(1, int(config.create_request_batch_size))
+    effective_outer_loop_interval = max(0, int(config.outer_loop_interval))
 
     def refresh_hot_and_warm():
         nonlocal is_hot_project
@@ -233,7 +321,10 @@ def buy_stream(
     for warm_message in refresh_hot_and_warm():
         yield emit("status", warm_message)
 
-    for wait_state in _wait_until_start(time_start, warmup=refresh_hot_and_warm):
+    for wait_state in _wait_until_start(
+        config.time_start,
+        warmup=refresh_hot_and_warm,
+    ):
         wait_message = wait_state.get("message")
         countdown_value = wait_state.get("countdown")
         countdown_seconds = wait_state.get("countdown_seconds")
@@ -466,7 +557,7 @@ def buy_stream(
                 if effective_outer_loop_interval > 0:
                     time.sleep(effective_outer_loop_interval / 1000)
             else:
-                if show_random_message:
+                if config.show_random_message:
                     yield emit("status", f"群友说👴： {get_random_fail_message()}")
                 yield emit(
                     "status",
@@ -490,7 +581,7 @@ def buy_stream(
                                 status=terminal_rule.status,
                             ),
                         )
-                        if auto_open_payment_url:
+                        if config.auto_open_payment_url:
                             try:
                                 webbrowser.open(payment_url)
                                 yield emit(
@@ -514,7 +605,7 @@ def buy_stream(
             request_result, errno = result
             if errno == 0:
                 notifierManager = NotifierManager.create_from_config(
-                    config=notifier_config,
+                    config=config.notifier_config,
                     title="抢票成功",
                     content=f"bilibili会员购，请尽快前往订单中心付款: {detail}",
                 )
@@ -543,7 +634,7 @@ def buy_stream(
                         status="succeeded",
                     ),
                 )
-                if auto_open_payment_url:
+                if config.auto_open_payment_url:
                     try:
                         webbrowser.open(payment_url)
                         yield emit(
@@ -556,7 +647,7 @@ def buy_stream(
                         )
                     except Exception as exc:
                         yield emit("status", f"自动打开支付链接失败: {exc}")
-                if show_qrcode:
+                if config.show_qrcode:
                     qr_gen = qrcode.QRCode()
                     qr_gen.add_data(qrcode_url)
                     qr_gen.make(fit=True)
@@ -579,203 +670,14 @@ def buy_stream(
             )
 
 
-def buy(
-    tickets_info,
-    time_start,
-    interval,
-    audio_path,
-    pushplusToken,
-    serverchanKey,
-    barkToken,
-    https_proxys,
-    serverchan3ApiUrl=None,
-    ntfy_url=None,
-    ntfy_username=None,
-    ntfy_password=None,
-    meowNickname=None,
-    notify_proxy_exhausted=False,
-    show_random_message=True,
-    show_qrcode=True,
-    use_local_token=False,
-    create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
-    create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
-    outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
-    proxy_max_consecutive_failures: int = 2,
-    proxy_cooldown_seconds: int = 180,
-    proxy_backoff_max_seconds: int = 600,
-    auto_open_payment_url: bool = False,
-):
-    notifier_config = NotifierConfig(
-        serverchan_key=serverchanKey,
-        serverchan3_api_url=serverchan3ApiUrl,
-        pushplus_token=pushplusToken,
-        bark_token=barkToken,
-        ntfy_url=ntfy_url,
-        ntfy_username=ntfy_username,
-        ntfy_password=ntfy_password,
-        meow_nickname=meowNickname,
-        audio_path=audio_path,
-        notify_proxy_exhausted=notify_proxy_exhausted,
-    )
-
-    worker = BuyStreamWorker.start_buy_stream_worker(
-        buy_stream,
-        tickets_info,
-        time_start,
-        interval,
-        notifier_config,
-        https_proxys,
-        show_random_message,
-        show_qrcode,
-        use_local_token=use_local_token,
-        create_retry_limit=create_retry_limit,
-        create_request_batch_size=create_request_batch_size,
-        outer_loop_interval=outer_loop_interval,
-        proxy_max_consecutive_failures=proxy_max_consecutive_failures,
-        proxy_cooldown_seconds=proxy_cooldown_seconds,
-        proxy_backoff_max_seconds=proxy_backoff_max_seconds,
-        auto_open_payment_url=auto_open_payment_url,
-    )
-    for msg in worker.iter_events():
-        if msg.message is not None:
-            logger.info(msg.message)
-
-
 def buy_new_terminal(
-    tickets_info,
-    time_start,
-    interval,
-    audio_path,
-    pushplusToken,
-    serverchanKey,
-    barkToken,
-    https_proxys,
-    serverchan3ApiUrl=None,
-    ntfy_url=None,
-    ntfy_username=None,
-    ntfy_password=None,
-    meowNickname=None,
-    notify_proxy_exhausted=False,
-    show_random_message=True,
-    show_qrcode=True,
-    use_local_token=False,
+    config: BuyConfig,
     log_file_path: str | None = None,
-    create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
-    create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
-    outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
-    proxy_max_consecutive_failures: int = 2,
-    proxy_cooldown_seconds: int = 180,
-    proxy_backoff_max_seconds: int = 600,
-    auto_open_payment_url: bool = False,
     log_level: str | None = None,
     log_retention_days: int | None = None,
 ) -> subprocess.Popen:
-    command = None
-
-    # 1️⃣ PyInstaller / frozen
-    if getattr(sys, "frozen", False):
-        command = [sys.executable]
-    else:
-        # 2️⃣ 源码模式：检查「当前脚本目录」是否有 main.py
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        main_py = os.path.join(script_dir, "main.py")
-
-        if os.path.exists(main_py):
-            command = [sys.executable, main_py]
-        # 3️⃣ 兜底：使用 btb（pip / pipx）
-        else:
-            btb_path = shutil.which("btb")
-            if not btb_path:
-                raise RuntimeError("Cannot find main.py or btb command")
-
-            command = [btb_path]
-    command.extend(["buy", tickets_info])
-    if interval is not None:
-        command.extend(["--interval", str(interval)])
-    command.extend(["--outer_interval", str(outer_loop_interval)])
-    command.extend(["--create_retry_limit", str(create_retry_limit)])
-    command.extend(["--create_request_batch_size", str(create_request_batch_size)])
-    command.extend(
-        ["--proxy_max_consecutive_failures", str(proxy_max_consecutive_failures)]
+    return Buy(config=config).buy_new_terminal(
+        log_file_path=log_file_path,
+        log_level=log_level,
+        log_retention_days=log_retention_days,
     )
-    command.extend(["--proxy_cooldown_seconds", str(proxy_cooldown_seconds)])
-    command.extend(["--proxy_backoff_max_seconds", str(proxy_backoff_max_seconds)])
-    if time_start:
-        command.extend(["--time_start", time_start])
-    if audio_path:
-        command.extend(["--audio_path", audio_path])
-    if pushplusToken:
-        command.extend(["--pushplusToken", pushplusToken])
-    if serverchanKey:
-        command.extend(["--serverchanKey", serverchanKey])
-    if serverchan3ApiUrl:
-        command.extend(["--serverchan3ApiUrl", serverchan3ApiUrl])
-    if barkToken:
-        command.extend(["--barkToken", barkToken])
-    if ntfy_url:
-        command.extend(["--ntfy_url", ntfy_url])
-    if ntfy_username:
-        command.extend(["--ntfy_username", ntfy_username])
-    if ntfy_password:
-        command.extend(["--ntfy_password", ntfy_password])
-    if meowNickname:
-        command.extend(["--meowNickname", meowNickname])
-    if notify_proxy_exhausted:
-        command.append("--notify_proxy_exhausted")
-    if https_proxys:
-        command.extend(["--https_proxys", https_proxys])
-    if not show_random_message:
-        command.extend(["--hide_random_message"])
-    if not show_qrcode:
-        command.extend(["--hide_qrcode"])
-    if auto_open_payment_url:
-        command.extend(["--auto_open_payment_url"])
-    if use_local_token:
-        command.extend(["--use_local_token"])
-    env = os.environ.copy()
-    env["BTB_PARENT_PID"] = str(os.getpid())
-    if log_level:
-        normalized_log_level = str(log_level).lower()
-        if normalized_log_level == "simple":
-            env["BTB_LOG_LEVEL"] = "INFO"
-            env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
-        elif normalized_log_level == "debug":
-            env["BTB_LOG_LEVEL"] = "DEBUG"
-            env["BTB_CONSOLE_LOG_LEVEL"] = "DEBUG"
-        else:
-            env["BTB_LOG_LEVEL"] = "DEBUG"
-            env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
-    if log_retention_days is not None:
-        env["BTB_LOG_RETENTION_DAYS"] = str(log_retention_days)
-    if log_file_path:
-        env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)
-    else:
-        env.setdefault("BTB_APP_LOG_NAME", f"{uuid.uuid4()}.log")
-    kwargs = {}
-    if os.name == "nt":
-        kwargs["creationflags"] = (
-            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NEW_CONSOLE
-        )
-        env["BTB_HOLD_TERMINAL"] = "1"
-    else:
-        env["BTB_CHILD_PROCESS"] = "1"
-        kwargs["start_new_session"] = True
-
-    if os.name == "nt":
-        proc = subprocess.Popen(
-            command,
-            env=env,
-            **kwargs,
-        )
-        return proc
-
-    with open(os.devnull, "r") as devnull_in, open(os.devnull, "a") as devnull_out:
-        proc = subprocess.Popen(
-            command,
-            env=env,
-            stdin=devnull_in,
-            stdout=devnull_out,
-            stderr=devnull_out,
-            **kwargs,
-        )
-    return proc

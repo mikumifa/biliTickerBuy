@@ -92,7 +92,7 @@ def poll_qr_login(
     poll_interval: float = 0.5,
     headers: dict[str, str] | None = None,
 ) -> dict[str, object]:
-    from util.CookieManager import parse_cookie_list
+    from util.request.CookieManager import parse_cookie_list
 
     if not qrcode_key:
         raise ValueError("qrcode_key is required")

@@ -2,11 +2,11 @@ import base64
 import os
 import threading
 import time
-from argparse import Namespace
 
 import gradio as gr
 import loguru
 
+from app_cmd.cli_args import TickerCliArgs
 from app_version import get_app_version
 from util import get_application_path
 
@@ -21,15 +21,15 @@ def shutdown_app_process(delay_seconds: float = 1.0) -> None:
     threading.Timer(delay_seconds, lambda: os._exit(0)).start()
 
 
-def ticker_cmd(args: Namespace):
+def ticker_cmd(args: TickerCliArgs):
     from tab.go import go_settings_tab, go_start_tab
     from tab.log import log_tab, refresh_log_panel, refresh_task_panel
     from tab.problems import problems_tab
     from tab.settings import login_tab, setting_tab
     from tab.update import update_tab
-    from util.log_web import attach_log_routes
+    from util.log.LogWeb import attach_log_routes
     from util import ConfigDB, LOG_DIR
-    from util.LogConfig import loguru_config
+    from util.log.LogConfig import loguru_config
 
     loguru_config(LOG_DIR, "app.log", enable_console=True, file_colorize=False)
     assets_dir = os.path.join(get_application_path(), "assets")

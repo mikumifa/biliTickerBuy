@@ -2,11 +2,13 @@
 Task handlers for biliTickerBuy.
 """
 
-from .buy import buy, buy_new_terminal, buy_stream
+from config.BuyConfig import BuyConfig
+from .buy import Buy, buy_new_terminal, buy_stream
 from .buy_types import BuyStreamEvent, BuyStreamState, BuyStreamUpdate, BuyStreamWorker
 
 __all__ = [
-    "buy",
+    "Buy",
+    "BuyConfig",
     "buy_new_terminal",
     "buy_stream",
     "BuyStreamEvent",

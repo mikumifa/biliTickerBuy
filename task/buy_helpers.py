@@ -7,12 +7,13 @@ import time
 from cptoken import CTokenRuntimeState, sim_ctoken_state
 
 from util import time_service
-from util.Notifier import NotifierConfig, NotifierManager
-from util.ProxyBackoff import ProxyBackoff
-from util.BiliRequest import BiliRequest
+from config.NotifierConfig import NotifierConfig
+from util.notifer.Notifier import NotifierManager
+from util.proxy.ProxyBackoff import ProxyBackoff
 from util.TimeUtil import current_time_ms
-from util.TokenUtil import generate_token
-from util.error_codes import ErrorCodes
+from util.request.BiliRequest import BiliRequest
+from util.request.TokenUtil import generate_token
+from util.ErrorCodes import ErrorCodes
 
 from .buy_types import CreateOrderTerminalRule, RetryOutcome
 

@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 import threading
 import loguru
 import time
-from typing import Optional
+
+from config.NotifierConfig import NotifierConfig
 
 
 class NotifierBase(ABC):
@@ -80,40 +80,6 @@ class NotifierBase(ABC):
         pass
 
 
-@dataclass
-class NotifierConfig:
-    """推送配置统一管理"""
-
-    serverchan_key: Optional[str] = None
-    serverchan3_api_url: Optional[str] = None
-    pushplus_token: Optional[str] = None
-    bark_token: Optional[str] = None
-    ntfy_url: Optional[str] = None
-    ntfy_username: Optional[str] = None
-    ntfy_password: Optional[str] = None
-    meow_nickname: Optional[str] = None
-    audio_path: Optional[str] = None
-    notify_proxy_exhausted: bool = False
-
-    @classmethod
-    def from_config_db(cls):
-        """从ConfigDB加载配置"""
-        from util import ConfigDB
-
-        return cls(
-            serverchan_key=ConfigDB.get("serverchanKey"),
-            serverchan3_api_url=ConfigDB.get("serverchan3ApiUrl"),
-            pushplus_token=ConfigDB.get("pushplusToken"),
-            bark_token=ConfigDB.get("barkToken"),
-            ntfy_url=ConfigDB.get("ntfyUrl"),
-            ntfy_username=ConfigDB.get("ntfyUsername"),
-            ntfy_password=ConfigDB.get("ntfyPassword"),
-            meow_nickname=ConfigDB.get("meowNickname"),
-            audio_path=ConfigDB.get("audioPath"),
-            notify_proxy_exhausted=bool(ConfigDB.get("notifyProxyExhausted") or False),
-        )
-
-
 class NotifierManager:
     def __init__(self):
         self.notifier_dict: dict[str, NotifierBase] = {}
@@ -182,7 +148,7 @@ class NotifierManager:
         # ServerChan Turbo
         if config.serverchan_key:
             try:
-                from util.ServerChanUtil import ServerChanTurboNotifier
+                from util.notifer.ServerChanUtil import ServerChanTurboNotifier
 
                 notifier = ServerChanTurboNotifier(
                     token=config.serverchan_key,
@@ -200,7 +166,7 @@ class NotifierManager:
         # ServerChan3
         if config.serverchan3_api_url:
             try:
-                from util.ServerChanUtil import ServerChan3Notifier
+                from util.notifer.ServerChanUtil import ServerChan3Notifier
 
                 notifier = ServerChan3Notifier(
                     api_url=config.serverchan3_api_url,
@@ -218,7 +184,7 @@ class NotifierManager:
         # PushPlus
         if config.pushplus_token:
             try:
-                from util.PushPlusUtil import PushPlusNotifier
+                from util.proxy.PushPlusUtil import PushPlusNotifier
 
                 notifier = PushPlusNotifier(
                     token=config.pushplus_token,
@@ -236,7 +202,7 @@ class NotifierManager:
         # Bark
         if config.bark_token:
             try:
-                from util.BarkUtil import BarkNotifier
+                from util.notifer.BarkUtil import BarkNotifier
 
                 notifier = BarkNotifier(
                     token=config.bark_token,
@@ -254,7 +220,7 @@ class NotifierManager:
         # Ntfy
         if config.ntfy_url:
             try:
-                from util.NtfyUtil import NtfyNotifier
+                from util.notifer.NtfyUtil import NtfyNotifier
 
                 notifier = NtfyNotifier(
                     url=config.ntfy_url,
@@ -274,7 +240,7 @@ class NotifierManager:
         # MeoW
         if config.meow_nickname:
             try:
-                from util.MeoWUtil import MeoWNotifier
+                from util.notifer.MeoWUtil import MeoWNotifier
 
                 notifier = MeoWNotifier(
                     nickname=config.meow_nickname,
@@ -292,7 +258,7 @@ class NotifierManager:
         # Audio
         if include_audio and config.audio_path:
             try:
-                from util.AudioUtil import AudioNotifier
+                from util.notifer.AudioUtil import AudioNotifier
 
                 notifier = AudioNotifier(
                     audio_path=config.audio_path,

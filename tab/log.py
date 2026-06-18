@@ -11,9 +11,10 @@ from datetime import datetime
 from util import GlobalStatusInstance
 from util import LOG_DIR
 from util import log_file_name
-from util.log_web import build_log_view_url
-from util.task_markers import TASK_COMPLETED_MARKER, TASK_STOPPED_MARKER
+from util.log.LogWeb import build_log_view_url
 
+TASK_COMPLETED_MARKER = "抢票完成后退出程序。。。。。"
+TASK_STOPPED_MARKER = "BTB_TASK_STOPPED_BY_USER"
 TASK_STATUS_RUNNING = "运行中"
 TASK_STATUS_STOPPED = "已主动结束"
 TASK_STATUS_COMPLETED = "已完成"

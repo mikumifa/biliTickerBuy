@@ -47,8 +47,9 @@ def _heartbeat_loop(
 
 
 def main(run_dir_arg: str) -> int:
-    from task.buy import buy_stream
-    from util.Notifier import NotifierConfig
+    from config.BuyConfig import BuyConfig
+    from interface.config import RuntimeOptions
+    from task.buy import Buy
 
     run_dir = Path(run_dir_arg)
     status_path = run_dir / "status.json"
@@ -57,7 +58,7 @@ def main(run_dir_arg: str) -> int:
 
     metadata = _load_json(run_dir / "run.json")
     config = _load_json(run_dir / "config.json")
-    runtime = _load_json(run_dir / "runtime.json")
+    runtime = RuntimeOptions.from_mapping(_load_json(run_dir / "runtime.json"))
     existing_status = _load_json(status_path)
 
     status = {
@@ -90,41 +91,17 @@ def main(run_dir_arg: str) -> int:
     )
     heartbeat_thread.start()
 
-    notifier_config = NotifierConfig(
-        serverchan_key=runtime.get("serverchanKey", ""),
-        serverchan3_api_url=runtime.get("serverchan3ApiUrl", ""),
-        pushplus_token=runtime.get("pushplusToken", ""),
-        bark_token=runtime.get("barkToken", ""),
-        meow_nickname=runtime.get("meowNickname", ""),
-        ntfy_url=runtime.get("ntfy_url", ""),
-        ntfy_username=runtime.get("ntfy_username", ""),
-        ntfy_password=runtime.get("ntfy_password", ""),
-        audio_path=runtime.get("audio_path", ""),
-        notify_proxy_exhausted=runtime.get("notify_proxy_exhausted", False),
+    buy_job = Buy(
+        config=BuyConfig.from_runtime_options(
+            json.dumps(config, ensure_ascii=False),
+            runtime,
+            show_qrcode=False,
+        ),
     )
 
     final_status = "completed"
     try:
-        for event in buy_stream(
-            json.dumps(config, ensure_ascii=False),
-            runtime.get("time_start", ""),
-            runtime.get("interval", 1000),
-            notifier_config,
-            runtime.get("https_proxys", "none"),
-            runtime.get("show_random_message", True),
-            False,
-            use_local_token=runtime.get("use_local_token", False),
-            create_retry_limit=runtime.get("create_retry_limit", 20),
-            create_request_batch_size=runtime.get("create_request_batch_size", 3),
-            outer_loop_interval=runtime.get("outer_interval", 0),
-            proxy_max_consecutive_failures=runtime.get(
-                "proxy_max_consecutive_failures",
-                2,
-            ),
-            proxy_cooldown_seconds=runtime.get("proxy_cooldown_seconds", 180),
-            proxy_backoff_max_seconds=runtime.get("proxy_backoff_max_seconds", 600),
-            auto_open_payment_url=runtime.get("auto_open_payment_url", False),
-        ):
+        for event in buy_job.stream():
             message = event.message
             if message is not None:
                 _append_log(logs_path, message)

@@ -22,8 +22,8 @@ from util import ConfigDB
 from util import GLOBAL_COOKIE_PATH
 from util import TEMP_PATH
 from util import set_main_request
-from util.BiliRequest import BiliRequest
-from util.CookieManager import parse_cookie_list
+from util.request.BiliRequest import BiliRequest
+from util.request.CookieManager import parse_cookie_list
 
 buyer_value: List[Dict[str, Any]] = []
 addr_value: List[Dict[str, Any]] = []

@@ -4,14 +4,14 @@ import time
 import loguru
 import requests
 from requests import Response
-from util.BrowerState import (
+from util.request.BrowerState import (
     BrowserFingerprintState,
     build_headers_from_browser_state,
     finalize_device_id,
     generate_browser_fingerprint_state,
 )
-from util.CookieManager import CookieManager
-from util.ProxyManager import ProxyManager
+from util.request.CookieManager import CookieManager
+from util.proxy.ProxyManager import ProxyManager
 
 DEFAULT_TIMEOUT = (3.05, 8)
 H2_TIMEOUT = {

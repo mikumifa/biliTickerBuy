@@ -19,3 +19,4 @@ huggingface-hub~=0.34.3
 httpx[brotli,http2,socks,zstd]>=0.28.1
 textual>=8.2.7
 rich>=15.0.0
+tyro>=0.9.28
