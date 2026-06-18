@@ -9,7 +9,6 @@ datas.append(("assets/*", "assets"))
 datas.append(("pyproject.toml", "."))
 datas += collect_data_files("gradio_client")
 datas += collect_data_files("gradio")
-datas += collect_data_files("gradio_calendar")
 
 project_root = os.path.abspath(".")
 hiddenimports = []
@@ -18,6 +17,7 @@ hiddenimports += collect_submodules("task")
 hiddenimports += collect_submodules("tab")
 hiddenimports += collect_submodules("util")
 hiddenimports += collect_submodules("interface")
+hiddenimports += collect_submodules("cptoken")
 
 # 自动选择图标
 if sys.platform == "darwin":

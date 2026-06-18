@@ -21,6 +21,12 @@ from util.Constant import (
 
 
 def go_settings_tab(header_ui):
+    buy_defaults = BuyConfig.from_config_db()
+    hide_header_default = ConfigDB.get_as_bool("hideHeader", False)
+    proxy_assignment_strategy_default = str(
+        ConfigDB.get("proxyAssignmentStrategy") or "balanced"
+    ).lower()
+
     def _split_proxy_lines(proxy_text: str | None) -> list[str]:
         if not proxy_text:
             return []
@@ -279,6 +285,18 @@ def go_settings_tab(header_ui):
             DEFAULT_MAX_RUN_DIRS,
         )
 
+    def _bind_number_commit(component, fn):
+        component.blur(
+            fn=fn,
+            inputs=component,
+            outputs=component,
+        )
+        component.submit(
+            fn=fn,
+            inputs=component,
+            outputs=component,
+        )
+
     with gr.Column(elem_classes="btb-page-section"):
         with gr.Tabs(elem_classes="btb-top-tabs"):
             with gr.Tab("代理"):
@@ -288,7 +306,7 @@ def go_settings_tab(header_ui):
                         label="代理服务器地址",
                         lines=4,
                         placeholder="每行填写一个代理地址，留空表示只使用直连\n例如：\nhttp://127.0.0.1:8080\nsocks5://127.0.0.1:1080\nhttp://proxyuser:proxypass@xx.xx.xx.xx:8080",
-                        value=None,
+                        value=get_latest_proxy(),
                     )
                     with gr.Row(elem_classes="btb-inline-actions !justify-end"):
                         save_proxy_btn = gr.Button(
@@ -335,28 +353,28 @@ def go_settings_tab(header_ui):
                     gr.Markdown("## 代理策略")
                     proxy_max_consecutive_failures_ui = gr.Number(
                         label="单代理最大连续失败次数",
-                        value=None,
+                        value=buy_defaults.proxy_max_consecutive_failures,
                         minimum=1,
                         step=1,
                         info="同一代理在短时间内连续失败多少次后进入冷却。",
                     )
                     proxy_cooldown_seconds_ui = gr.Number(
                         label="代理冷却时间（秒）",
-                        value=None,
+                        value=buy_defaults.proxy_cooldown_seconds,
                         minimum=1,
                         step=1,
                         info="代理进入冷却后，多久恢复可用。",
                     )
                     proxy_backoff_max_seconds_ui = gr.Number(
                         label="风控后休眠上限（秒）",
-                        value=None,
+                        value=buy_defaults.proxy_backoff_max_seconds,
                         minimum=1,
                         step=1,
                         info="当所有代理都暂时不可用时，程序退避休眠的最大时长。",
                     )
                     notify_proxy_exhausted_ui = gr.Checkbox(
                         label="无可用代理时发送提醒",
-                        value=False,
+                        value=buy_defaults.notifier_config.notify_proxy_exhausted,
                         info="默认关闭。开启后，当所有代理都进入冷却且程序需要休息时，会通过已配置的推送渠道提醒你补充代理。",
                     )
 
@@ -372,7 +390,7 @@ def go_settings_tab(header_ui):
                         label="上传提示声音",
                         type="filepath",
                         loop=True,
-                        value=None,
+                        value=ConfigDB.get("audioPath") or None,
                     )
                     test_audio_button = gr.Button(
                         "测试终端播放",
@@ -413,54 +431,54 @@ def go_settings_tab(header_ui):
                     )
                     gr.Markdown("#### Server酱")
                     serverchan_ui = gr.Textbox(
-                        value=None,
+                        value=ConfigDB.get("serverchanKey") or "",
                         label="Server酱ᵀᵘʳᵇᵒ的SendKey｜输入完成后，回车键保存",
                         interactive=True,
                         info="https://sct.ftqq.com/",
                     )
                     serverchan3_ui = gr.Textbox(
-                        value=None,
+                        value=ConfigDB.get("serverchan3ApiUrl") or "",
                         label="Server酱³的API URL｜输入完成后，回车键保存",
                         interactive=True,
                         info="https://sc3.ft07.com/",
                     )
                     gr.Markdown("#### PushPlus")
                     pushplus_ui = gr.Textbox(
-                        value=None,
+                        value=ConfigDB.get("pushplusToken") or "",
                         label="PushPlus的Token｜输入完成后，回车键保存",
                         interactive=True,
                         info="https://www.pushplus.plus/",
                     )
                     gr.Markdown("#### Bark")
                     bark_ui = gr.Textbox(
-                        value=None,
+                        value=ConfigDB.get("barkToken") or "",
                         label="Bark的Token｜输入完成后，回车键保存",
                         interactive=True,
                         info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)；自托管服务请输入完整推送地址，例如: https://bark.example.app/jmGYK*****',
                     )
                     gr.Markdown("#### Meow")
                     meow_ui = gr.Textbox(
-                        value=None,
+                        value=ConfigDB.get("meowNickname") or "",
                         label="MeoW昵称｜输入完成后，回车键保存",
                         interactive=True,
                         info="https://www.chuckfang.com/MeoW/api_doc.html",
                     )
                     gr.Markdown("#### Ntfy")
                     ntfy_ui = gr.Textbox(
-                        value=None,
+                        value=ConfigDB.get("ntfyUrl") or "",
                         label="Ntfy服务器URL｜输入完成后，回车键保存",
                         interactive=True,
                         info="例如: https://ntfy.sh/your-topic",
                     )
                     with gr.Row(elem_classes="btb-inline-actions !justify-end"):
                         ntfy_username_ui = gr.Textbox(
-                            value=None,
+                            value=ConfigDB.get("ntfyUsername") or "",
                             label="Ntfy用户名",
                             interactive=True,
                             info="如果你的Ntfy服务器需要认证",
                         )
                         ntfy_password_ui = gr.Textbox(
-                            value=None,
+                            value=ConfigDB.get("ntfyPassword") or "",
                             label="Ntfy密码",
                             interactive=True,
                             type="password",
@@ -489,12 +507,12 @@ def go_settings_tab(header_ui):
                     gr.Markdown("## 支付")
                     show_qrcode_ui = gr.Checkbox(
                         label="抢票成功后显示付款二维码",
-                        value=False,
+                        value=buy_defaults.show_qrcode,
                         info="默认开启。关闭后，抢票成功时不再弹出付款二维码。",
                     )
                     auto_open_payment_url_ui = gr.Checkbox(
                         label="抢票成功后自动打开支付链接",
-                        value=False,
+                        value=buy_defaults.auto_open_payment_url,
                         info="默认关闭。开启后，成功获取支付链接时会尝试用系统默认浏览器打开。",
                     )
                     gr.Markdown("## 并发")
@@ -504,14 +522,14 @@ def go_settings_tab(header_ui):
                             ("均匀分配", "balanced"),
                             ("队列模式", "queue"),
                         ],
-                        value=None,
+                        value=proxy_assignment_strategy_default,
                         interactive=True,
                         allow_custom_value=False,
                         filterable=False,
                     )
                     queue_concurrency_limit_ui = gr.Number(
                         label="队列并发上限（仅队列模式）",
-                        value=None,
+                        value=ConfigDB.get_as_int("queueConcurrencyLimit", 0),
                         minimum=0,
                         step=1,
                         info="填 0 表示等于代理数量。",
@@ -524,71 +542,73 @@ def go_settings_tab(header_ui):
                             ("标准", "standard"),
                             ("调试", "debug"),
                         ],
-                        value=None,
+                        value=buy_defaults.log_level,
                         interactive=True,
                         allow_custom_value=False,
                         filterable=False,
                     )
                     auto_cleanup_logs_ui = gr.Checkbox(
                         label="启动时自动清理日志",
-                        value=True,
+                        value=ConfigDB.get_as_bool("autoCleanupLogs", True),
                         info="默认开启。会清理 btb_logs 和 btb_runs 中过旧或过多的内容。",
                     )
                     log_retention_days_ui = gr.Number(
                         label="日志保留天数",
-                        value=None,
+                        value=ConfigDB.get_as_int(
+                            "logRetentionDays", DEFAULT_LOG_RETENTION_DAYS
+                        ),
                         minimum=1,
                         step=1,
                     )
                     max_log_files_ui = gr.Number(
                         label="最多保留日志文件数",
-                        value=None,
+                        value=ConfigDB.get_as_int("maxLogFiles", DEFAULT_MAX_LOG_FILES),
                         minimum=1,
                         step=1,
                     )
                     max_run_dirs_ui = gr.Number(
                         label="最多保留运行目录数",
-                        value=None,
+                        value=ConfigDB.get_as_int("maxRunDirs", DEFAULT_MAX_RUN_DIRS),
                         minimum=1,
                         step=1,
                     )
                     gr.Markdown("## 其他")
                     auto_fill_time_ui = gr.Checkbox(
                         label="默认自动填写抢票时间",
-                        value=True,
+                        value=ConfigDB.get_as_bool("autoFillTime", True),
                         info="开启后，上传抢票配置文件时会自动按票档起售时间回填抢票时间。",
                     )
                     show_random_message_ui = gr.Checkbox(
                         label="关闭群友语录",
-                        value=False,
+                        value=not buy_defaults.show_random_message,
                         info="关闭后，抢票失败时将不再显示有趣的语录",
                     )
                     hide_header_ui = gr.Checkbox(
                         label="隐藏顶部大 Header",
-                        value=False,
+                        value=hide_header_default,
                         info="默认显示。开启后将隐藏顶部包含项目地址和图标的区域。",
                     )
                     use_local_token_ui = gr.Checkbox(
                         label="使用本地 token",
-                        value=False,
+                        value=buy_defaults.use_local_token,
                         info="默认关闭。开启后，非 hotproject 直接使用本地生成 token。",
                     )
                     request_interval_ui = gr.Number(
                         label="默认抢票间隔（毫秒）",
-                        value=None,
+                        value=int(buy_defaults.interval or DEFAULT_REQUEST_INTERVAL),
                         minimum=1,
                         step=1,
                         info="作为抢票请求的默认间隔配置。",
                     )
                     create_retry_limit_ui = gr.Number(
                         label="创建订单重试次数",
-                        value=None,
+                        value=buy_defaults.create_retry_limit,
                         minimum=1,
                         step=1,
                     )
                     create_request_batch_size_ui = gr.Number(
                         label="每一次准备订单后尝试抢票次数",
-                        value=None,
+                        value=buy_defaults.create_request_batch_size,
                         minimum=1,
                         step=1,
                     )
@@ -653,20 +673,17 @@ def go_settings_tab(header_ui):
         inputs=notify_proxy_exhausted_ui,
         outputs=notify_proxy_exhausted_ui,
     )
-    proxy_max_consecutive_failures_ui.change(
-        fn=update_proxy_max_consecutive_failures,
-        inputs=proxy_max_consecutive_failures_ui,
-        outputs=proxy_max_consecutive_failures_ui,
+    _bind_number_commit(
+        proxy_max_consecutive_failures_ui,
+        update_proxy_max_consecutive_failures,
     )
-    proxy_cooldown_seconds_ui.change(
-        fn=update_proxy_cooldown_seconds,
-        inputs=proxy_cooldown_seconds_ui,
-        outputs=proxy_cooldown_seconds_ui,
+    _bind_number_commit(
+        proxy_cooldown_seconds_ui,
+        update_proxy_cooldown_seconds,
     )
-    proxy_backoff_max_seconds_ui.change(
-        fn=update_proxy_backoff_max_seconds,
-        inputs=proxy_backoff_max_seconds_ui,
-        outputs=proxy_backoff_max_seconds_ui,
+    _bind_number_commit(
+        proxy_backoff_max_seconds_ui,
+        update_proxy_backoff_max_seconds,
     )
     show_qrcode_ui.change(
         fn=update_show_qrcode,
@@ -683,10 +700,9 @@ def go_settings_tab(header_ui):
         inputs=proxy_assignment_strategy_ui,
         outputs=proxy_assignment_strategy_ui,
     )
-    queue_concurrency_limit_ui.change(
-        fn=update_queue_concurrency_limit,
-        inputs=queue_concurrency_limit_ui,
-        outputs=queue_concurrency_limit_ui,
+    _bind_number_commit(
+        queue_concurrency_limit_ui,
+        update_queue_concurrency_limit,
     )
     log_level_ui.change(
         fn=update_log_level,
@@ -698,40 +714,34 @@ def go_settings_tab(header_ui):
         inputs=auto_cleanup_logs_ui,
         outputs=auto_cleanup_logs_ui,
     )
-    log_retention_days_ui.change(
-        fn=update_log_retention_days,
-        inputs=log_retention_days_ui,
-        outputs=log_retention_days_ui,
+    _bind_number_commit(
+        log_retention_days_ui,
+        update_log_retention_days,
     )
-    max_log_files_ui.change(
-        fn=update_max_log_files,
-        inputs=max_log_files_ui,
-        outputs=max_log_files_ui,
+    _bind_number_commit(
+        max_log_files_ui,
+        update_max_log_files,
     )
-    max_run_dirs_ui.change(
-        fn=update_max_run_dirs,
-        inputs=max_run_dirs_ui,
-        outputs=max_run_dirs_ui,
+    _bind_number_commit(
+        max_run_dirs_ui,
+        update_max_run_dirs,
     )
     use_local_token_ui.change(
         fn=update_use_local_token,
         inputs=use_local_token_ui,
         outputs=use_local_token_ui,
     )
-    request_interval_ui.change(
-        fn=update_request_interval,
-        inputs=request_interval_ui,
-        outputs=request_interval_ui,
+    _bind_number_commit(
+        request_interval_ui,
+        update_request_interval,
     )
-    create_retry_limit_ui.change(
-        fn=update_create_retry_limit,
-        inputs=create_retry_limit_ui,
-        outputs=create_retry_limit_ui,
+    _bind_number_commit(
+        create_retry_limit_ui,
+        update_create_retry_limit,
     )
-    create_request_batch_size_ui.change(
-        fn=update_create_request_batch_size,
-        inputs=create_request_batch_size_ui,
-        outputs=create_request_batch_size_ui,
+    _bind_number_commit(
+        create_request_batch_size_ui,
+        update_create_request_batch_size,
     )
     test_audio_button.click(
         fn=test_terminal_audio,

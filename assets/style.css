@@ -379,15 +379,18 @@ select,
 }
 
 #btb-main-tabs [role="tablist"] {
-  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent) !important;
+  background: color-mix(
+    in srgb,
+    var(--bg-secondary) 82%,
+    transparent
+  ) !important;
   border: 1px solid var(--border-default) !important;
   border-radius: var(--radius-xl) !important;
   box-shadow: var(--shadow-subtle) !important;
   display: flex !important;
-  align-items: stretch !important;
   justify-content: flex-start !important;
   gap: 8px !important;
-  width: 100%;
+  height: auto;
 }
 
 #btb-main-tabs [role="tabpanel"],
@@ -1003,8 +1006,14 @@ select,
 
 .btb-task-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .btb-task-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .btb-task-card {
@@ -1035,7 +1044,9 @@ select,
 }
 
 .btb-task-card.is-running {
-  box-shadow: inset 0 0 0 1px var(--semantic-brand-ring), var(--shadow-subtle);
+  box-shadow:
+    inset 0 0 0 1px var(--semantic-brand-ring),
+    var(--shadow-subtle);
 }
 
 .btb-task-card.is-running::before {
@@ -1043,7 +1054,9 @@ select,
 }
 
 .btb-task-card.is-completed {
-  box-shadow: inset 0 0 0 1px var(--semantic-success-ring), var(--shadow-subtle);
+  box-shadow:
+    inset 0 0 0 1px var(--semantic-success-ring),
+    var(--shadow-subtle);
 }
 
 .btb-task-card.is-completed::before {
@@ -1052,7 +1065,9 @@ select,
 
 .btb-task-card.is-stopped,
 .btb-task-card.is-exited {
-  box-shadow: inset 0 0 0 1px var(--semantic-warn-ring), var(--shadow-subtle);
+  box-shadow:
+    inset 0 0 0 1px var(--semantic-warn-ring),
+    var(--shadow-subtle);
 }
 
 .btb-task-card.is-stopped::before,
@@ -1112,7 +1127,8 @@ select,
   flex-wrap: wrap;
   margin-top: auto;
   padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--border-default) 92%, transparent);
+  border-top: 1px solid
+    color-mix(in srgb, var(--border-default) 92%, transparent);
 }
 
 .btb-task-card__actions > div {

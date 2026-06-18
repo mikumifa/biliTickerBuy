@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 import sys
+import warnings
 from typing import Annotated
 
 import tyro
-
+from starlette.exceptions import StarletteDeprecationWarning
 from app_cmd.buy import buy_cmd
 from app_cmd.cli_args import BuyCliArgs, TickerCliArgs
 from app_cmd.ticker import ticker_cmd
 
+warnings.filterwarnings(
+    "ignore",
+    message=r".*HTTP_422_UNPROCESSABLE_ENTITY.*",
+    category=StarletteDeprecationWarning,
+    module=r"gradio\.routes",
+)
 BuyCommand = Annotated[
     BuyCliArgs,
     tyro.conf.subcommand(name="buy", prefix_name=False),

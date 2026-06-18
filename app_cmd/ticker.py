@@ -75,20 +75,18 @@ def ticker_cmd(args: TickerCliArgs):
         go_refresh_token, go_panel_update = refresh_task_panel()
         log_refresh_token, log_panel_update = refresh_log_panel()
         go_start_updates = load_go_start_configs()
-        go_settings_updates = load_go_settings_configs()
         return (
             go_refresh_token,
             go_panel_update,
             log_refresh_token,
             log_panel_update,
             go_start_updates,
-            *go_settings_updates,
         )
 
     with gr.Blocks(
         title="biliTickerBuy",
-        css=css_path,
-        head="""
+    ) as demo:
+        launch_head = """
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -172,8 +170,7 @@ def ticker_cmd(args: TickerCliArgs):
             else {setTimeout(enhance,500);setTimeout(watchDropdownEnhance,300);}
         })();
         </script>
-        """,
-    ) as demo:
+        """
         with gr.Column(elem_classes="btb-app-shell"):
             header_ui = gr.HTML(header, visible=not hide_header)
             with gr.Tabs(elem_id="btb-main-tabs", elem_classes="btb-top-tabs"):
@@ -190,8 +187,8 @@ def ticker_cmd(args: TickerCliArgs):
                     ) = go_start_tab()
                 with gr.Tab("高级设置", id="advanced", elem_id="btb-tab-advanced"):
                     (
-                        load_go_settings_configs,
-                        go_settings_load_outputs,
+                        _load_go_settings_configs,
+                        _go_settings_load_outputs,
                     ) = go_settings_tab(header_ui)
                 with gr.Tab("项目说明", id="guide", elem_id="btb-tab-guide"):
                     problems_tab()
@@ -208,7 +205,6 @@ def ticker_cmd(args: TickerCliArgs):
                 log_task_refresh_token,
                 log_task_panel,
                 *go_start_load_outputs,
-                *go_settings_load_outputs,
             ],
         )
 
@@ -219,7 +215,9 @@ def ticker_cmd(args: TickerCliArgs):
         server_name=args.server_name,
         server_port=args.port,
         prevent_thread_lock=True,
-        show_api=False,
+        footer_links=[],
+        css_paths=css_path,
+        head=launch_head,
     )
     attach_log_routes(demo.app)
     try:
