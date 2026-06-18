@@ -9,6 +9,8 @@ datas.append(("assets/*", "assets"))
 datas.append(("pyproject.toml", "."))
 datas += collect_data_files("gradio_client")
 datas += collect_data_files("gradio")
+datas += collect_data_files("safehttpx")
+datas += collect_data_files("groovy")
 
 project_root = os.path.abspath(".")
 hiddenimports = []
@@ -26,10 +28,10 @@ if sys.platform == "darwin":
     is_console = False  # 一般命令行应用
 elif sys.platform == "win32":
     icon_file = os.path.abspath("assets/icon.ico")
-    is_windowed = False # 需要在windows环境下测试以决定怎样启用
-    is_console = True   # 一般命令行应用
+    is_windowed = False  # 需要在windows环境下测试以决定怎样启用
+    is_console = True  # 一般命令行应用
 else:
-    icon_file = None    #Linux/*BSD等其他系统默认设置为标准命令行程序
+    icon_file = None  # Linux/*BSD等其他系统默认设置为标准命令行程序
     is_windowed = False
     is_console = True
 
@@ -41,7 +43,6 @@ a = Analysis(
     hiddenimports=hiddenimports,
     module_collection_mode={
         "gradio": "py",  # Collect gradio package as source .py files
-        "gradio_calendar": "py",  # Collect'
         "gradio_log": "py",  # Collect'
     },
     hookspath=[],
