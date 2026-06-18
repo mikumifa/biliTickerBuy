@@ -22,7 +22,8 @@ def shutdown_app_process(delay_seconds: float = 1.0) -> None:
 
 
 def ticker_cmd(args: TickerCliArgs):
-    from tab.go import go_settings_tab, go_start_tab
+    from tab.go import go_start_tab
+    from tab.config import go_settings_tab
     from tab.log import log_tab, refresh_log_panel, refresh_task_panel
     from tab.problems import problems_tab
     from tab.settings import login_tab, setting_tab

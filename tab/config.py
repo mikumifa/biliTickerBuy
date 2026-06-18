@@ -4,12 +4,12 @@ import gradio as gr
 from loguru import logger
 
 from app_cmd.config.BuyConfig import BuyConfig
-from task.buy_helpers import DEFAULT_CREATE_RETRY_LIMIT
 from util import (
     ConfigDB,
 )
 from util.Constant import (
     DEFAULT_CREATE_REQUEST_BATCH_SIZE,
+    DEFAULT_CREATE_RETRY_LIMIT,
     DEFAULT_LOG_RETENTION_DAYS,
     DEFAULT_MAX_LOG_FILES,
     DEFAULT_MAX_RUN_DIRS,
