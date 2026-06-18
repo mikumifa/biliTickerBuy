@@ -6,10 +6,8 @@ import time
 import uuid
 import copy
 import webbrowser
-from random import randint
-import datetime
 from collections.abc import Generator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from json import JSONDecodeError
 import shutil
 import qrcode
@@ -17,406 +15,184 @@ from loguru import logger
 
 from requests import HTTPError, RequestException
 from cptoken import (
-    CTokenRuntimeState,
     generate_browser_window_state,
     init_ctoken_state,
-    sim_ctoken_state,
 )
 
-from util import time_service
-from util.Notifier import NotifierManager, NotifierConfig
-from util.ProxyBackoff import ProxyBackoff
-from util.BiliRequest import BiliRequest
-from util.ProxyManager import ProxyManager
-from util.RandomMessages import get_random_fail_message
+from config.BuyConfig import BuyConfig
+from util.notifer.Notifier import NotifierManager
+from util.proxy.ProxyBackoff import ProxyBackoff
+from util.proxy.ProxyManager import ProxyManager
+from util.notifer.RandomMessages import get_random_fail_message
 from util.TimeUtil import current_time_ms
-from util.TokenUtil import generate_token
-from util.error_codes import ErrorCodes
+from util.ErrorCodes import ErrorCodes
+from interface.project import fetch_project_payload
+from task.buy_helpers import (
+    BASE_URL as base_url,
+    build_order_token as _build_order_token,
+    build_token_payload as _build_token_payload,
+    create_order_terminal_rule as _create_order_terminal_rule,
+    extract_order_id as _extract_order_id,
+    format_retry_reason as _format_retry_reason,
+    format_status_result as _format_status_result,
+    get_order_detail_url,
+    get_qrcode_url,
+    handle_proxy_failure as _handle_proxy_failure,
+    is_create_success as _is_create_success,
+    prepare_create_request as _prepare_create_request,
+    summarize_non_json_response as _summarize_non_json_response,
+    wait_until_start as _wait_until_start,
+)
+from task.buy_types import (
+    BuyStreamEvent,
+    BuyStreamState,
+    BuyStreamUpdate,
+    BuyStreamWorker,
+    CreateOrderTerminalRule,
+    RetryOutcome,
+)
+from util.request.BiliRequest import BiliRequest
 
 
-base_url = "https://show.bilibili.com"
-BEIJING_TZ = datetime.timezone(datetime.timedelta(hours=8), name="Asia/Shanghai")
+@dataclass(slots=True)
+class Buy:
+    config: BuyConfig
 
+    def _resolved_tickets_info(self) -> str:
+        if self.config.config_file:
+            config_path = os.path.expanduser(self.config.config_file)
+            with open(config_path, "r", encoding="utf-8") as config_file:
+                return config_file.read()
+        return self.config.tickets_info
 
-@dataclass
-class BuyStreamState:
-    stage: str = "初始化"
-    countdown: str = "-"
-    current_proxy: str = "未初始化"
-    proxy_pool: str = ""
-    cooldown_remaining: int | None = None
-    attempt_current: int | None = None
-    attempt_total: int | None = None
-    payment_qr_url: str | None = None
-    status: str = "running"
-    last_message: str = ""
+    def resolved_config(self) -> BuyConfig:
+        return self.config.with_overrides(
+            tickets_info=self._resolved_tickets_info(),
+        )
 
+    def stream(self):
+        yield from buy_stream(self.resolved_config())
 
-@dataclass
-class BuyStreamEvent:
-    kind: str
-    message: str | None
-    state: BuyStreamState
-    data: dict = field(default_factory=dict)
+    def start_worker(self) -> BuyStreamWorker:
+        return BuyStreamWorker.start_buy_stream_worker(self.stream)
 
+    def to_cli_args(self) -> list[str]:
+        if self.config.config_file:
+            return [
+                "buy",
+                "--config-file",
+                self.config.config_file,
+                *self.config.to_cli_args(),
+            ]
+        return [
+            "buy",
+            "--tickets-info",
+            self.config.tickets_info,
+            *self.config.to_cli_args(),
+        ]
 
-@dataclass
-class RetryOutcome:
-    err: int | None = None
-    ret: dict | None = None
-    exc: Exception | None = None
+    def run(self, on_message=None) -> None:
+        worker = self.start_worker()
+        for event in worker.iter_events():
+            if event.message is not None and on_message is not None:
+                on_message(event.message)
 
-    def set_response(self, err: int, ret: dict) -> None:
-        self.err = err
-        self.ret = ret
-        self.exc = None
+    def buy(self) -> None:
+        self.run(logger.info)
 
-    def set_exception(self, exc: Exception) -> None:
-        self.exc = exc
+    def start_new_terminal(
+        self,
+        *,
+        log_file_path: str | None = None,
+        log_level: str | None = None,
+        log_retention_days: int | None = None,
+    ) -> subprocess.Popen:
+        command = None
 
+        if getattr(sys, "frozen", False):
+            command = [sys.executable]
+        else:
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            main_py = os.path.join(script_dir, "main.py")
 
-@dataclass(frozen=True)
-class CreateOrderTerminalRule:
-    status: str
-    message: str
-    expose_payment_url: bool = False
-
-
-def get_qrcode_url(_request, order_id) -> str:
-    url = f"{base_url}/api/ticket/order/getPayParam?order_id={order_id}"
-    data = _request.get(url).json()
-    if data.get("errno", data.get("code")) == 0:
-        return data["data"]["code_url"]
-    raise ValueError("获取二维码失败")
-
-
-def get_order_detail_url(order_id: int | str) -> str:
-    return f"{base_url}/platform/orderDetail.html?order_id={order_id}"
-
-
-def _format_countdown(seconds: float) -> str:
-    total_seconds = max(0, int(seconds))
-    hours, remainder = divmod(total_seconds, 3600)
-    minutes, secs = divmod(remainder, 60)
-    return f"{hours}小时{minutes}分{secs}秒"
-
-
-def _wait_until_start(time_start: str, warmup=None, warmup_at_seconds: float = 3.0):
-    if not time_start:
-        return
-
-    timeoffset = time_service.get_timeoffset()
-    yield "0) 等待开始时间"
-    yield f"时间偏差已被设置为: {timeoffset}秒"
-
-    for fmt in (
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M",
-        "%Y-%m-%d %H:%M",
-    ):
-        try:
-            target_time = datetime.datetime.strptime(time_start.strip(), fmt).replace(
-                tzinfo=BEIJING_TZ
+            if os.path.exists(main_py):
+                command = [sys.executable, main_py]
+            else:
+                btb_path = shutil.which("btb")
+                if not btb_path:
+                    raise RuntimeError("Cannot find main.py or btb command")
+                command = [btb_path]
+        command.extend(self.to_cli_args())
+        env = os.environ.copy()
+        env["BTB_PARENT_PID"] = str(os.getpid())
+        effective_log_level = log_level or self.config.log_level
+        if effective_log_level:
+            normalized_log_level = str(effective_log_level).lower()
+            if normalized_log_level == "simple":
+                env["BTB_LOG_LEVEL"] = "INFO"
+                env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
+            elif normalized_log_level == "debug":
+                env["BTB_LOG_LEVEL"] = "DEBUG"
+                env["BTB_CONSOLE_LOG_LEVEL"] = "DEBUG"
+            else:
+                env["BTB_LOG_LEVEL"] = "DEBUG"
+                env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
+        env["BTB_LOG_RETENTION_DAYS"] = str(
+            log_retention_days
+            if log_retention_days is not None
+            else self.config.log_retention_days
+        )
+        if log_file_path:
+            env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)
+        else:
+            env.setdefault("BTB_APP_LOG_NAME", f"{uuid.uuid4()}.log")
+        kwargs = {}
+        if os.name == "nt":
+            kwargs["creationflags"] = (
+                subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NEW_CONSOLE
             )
-            break
-        except ValueError:
-            continue
-    else:
-        raise ValueError(f"无法解析抢票时间: {time_start!r}")
+            env["BTB_HOLD_TERMINAL"] = "1"
+        else:
+            env["BTB_CHILD_PROCESS"] = "1"
+            kwargs["start_new_session"] = True
 
-    yield f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        if os.name == "nt":
+            return subprocess.Popen(command, env=env, **kwargs)
 
-    time_difference = target_time.timestamp() - time.time() + timeoffset
-    end_time = time.perf_counter() + time_difference
-    next_report_at = float("inf")
-    warmed = False
-    while True:
-        remaining = end_time - time.perf_counter()
-        if remaining <= 0:
-            return
-        if not warmed and warmup is not None and remaining <= warmup_at_seconds:
-            warmed = True
-            for warm_message in warmup() or []:
-                yield warm_message
-            continue
-        if remaining <= next_report_at:
-            yield f"距离开始抢票还有: {_format_countdown(remaining)}"
-            next_report_at = max(0.0, remaining - 5)
-        time.sleep(min(0.5, remaining))
+        with open(os.devnull, "r") as devnull_in, open(os.devnull, "a") as devnull_out:
+            return subprocess.Popen(
+                command,
+                env=env,
+                stdin=devnull_in,
+                stdout=devnull_out,
+                stderr=devnull_out,
+                **kwargs,
+            )
 
-
-def _build_token_payload(tickets_info: dict) -> dict:
-    count = int(tickets_info["count"])
-    screen_id = int(tickets_info["screen_id"])
-    order_type = int(tickets_info.get("order_type", 1))
-    project_id = int(tickets_info["project_id"])
-    sku_id = int(tickets_info["sku_id"])
-    return {
-        "count": count,
-        "screen_id": screen_id,
-        "order_type": order_type,
-        "project_id": project_id,
-        "sku_id": sku_id,
-        "buyer_info": tickets_info.get(
-            "_prepare_buyer_info",
-            tickets_info.get("buyer_info", []),
-        ),
-        "ignoreRequestLimit": True,
-        "ticket_agent": "",
-        "token": "",
-        "newRisk": True,
-        "requestSource": "neul-next",
-    }
+    def buy_new_terminal(
+        self,
+        *,
+        log_file_path: str | None = None,
+        log_level: str | None = None,
+        log_retention_days: int | None = None,
+    ) -> subprocess.Popen:
+        return self.start_new_terminal(
+            log_file_path=log_file_path,
+            log_level=log_level,
+            log_retention_days=log_retention_days,
+        )
 
 
-def _build_order_token(tickets_info: dict) -> str:
-    return generate_token(
-        project_id=int(tickets_info["project_id"]),
-        screen_id=int(tickets_info["screen_id"]),
-        order_type=int(tickets_info.get("order_type", 1)),
-        count=int(tickets_info["count"]),
-        sku_id=int(tickets_info["sku_id"]),
-    )
-
-
-def _normalize_prepare_ptoken(value: str | None) -> str:
-    if value is None:
-        return ""
-    return str(value).replace("=", "")
-
-
-def _build_click_position(origin_ms: int, now_ms: int) -> dict[str, int]:
-    return {
-        "x": randint(400, 900),
-        "y": randint(400, 900),
-        "origin": origin_ms,
-        "now": now_ms,
-    }
-
-
-CREATE_ORDER_TERMINAL_RULES: dict[int, CreateOrderTerminalRule] = {
-    100003: CreateOrderTerminalRule(
-        status="completed",
-        message="该项目每人限购1张，已存在购买订单，停止重试",
-    ),
-    100048: CreateOrderTerminalRule(
-        status="completed",
-        message="有尚未完成订单，停止重试",
-        expose_payment_url=True,
-    ),
-    100079: CreateOrderTerminalRule(
-        status="completed",
-        message="有重复订单，停止重试",
-    ),
-}
-
-
-def _create_order_terminal_rule(err: int) -> CreateOrderTerminalRule | None:
-    return CREATE_ORDER_TERMINAL_RULES.get(err)
-
-
-def _is_create_success(ret: dict, err: int) -> bool:
-    resp_message = str(ret.get("msg", ret.get("message", "")) or "")
-    return err == 0 and "defaultBBR" not in resp_message
-
-
-def _extract_order_id(ret: dict | None) -> int | str | None:
-    if not isinstance(ret, dict):
-        return None
-    data = ret.get("data")
-    if not isinstance(data, dict):
-        return None
-    order_id = data.get("orderId")
-    return order_id if order_id not in (None, "", 0) else None
-
-
-DEFAULT_CREATE_RETRY_LIMIT = 20
-DEFAULT_CREATE_REQUEST_BATCH_SIZE = 3
-DEFAULT_OUTER_LOOP_INTERVAL = 0
-
-
-def _extract_response_message(ret: dict) -> str:
-    return str(ret.get("msg", ret.get("message", "")) or "").strip()
-
-
-def _append_response_message(err: int, base: str, ret: dict | None) -> str:
-    return ErrorCodes.append_response_message(err, base, ret)
-
-
-def _format_retry_reason(outcome: RetryOutcome) -> str:
-    if outcome.exc is not None:
-        return f"最后一次异常: {outcome.exc}"
-    if outcome.err is None:
-        return "最后一次失败原因未知"
-    reason = ErrorCodes.get_message_or_unknown(outcome.err)
-    detail = outcome.ret if outcome.ret is not None else {}
-    base = f"最后一次返回: [{outcome.err}]({reason}) | {detail}"
-    return _append_response_message(outcome.err, base, outcome.ret)
-
-
-def _summarize_non_json_response(prefix: str, diagnostic: str) -> str:
-    if "status=412" in diagnostic:
-        return f"{prefix}触发 412 风控"
-
-    content_type = "未知"
-    for part in diagnostic.split(", "):
-        if part.startswith("content_type="):
-            content_type = part.split("=", 1)[1]
-            break
-    return f"{prefix}返回了非 JSON 响应（{content_type}）"
-
-
-def _build_proxy_exhausted_message(_request: BiliRequest, delay_seconds: int) -> str:
-    return (
-        "当前所有代理暂时不可用，请尽快补充或更换代理。"
-        f"程序将休息 {delay_seconds} 秒后继续尝试。"
-        f" 代理池状态：{_request.proxy_pool_status()}"
-    )
-
-
-def _notify_proxy_exhausted(
-    notifier_config: NotifierConfig,
-    _request: BiliRequest,
-    delay_seconds: int,
-) -> None:
-    if not notifier_config.notify_proxy_exhausted:
-        return
-
-    manager = NotifierManager.create_from_config(
-        config=notifier_config,
-        title="代理已全部失效",
-        content=_build_proxy_exhausted_message(_request, delay_seconds),
-        include_audio=False,
-    )
-    manager.start_all()
-
-
-def _handle_proxy_failure(
-    _request: BiliRequest,
-    reason: str,
-    proxy_backoff: ProxyBackoff,
-    notifier_config: NotifierConfig,
-) -> tuple[str | None, int | None]:
-    """Handle a proxy failure and return the immediate status plus cooldown plan."""
-    previous_proxy = _request.current_proxy_display()
-    cooled = _request.mark_current_proxy_failure(reason)
-    if cooled:
-        immediate_message = f"代理冷却: {previous_proxy} 短时间内连续失败，已暂时停用"
-    else:
-        immediate_message = None
-
-    if _request.switch_proxy():
-        proxy_backoff.reset()
-        switched_message = f"切换代理到 {_request.current_proxy_display()}"
-        if immediate_message:
-            return f"{immediate_message}\n{switched_message}", None
-        return switched_message, None
-
-    if _request.has_available_proxy():
-        return immediate_message, None
-
-    delay_seconds = proxy_backoff.next_delay_seconds()
-    if proxy_backoff.should_notify():
-        _notify_proxy_exhausted(notifier_config, _request, delay_seconds)
-    exhausted_message = f"所有代理当前不可用，休息 {delay_seconds} 秒后再试"
-    if immediate_message:
-        return f"{immediate_message}\n{exhausted_message}", delay_seconds
-    return exhausted_message, delay_seconds
-
-
-def _format_status_result(prefix: str, ret: dict) -> str:
-    err = int(ret.get("errno", ret.get("code", -1)))
-    reason = ErrorCodes.get_message(err)
-    if reason:
-        return _append_response_message(err, f"{prefix}: [{err}] {reason}", ret)
-    message = _extract_response_message(ret)
-    if message:
-        return f"{prefix}: [{err}] {message}"
-    return f"{prefix}: [{err}] {ret}"
-
-
-def _prepare_create_request(
-    _request: BiliRequest,
-    tickets_info: dict,
-    order_token: str,
-    is_hot_project: bool,
-    request_result: dict | None,
-    ticket_state: CTokenRuntimeState,
-) -> tuple[str, dict]:
-    payload = dict(tickets_info)
-    payload["again"] = 1
-    payload["token"] = order_token
-    now_ms = current_time_ms()
-    payload["timestamp"] = now_ms
-    payload["newRisk"] = True
-    payload["requestSource"] = "neul-next"
-    payload.pop("detail", None)
-    payload.pop("sale_start", None)
-    payload.pop("username", None)
-    payload.pop("_prepare_buyer_info", None)
-    url = (
-        f"{base_url}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
-    )
-
-    if not is_hot_project:
-        return url, payload
-    payload["clickPosition"] = _build_click_position(
-        _request.createTime,
-        now_ms,
-    )
-    create_state = sim_ctoken_state(
-        before_state=ticket_state,
-        now_ms=now_ms,
-    )
-    payload["ctoken"] = create_state.generate_create_ctoken()
-    ptoken = _normalize_prepare_ptoken(
-        request_result["data"].get("ptoken") if request_result else ""
-    )
-    payload["ptoken"] = ptoken
-    payload["orderCreateUrl"] = "https://show.bilibili.com/api/ticket/order/createV2"
-    url += "&ptoken=" + ptoken
-    return url, payload
-
-
-def buy_stream(
-    tickets_info,
-    time_start,
-    interval,
-    notifier_config,
-    https_proxys,
-    show_random_message=True,
-    show_qrcode=True,
-    use_local_token=False,
-    create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
-    create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
-    outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
-    proxy_max_consecutive_failures: int = 2,
-    proxy_cooldown_seconds: int = 180,
-    proxy_backoff_max_seconds: int = 600,
-    auto_open_payment_url: bool = False,
-):
+def buy_stream(config: BuyConfig):
     state = BuyStreamState()
 
-    def emit(kind: str, message: str | None, **data):
-        if "stage" in data:
-            state.stage = data["stage"]
-        if "countdown" in data:
-            state.countdown = data["countdown"]
-        if "current_proxy" in data:
-            state.current_proxy = data["current_proxy"]
-        if "proxy_pool" in data:
-            state.proxy_pool = data["proxy_pool"]
-        if "cooldown_remaining" in data:
-            state.cooldown_remaining = data["cooldown_remaining"]
-        if "attempt_current" in data:
-            state.attempt_current = data["attempt_current"]
-        if "attempt_total" in data:
-            state.attempt_total = data["attempt_total"]
-        if "payment_qr_url" in data:
-            state.payment_qr_url = data["payment_qr_url"]
-        if "status" in data:
-            state.status = data["status"]
+    def emit(
+        kind: str,
+        message: str | None,
+        update: BuyStreamUpdate | None = None,
+    ):
+        if update is not None:
+            update.apply_to(state)
         if message is not None:
             state.last_message = message
 
@@ -424,7 +200,7 @@ def buy_stream(
             kind=kind,
             message=message,
             state=copy.deepcopy(state),
-            data=data,
+            data=update.to_dict() if update is not None else {},
         )
 
     def handle_proxy_failure(
@@ -436,7 +212,7 @@ def buy_stream(
             _request,
             reason,
             proxy_backoff,
-            notifier_config,
+            config.notifier_config,
         )
         attempt_total = (
             effective_retry_limit if attempt is not None else state.attempt_total
@@ -446,12 +222,14 @@ def buy_stream(
                 yield emit(
                     "proxy",
                     message,
-                    current_proxy=_request.current_proxy_status(),
-                    proxy_pool=_request.proxy_pool_status(),
-                    cooldown_remaining=None,
-                    status="running",
-                    attempt_current=attempt,
-                    attempt_total=attempt_total,
+                    BuyStreamUpdate(
+                        current_proxy=_request.current_proxy_status(),
+                        proxy_pool=_request.proxy_pool_status(),
+                        cooldown_remaining=None,
+                        status="running",
+                        attempt_current=attempt,
+                        attempt_total=attempt_total,
+                    ),
                 )
         if delay_seconds is None:
             return
@@ -459,12 +237,14 @@ def buy_stream(
             yield emit(
                 "state",
                 None,
-                current_proxy=_request.current_proxy_status(),
-                proxy_pool=_request.proxy_pool_status(),
-                cooldown_remaining=remaining,
-                status="cooldown",
-                attempt_current=attempt,
-                attempt_total=attempt_total,
+                BuyStreamUpdate(
+                    current_proxy=_request.current_proxy_status(),
+                    proxy_pool=_request.proxy_pool_status(),
+                    cooldown_remaining=remaining,
+                    status="cooldown",
+                    attempt_current=attempt,
+                    attempt_total=attempt_total,
+                ),
             )
             time.sleep(1)
         if _request.ensure_active_proxy():
@@ -472,12 +252,14 @@ def buy_stream(
             yield emit(
                 "state",
                 None,
-                current_proxy=_request.current_proxy_status(),
-                proxy_pool=_request.proxy_pool_status(),
-                cooldown_remaining=None,
-                status="running",
-                attempt_current=attempt,
-                attempt_total=attempt_total,
+                BuyStreamUpdate(
+                    current_proxy=_request.current_proxy_status(),
+                    proxy_pool=_request.proxy_pool_status(),
+                    cooldown_remaining=None,
+                    status="running",
+                    attempt_current=attempt,
+                    attempt_total=attempt_total,
+                ),
             )
 
     def handle_non_json_response(
@@ -493,6 +275,23 @@ def buy_stream(
             yield emit(
                 "proxy",
                 f"{prefix}触发 412 风控",
+                BuyStreamUpdate(
+                    current_proxy=_request.current_proxy_status(),
+                    proxy_pool=_request.proxy_pool_status(),
+                    attempt_current=attempt,
+                    attempt_total=(
+                        effective_retry_limit
+                        if attempt is not None
+                        else state.attempt_total
+                    ),
+                ),
+            )
+            yield from handle_proxy_failure(f"{prefix} 412 风控", attempt=attempt)
+            return True
+        yield emit(
+            "attempt" if attempt is not None else "error",
+            summary,
+            BuyStreamUpdate(
                 current_proxy=_request.current_proxy_status(),
                 proxy_pool=_request.proxy_pool_status(),
                 attempt_current=attempt,
@@ -501,100 +300,80 @@ def buy_stream(
                     if attempt is not None
                     else state.attempt_total
                 ),
-            )
-            yield from handle_proxy_failure(f"{prefix} 412 风控", attempt=attempt)
-            return True
-        yield emit(
-            "attempt" if attempt is not None else "error",
-            summary,
-            current_proxy=_request.current_proxy_status(),
-            proxy_pool=_request.proxy_pool_status(),
-            attempt_current=attempt,
-            attempt_total=(
-                effective_retry_limit if attempt is not None else state.attempt_total
             ),
         )
         return False
 
     isRunning = True
-    tickets_info = json.loads(tickets_info)
+    tickets_info = json.loads(config.tickets_info)
     detail = tickets_info["detail"]
     cookies = tickets_info["cookies"]
     tickets_info.pop("cookies", None)
     tickets_info["_prepare_buyer_info"] = copy.deepcopy(tickets_info["buyer_info"])
     tickets_info["buyer_info"] = json.dumps(tickets_info["buyer_info"])
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
-    masked_proxies = ProxyManager.mask_proxy_string(https_proxys)
+    masked_proxies = ProxyManager.mask_proxy_string(config.https_proxys)
     logger.info(f"目前已配置代理：{masked_proxies or '直连'}")
     _request = BiliRequest(
         cookies=cookies,
-        proxy=https_proxys,
-        proxy_failure_threshold=proxy_max_consecutive_failures,
-        proxy_cooldown_seconds=proxy_cooldown_seconds,
+        proxy=config.https_proxys,
+        proxy_failure_threshold=config.proxy_max_consecutive_failures,
+        proxy_cooldown_seconds=config.proxy_cooldown_seconds,
     )
-    proxy_backoff = ProxyBackoff(max_seconds=proxy_backoff_max_seconds)
+    proxy_backoff = ProxyBackoff(max_seconds=config.proxy_backoff_max_seconds)
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
-    _request.use_h2 = is_hot_project
-    use_local_token = bool(use_local_token)
+    use_local_token = bool(config.use_local_token)
     browser_window_state = generate_browser_window_state()
     token_payload = _build_token_payload(tickets_info)
-    inner_loop_interval = max(1, int(interval))
-    effective_retry_limit = max(1, int(create_retry_limit))
-    effective_batch_size = max(1, int(create_request_batch_size))
-    effective_outer_loop_interval = max(0, int(outer_loop_interval))
+    request_interval = max(1, int(config.interval or 1000))
+    effective_retry_limit = max(1, int(config.create_retry_limit))
+    effective_batch_size = max(1, int(config.create_request_batch_size))
 
     def refresh_hot_and_warm():
         nonlocal is_hot_project
         messages: list[str] = []
-        try:
-            _request.session.head(f"{base_url}/", timeout=(3.05, 3))
-        except Exception:
-            pass
-        try:
-            from interface.project import fetch_project_payload
-
-            payload = fetch_project_payload(
-                request=_request, project_id=int(tickets_info["project_id"])
-            )
-            if "hotProject" not in payload:
-                messages.append("hotProject 复检：响应缺该字段，沿用配置值，连接已预热")
-            elif bool(payload["hotProject"]) and not is_hot_project:
-                is_hot_project = True
-                tickets_info["is_hot_project"] = True
-                _request.use_h2 = True
-                messages.append("运行时检测到 hotProject=True，已升级为 hot 抢票策略")
-            else:
-                messages.append(
-                    f"hotProject 复检：实时={bool(payload['hotProject'])}，"
-                    f"保持 is_hot_project={is_hot_project}，连接已预热"
-                )
-        except Exception as exc:
-            messages.append(
-                f"hotProject 复检/预热失败（忽略，沿用配置值 {is_hot_project}）：{exc}"
-            )
+        payload = fetch_project_payload(
+            request=_request, project_id=int(tickets_info["project_id"])
+        )
+        if bool(payload["hotProject"]) and not is_hot_project:
+            is_hot_project = True
+            tickets_info["is_hot_project"] = True
+        _request.prewarm_h2_connection(f"{base_url}/")
         return messages
 
     for warm_message in refresh_hot_and_warm():
         yield emit("status", warm_message)
 
-    for wait_message in _wait_until_start(time_start, warmup=refresh_hot_and_warm):
-        countdown_value = None
+    for wait_state in _wait_until_start(
+        config.time_start,
+        warmup=refresh_hot_and_warm,
+    ):
+        wait_message = wait_state.get("message")
+        countdown_value = wait_state.get("countdown")
+        countdown_seconds = wait_state.get("countdown_seconds")
         stage_value = None
-        if wait_message.startswith("0)"):
+        if isinstance(wait_message, str) and wait_message.startswith("0)"):
             stage_value = "等待开票"
-        elif wait_message.startswith("距离开始抢票还有:"):
-            countdown_value = wait_message.split(":", 1)[1].strip()
         yield emit(
             "status",
             wait_message,
-            stage=stage_value or state.stage,
-            countdown=countdown_value or state.countdown,
+            BuyStreamUpdate(
+                stage=stage_value or state.stage,
+                countdown=countdown_value or state.countdown,
+                countdown_seconds=(
+                    countdown_seconds
+                    if countdown_seconds is not None
+                    else state.countdown_seconds
+                ),
+            ),
         )
     yield emit(
         "proxy",
         f"当前代理: {_request.current_proxy_status()}",
-        current_proxy=_request.current_proxy_status(),
-        proxy_pool=_request.proxy_pool_status(),
+        BuyStreamUpdate(
+            current_proxy=_request.current_proxy_status(),
+            proxy_pool=_request.proxy_pool_status(),
+        ),
     )
 
     while isRunning:
@@ -611,7 +390,7 @@ def buy_stream(
             )
             if is_hot_project:
                 # hot
-                yield emit("stage", "开始准备订单", stage="订单准备")
+                yield emit("stage", "开始准备订单", BuyStreamUpdate(stage="订单准备"))
                 prepare_ctoken_state = ticket_state.snapshot(now_ms=ticket_collection_t)
                 token_payload["token"] = prepare_ctoken_state.generate_prepare_ctoken()
                 request_result_normal = _request.post(
@@ -633,7 +412,7 @@ def buy_stream(
 
             else:
                 # normal
-                yield emit("status", None, stage="订单准备")
+                yield emit("status", None, BuyStreamUpdate(stage="订单准备"))
                 if use_local_token:
                     order_token = _build_order_token(tickets_info)
                     yield emit(
@@ -657,9 +436,11 @@ def buy_stream(
             yield emit(
                 "stage",
                 "开始创建订单",
-                stage="创建订单",
-                attempt_current=None,
-                attempt_total=effective_retry_limit,
+                BuyStreamUpdate(
+                    stage="创建订单",
+                    attempt_current=None,
+                    attempt_total=effective_retry_limit,
+                ),
             )
             result = None
             retry_outcome = RetryOutcome()
@@ -672,7 +453,6 @@ def buy_stream(
                     effective_retry_limit,
                 )
                 url, payload = _prepare_create_request(
-                    _request,
                     tickets_info,
                     order_token,
                     is_hot_project=is_hot_project,
@@ -681,7 +461,7 @@ def buy_stream(
                 )
                 while attempt <= batch_end:
                     if not isRunning:
-                        yield "抢票结束"
+                        yield emit("status", "抢票结束")
                         break
                     try:
                         create_response = _request.post(
@@ -697,11 +477,21 @@ def buy_stream(
                             yield emit(
                                 "success",
                                 "创建订单成功",
-                                attempt_current=attempt,
-                                attempt_total=effective_retry_limit,
+                                BuyStreamUpdate(
+                                    attempt_current=attempt,
+                                    attempt_total=effective_retry_limit,
+                                ),
                             )
                             result = (ret, err)
                             break
+                        yield emit(
+                            "attempt",
+                            ErrorCodes.format_attempt_result(err, ret),
+                            BuyStreamUpdate(
+                                attempt_current=attempt,
+                                attempt_total=effective_retry_limit,
+                            ),
+                        )
                         terminal_rule = _create_order_terminal_rule(err)
                         if terminal_rule is not None:
                             terminal_result = (err, ret, terminal_rule)
@@ -712,30 +502,28 @@ def buy_stream(
                                     terminal_rule.message,
                                     ret,
                                 ),
-                                attempt_current=attempt,
-                                attempt_total=effective_retry_limit,
-                                status=terminal_rule.status,
+                                BuyStreamUpdate(
+                                    attempt_current=attempt,
+                                    attempt_total=effective_retry_limit,
+                                    status=terminal_rule.status,
+                                ),
                             )
                             break
                         if err == 100051:
                             yield emit("status", "token过期，需要重新准备订单")
                             token_expired = True
                             break
-                        yield emit(
-                            "attempt",
-                            ErrorCodes.format_attempt_result(err, ret),
-                            attempt_current=attempt,
-                            attempt_total=effective_retry_limit,
-                        )
                         if err == 100034:
                             yield emit(
                                 "status",
                                 f"更新票价为：{ret['data']['pay_money'] / 100}",
-                                attempt_current=attempt,
-                                attempt_total=effective_retry_limit,
+                                BuyStreamUpdate(
+                                    attempt_current=attempt,
+                                    attempt_total=effective_retry_limit,
+                                ),
                             )
                             tickets_info["pay_money"] = ret["data"]["pay_money"]
-                        time.sleep(inner_loop_interval / 1000)
+                        time.sleep(request_interval / 1000)
                     except JSONDecodeError as exc:
                         handled_412 = yield from handle_non_json_response(
                             "创建订单接口",
@@ -744,7 +532,7 @@ def buy_stream(
                         )
                         if not handled_412:
                             retry_outcome.set_exception(exc)
-                            time.sleep(inner_loop_interval / 1000)
+                            time.sleep(request_interval / 1000)
                         attempt += 1
                     except RequestException as e:
                         retry_outcome.set_exception(e)
@@ -756,16 +544,21 @@ def buy_stream(
                         yield emit(
                             "attempt",
                             str(e),
-                            attempt_current=attempt,
-                            attempt_total=effective_retry_limit,
+                            BuyStreamUpdate(
+                                attempt_current=attempt,
+                                attempt_total=effective_retry_limit,
+                            ),
                         )
                     except Exception as e:
+                        logger.exception(e)
                         retry_outcome.set_exception(e)
                         yield emit(
                             "attempt",
                             str(e),
-                            attempt_current=attempt,
-                            attempt_total=effective_retry_limit,
+                            BuyStreamUpdate(
+                                attempt_current=attempt,
+                                attempt_total=effective_retry_limit,
+                            ),
                         )
                     if (
                         result is not None
@@ -774,7 +567,7 @@ def buy_stream(
                     ):
                         break
                     attempt += 1
-                    time.sleep(inner_loop_interval / 1000)
+                    time.sleep(request_interval / 1000)
 
                 if (
                     result is not None
@@ -784,16 +577,15 @@ def buy_stream(
                 ):
                     break
 
-                if effective_outer_loop_interval > 0:
-                    time.sleep(effective_outer_loop_interval / 1000)
             else:
-                if show_random_message:
+                if config.show_random_message:
                     yield emit("status", f"群友说👴： {get_random_fail_message()}")
                 yield emit(
                     "status",
                     None,
-                    attempt_current=None,
-                    attempt_total=effective_retry_limit,
+                    BuyStreamUpdate(
+                        attempt_total=effective_retry_limit,
+                    ),
                 )
                 continue
             if result is None:
@@ -805,17 +597,21 @@ def buy_stream(
                         yield emit(
                             "payment_qr",
                             "PAYMENT_QR_URL={0}".format(payment_url),
-                            payment_qr_url=payment_url,
-                            status=terminal_rule.status,
+                            BuyStreamUpdate(
+                                payment_qr_url=payment_url,
+                                status=terminal_rule.status,
+                            ),
                         )
-                        if auto_open_payment_url:
+                        if config.auto_open_payment_url:
                             try:
                                 webbrowser.open(payment_url)
                                 yield emit(
                                     "status",
                                     "已自动打开现有订单链接",
-                                    payment_qr_url=payment_url,
-                                    status=terminal_rule.status,
+                                    BuyStreamUpdate(
+                                        payment_qr_url=payment_url,
+                                        status=terminal_rule.status,
+                                    ),
                                 )
                             except Exception as exc:
                                 yield emit("status", f"自动打开订单链接失败: {exc}")
@@ -830,7 +626,7 @@ def buy_stream(
             request_result, errno = result
             if errno == 0:
                 notifierManager = NotifierManager.create_from_config(
-                    config=notifier_config,
+                    config=config.notifier_config,
                     title="抢票成功",
                     content=f"bilibili会员购，请尽快前往订单中心付款: {detail}",
                 )
@@ -840,8 +636,10 @@ def buy_stream(
                 yield emit(
                     "stage",
                     "抢票成功，弹出付款二维码",
-                    stage="抢票成功",
-                    status="succeeded",
+                    BuyStreamUpdate(
+                        stage="抢票成功",
+                        status="succeeded",
+                    ),
                 )
                 order_id = request_result["data"]["orderId"]  # type: ignore
                 payment_url = get_order_detail_url(order_id)
@@ -852,21 +650,25 @@ def buy_stream(
                 yield emit(
                     "payment_qr",
                     "PAYMENT_QR_URL={0}".format(payment_url),
-                    payment_qr_url=payment_url,
-                    status="succeeded",
+                    BuyStreamUpdate(
+                        payment_qr_url=payment_url,
+                        status="succeeded",
+                    ),
                 )
-                if auto_open_payment_url:
+                if config.auto_open_payment_url:
                     try:
                         webbrowser.open(payment_url)
                         yield emit(
                             "status",
                             "已自动打开支付链接",
-                            payment_qr_url=payment_url,
-                            status="succeeded",
+                            BuyStreamUpdate(
+                                payment_qr_url=payment_url,
+                                status="succeeded",
+                            ),
                         )
                     except Exception as exc:
                         yield emit("status", f"自动打开支付链接失败: {exc}")
-                if show_qrcode:
+                if config.show_qrcode:
                     qr_gen = qrcode.QRCode()
                     qr_gen.add_data(qrcode_url)
                     qr_gen.make(fit=True)
@@ -882,204 +684,21 @@ def buy_stream(
                 yield message
         except Exception as e:
             logger.exception(e)
-            yield emit("error", f"程序异常: {repr(e)}", status="failed")
-
-
-def buy(
-    tickets_info,
-    time_start,
-    interval,
-    audio_path,
-    pushplusToken,
-    serverchanKey,
-    barkToken,
-    https_proxys,
-    serverchan3ApiUrl=None,
-    ntfy_url=None,
-    ntfy_username=None,
-    ntfy_password=None,
-    meowNickname=None,
-    notify_proxy_exhausted=False,
-    show_random_message=True,
-    show_qrcode=True,
-    use_local_token=False,
-    create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
-    create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
-    outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
-    proxy_max_consecutive_failures: int = 2,
-    proxy_cooldown_seconds: int = 180,
-    proxy_backoff_max_seconds: int = 600,
-    auto_open_payment_url: bool = False,
-):
-    notifier_config = NotifierConfig(
-        serverchan_key=serverchanKey,
-        serverchan3_api_url=serverchan3ApiUrl,
-        pushplus_token=pushplusToken,
-        bark_token=barkToken,
-        ntfy_url=ntfy_url,
-        ntfy_username=ntfy_username,
-        ntfy_password=ntfy_password,
-        meow_nickname=meowNickname,
-        audio_path=audio_path,
-        notify_proxy_exhausted=notify_proxy_exhausted,
-    )
-
-    for msg in buy_stream(
-        tickets_info,
-        time_start,
-        interval,
-        notifier_config,
-        https_proxys,
-        show_random_message,
-        show_qrcode,
-        use_local_token=use_local_token,
-        create_retry_limit=create_retry_limit,
-        create_request_batch_size=create_request_batch_size,
-        outer_loop_interval=outer_loop_interval,
-        proxy_max_consecutive_failures=proxy_max_consecutive_failures,
-        proxy_cooldown_seconds=proxy_cooldown_seconds,
-        proxy_backoff_max_seconds=proxy_backoff_max_seconds,
-        auto_open_payment_url=auto_open_payment_url,
-    ):
-        if msg.message is not None:
-            logger.info(msg.message)
+            yield emit(
+                "error",
+                f"程序异常: {repr(e)}",
+                BuyStreamUpdate(status="failed"),
+            )
 
 
 def buy_new_terminal(
-    tickets_info,
-    time_start,
-    interval,
-    audio_path,
-    pushplusToken,
-    serverchanKey,
-    barkToken,
-    https_proxys,
-    serverchan3ApiUrl=None,
-    ntfy_url=None,
-    ntfy_username=None,
-    ntfy_password=None,
-    meowNickname=None,
-    notify_proxy_exhausted=False,
-    show_random_message=True,
-    show_qrcode=True,
-    use_local_token=False,
+    config: BuyConfig,
     log_file_path: str | None = None,
-    create_retry_limit: int = DEFAULT_CREATE_RETRY_LIMIT,
-    create_request_batch_size: int = DEFAULT_CREATE_REQUEST_BATCH_SIZE,
-    outer_loop_interval: int = DEFAULT_OUTER_LOOP_INTERVAL,
-    proxy_max_consecutive_failures: int = 2,
-    proxy_cooldown_seconds: int = 180,
-    proxy_backoff_max_seconds: int = 600,
-    auto_open_payment_url: bool = False,
     log_level: str | None = None,
     log_retention_days: int | None = None,
 ) -> subprocess.Popen:
-    command = None
-
-    # 1️⃣ PyInstaller / frozen
-    if getattr(sys, "frozen", False):
-        command = [sys.executable]
-    else:
-        # 2️⃣ 源码模式：检查「当前脚本目录」是否有 main.py
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        main_py = os.path.join(script_dir, "main.py")
-
-        if os.path.exists(main_py):
-            command = [sys.executable, main_py]
-        # 3️⃣ 兜底：使用 btb（pip / pipx）
-        else:
-            btb_path = shutil.which("btb")
-            if not btb_path:
-                raise RuntimeError("Cannot find main.py or btb command")
-
-            command = [btb_path]
-    command.extend(["buy", tickets_info])
-    if interval is not None:
-        command.extend(["--interval", str(interval)])
-    command.extend(["--outer_interval", str(outer_loop_interval)])
-    command.extend(["--create_retry_limit", str(create_retry_limit)])
-    command.extend(["--create_request_batch_size", str(create_request_batch_size)])
-    command.extend(
-        ["--proxy_max_consecutive_failures", str(proxy_max_consecutive_failures)]
+    return Buy(config=config).buy_new_terminal(
+        log_file_path=log_file_path,
+        log_level=log_level,
+        log_retention_days=log_retention_days,
     )
-    command.extend(["--proxy_cooldown_seconds", str(proxy_cooldown_seconds)])
-    command.extend(["--proxy_backoff_max_seconds", str(proxy_backoff_max_seconds)])
-    if time_start:
-        command.extend(["--time_start", time_start])
-    if audio_path:
-        command.extend(["--audio_path", audio_path])
-    if pushplusToken:
-        command.extend(["--pushplusToken", pushplusToken])
-    if serverchanKey:
-        command.extend(["--serverchanKey", serverchanKey])
-    if serverchan3ApiUrl:
-        command.extend(["--serverchan3ApiUrl", serverchan3ApiUrl])
-    if barkToken:
-        command.extend(["--barkToken", barkToken])
-    if ntfy_url:
-        command.extend(["--ntfy_url", ntfy_url])
-    if ntfy_username:
-        command.extend(["--ntfy_username", ntfy_username])
-    if ntfy_password:
-        command.extend(["--ntfy_password", ntfy_password])
-    if meowNickname:
-        command.extend(["--meowNickname", meowNickname])
-    if notify_proxy_exhausted:
-        command.append("--notify_proxy_exhausted")
-    if https_proxys:
-        command.extend(["--https_proxys", https_proxys])
-    if not show_random_message:
-        command.extend(["--hide_random_message"])
-    if not show_qrcode:
-        command.extend(["--hide_qrcode"])
-    if auto_open_payment_url:
-        command.extend(["--auto_open_payment_url"])
-    if use_local_token:
-        command.extend(["--use_local_token"])
-    env = os.environ.copy()
-    env["BTB_PARENT_PID"] = str(os.getpid())
-    if log_level:
-        normalized_log_level = str(log_level).lower()
-        if normalized_log_level == "simple":
-            env["BTB_LOG_LEVEL"] = "INFO"
-            env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
-        elif normalized_log_level == "debug":
-            env["BTB_LOG_LEVEL"] = "DEBUG"
-            env["BTB_CONSOLE_LOG_LEVEL"] = "DEBUG"
-        else:
-            env["BTB_LOG_LEVEL"] = "DEBUG"
-            env["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
-    if log_retention_days is not None:
-        env["BTB_LOG_RETENTION_DAYS"] = str(log_retention_days)
-    if log_file_path:
-        env["BTB_APP_LOG_NAME"] = os.path.basename(log_file_path)
-    else:
-        env.setdefault("BTB_APP_LOG_NAME", f"{uuid.uuid4()}.log")
-    kwargs = {}
-    if os.name == "nt":
-        kwargs["creationflags"] = (
-            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NEW_CONSOLE
-        )
-        env["BTB_HOLD_TERMINAL"] = "1"
-    else:
-        env["BTB_CHILD_PROCESS"] = "1"
-        kwargs["start_new_session"] = True
-
-    if os.name == "nt":
-        proc = subprocess.Popen(
-            command,
-            env=env,
-            **kwargs,
-        )
-        return proc
-
-    with open(os.devnull, "r") as devnull_in, open(os.devnull, "a") as devnull_out:
-        proc = subprocess.Popen(
-            command,
-            env=env,
-            stdin=devnull_in,
-            stdout=devnull_out,
-            stderr=devnull_out,
-            **kwargs,
-        )
-    return proc

@@ -1,37 +1,22 @@
-from argparse import Namespace
 import os
 import re
 import sys
 import threading
 import time
 
-from util.task_markers import TASK_STOPPED_MARKER
+from app_cmd.cli_args import BuyCliArgs
+from tab.log import TASK_STOPPED_MARKER
 
 
-def buy_cmd(args: Namespace):
-    normalized_log_level = str(
-        getattr(args, "log_level", "standard") or "standard"
-    ).lower()
-    if normalized_log_level == "simple":
-        os.environ["BTB_LOG_LEVEL"] = "INFO"
-        os.environ["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
-    elif normalized_log_level == "debug":
-        os.environ["BTB_LOG_LEVEL"] = "DEBUG"
-        os.environ["BTB_CONSOLE_LOG_LEVEL"] = "DEBUG"
-    else:
-        os.environ["BTB_LOG_LEVEL"] = "DEBUG"
-        os.environ["BTB_CONSOLE_LOG_LEVEL"] = "INFO"
-    os.environ["BTB_LOG_RETENTION_DAYS"] = str(
-        max(1, int(getattr(args, "log_retention_days", 7)))
-    )
+def buy_cmd(args: BuyCliArgs):
+    args.apply_log_env()
 
-    from util.LogConfig import loguru_config
+    from util.log.LogConfig import loguru_config
     import uuid
 
     from util import LOG_DIR
-    from task.buy import buy, buy_stream
-    from util.Notifier import NotifierConfig
-    from util.terminal_renderer import (
+    from task.buy import Buy
+    from util.log.TerminalRenderer import (
         TerminalRenderContext,
         create_terminal_renderer,
         render_message_stream,
@@ -40,16 +25,33 @@ def buy_cmd(args: Namespace):
 
     console_close_handler_ref = None
 
-    def load_tickets_info(tickets_info: str) -> tuple[str, str | None]:
-        config_path = os.path.expanduser(tickets_info)
-        if os.path.isfile(config_path):
+    def load_tickets_info(
+        tickets_info: str,
+        config_file: str,
+    ) -> tuple[str, str | None, str]:
+        tickets_info = (tickets_info or "").strip()
+        config_file = (config_file or "").strip()
+
+        if tickets_info:
+            config_path = os.path.expanduser(tickets_info)
+            if os.path.isfile(config_path):
+                logger.info(f"使用配置文件：{config_path}")
+                try:
+                    with open(config_path, "r", encoding="utf-8") as config_handle:
+                        return config_handle.read(), config_path, "tickets_info"
+                except OSError as exc:
+                    raise SystemExit(f"读取配置文件失败: {exc}") from exc
+            return tickets_info, None, "tickets_info"
+
+        if config_file:
+            config_path = os.path.expanduser(config_file)
             logger.info(f"使用配置文件：{config_path}")
             try:
-                with open(config_path, "r", encoding="utf-8") as config_file:
-                    return config_file.read(), config_path
+                with open(config_path, "r", encoding="utf-8") as config_handle:
+                    return config_handle.read(), config_path, "config_file"
             except OSError as exc:
                 raise SystemExit(f"读取配置文件失败: {exc}") from exc
-        return tickets_info, None
+        return "", None, "none"
 
     def resolve_log_file_name() -> str:
         configured_name = os.environ.get("BTB_APP_LOG_NAME", "").strip()
@@ -181,21 +183,13 @@ def buy_cmd(args: Namespace):
             daemon=True,
         ).start()
 
-    def build_notifier_config() -> NotifierConfig:
-        return NotifierConfig(
-            serverchan_key=args.serverchanKey,
-            serverchan3_api_url=args.serverchan3ApiUrl,
-            pushplus_token=args.pushplusToken,
-            bark_token=args.barkToken,
-            ntfy_url=args.ntfy_url,
-            ntfy_username=args.ntfy_username,
-            ntfy_password=args.ntfy_password,
-            meow_nickname=args.meowNickname,
-            audio_path=args.audio_path,
-            notify_proxy_exhausted=args.notify_proxy_exhausted,
-        )
-
     def run_with_terminal_renderer(tickets_info: str):
+        buy_job = Buy(
+            config=args.with_overrides(
+                tickets_info=tickets_info,
+                config_file=args.config_file if tickets_source == "config_file" else "",
+            )
+        )
         renderer = create_terminal_renderer(
             TerminalRenderContext(
                 config_name=filename_only,
@@ -206,27 +200,14 @@ def buy_cmd(args: Namespace):
         )
         render_message_stream(
             renderer,
-            buy_stream(
-                tickets_info,
-                args.time_start,
-                args.interval,
-                build_notifier_config(),
-                args.https_proxys,
-                not args.hide_random_message,
-                not args.hide_qrcode,
-                args.use_local_token,
-                args.create_retry_limit,
-                args.create_request_batch_size,
-                args.outer_interval,
-                args.proxy_max_consecutive_failures,
-                args.proxy_cooldown_seconds,
-                args.proxy_backoff_max_seconds,
-                args.auto_open_payment_url,
-            ),
+            buy_job.start_worker().iter_events(),
             on_message=logger.info,
         )
 
-    tickets_info, config_path = load_tickets_info(args.tickets_info)
+    tickets_info, config_path, tickets_source = load_tickets_info(
+        args.tickets_info,
+        args.config_file,
+    )
     filename = os.path.basename(config_path) if config_path else "default"
     filename_only = os.path.basename(filename)
     log_file_name = resolve_log_file_name()
@@ -246,32 +227,14 @@ def buy_cmd(args: Namespace):
         if use_terminal_renderer:
             run_with_terminal_renderer(tickets_info)
         else:
-            buy(
-                tickets_info,
-                args.time_start,
-                args.interval,
-                args.audio_path,
-                args.pushplusToken,
-                args.serverchanKey,
-                args.barkToken,
-                args.https_proxys,
-                args.serverchan3ApiUrl,
-                args.ntfy_url,
-                args.ntfy_username,
-                args.ntfy_password,
-                args.meowNickname,
-                args.notify_proxy_exhausted,
-                not args.hide_random_message,
-                not args.hide_qrcode,
-                use_local_token=args.use_local_token,
-                create_retry_limit=args.create_retry_limit,
-                create_request_batch_size=args.create_request_batch_size,
-                outer_loop_interval=args.outer_interval,
-                proxy_max_consecutive_failures=args.proxy_max_consecutive_failures,
-                proxy_cooldown_seconds=args.proxy_cooldown_seconds,
-                proxy_backoff_max_seconds=args.proxy_backoff_max_seconds,
-                auto_open_payment_url=args.auto_open_payment_url,
-            )
+            Buy(
+                config=args.with_overrides(
+                    tickets_info=tickets_info,
+                    config_file=args.config_file
+                    if tickets_source == "config_file"
+                    else "",
+                )
+            ).buy()
     except KeyboardInterrupt:
         logger.warning("收到 Ctrl+C，已停止当前抢票流程。")
         exit_immediately_if_child_process()

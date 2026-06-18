@@ -4,7 +4,7 @@ import time
 
 import loguru
 import requests
-from util.Notifier import NotifierBase
+from util.notifer.Notifier import NotifierBase
 
 # 维护所有运行中的通知线程
 _active_notification_threads = {}  # type: ignore

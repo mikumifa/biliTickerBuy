@@ -6,11 +6,11 @@ import sys
 import time
 from typing import Any, Callable
 import loguru
-from util.BiliRequest import BiliRequest
-from util.KVDatabase import KVDatabase
-from util.LogConfig import loguru_config
+from util.Storage.KVDatabase import KVDatabase
+from util.log.LogConfig import loguru_config
 from util.TimeUtil import TimeUtil
-from util.error_codes import ERRNO_DICT
+from util.ErrorCodes import ERRNO_DICT
+from util.request.BiliRequest import BiliRequest
 
 
 def get_application_path() -> str:

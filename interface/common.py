@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
+
 REQUIRED_FIELDS = (
     "detail",
     "count",
@@ -207,7 +208,7 @@ def _make_request(
     cookies: list[dict[str, Any]] | dict[str, Any] | None = None,
     cookies_path: str | Path | None = None,
 ) -> Any:
-    from util.BiliRequest import BiliRequest
+    from util.request.BiliRequest import BiliRequest
 
     return BiliRequest(
         cookies=cookies,

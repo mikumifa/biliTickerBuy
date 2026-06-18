@@ -44,6 +44,7 @@ dependencies = [
     "pytest>=9.0.3",
     "textual>=8.2.7",
     "rich>=15.0.0",
+    "tyro>=0.9.28",
 ]
 
 [project.urls]

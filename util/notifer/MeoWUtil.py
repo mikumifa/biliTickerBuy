@@ -1,6 +1,6 @@
 import requests
 
-from util.Notifier import NotifierBase
+from util.notifer.Notifier import NotifierBase
 
 
 MEOW_API_BASE = "https://api.chuckfang.com"

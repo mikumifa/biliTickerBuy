@@ -1,4 +1,4 @@
-from util.Notifier import NotifierBase
+from util.notifer.Notifier import NotifierBase
 import loguru
 
 

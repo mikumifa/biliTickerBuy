@@ -1,6 +1,6 @@
 import requests
 
-from util.ProxyState import ProxyStateRegistry
+from util.proxy.ProxyState import ProxyStateRegistry
 
 
 class ProxyManager:

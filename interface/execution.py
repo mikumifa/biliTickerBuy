@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import ctypes
 import json
 import os
@@ -14,7 +13,7 @@ from typing import Any
 import subprocess
 import sys
 
-from .config import build_runtime_options, validate_config
+from .config import RuntimeOptions, build_runtime_options, validate_config
 from .types import BuyTaskRecord
 
 _TASKS: dict[str, BuyTaskRecord] = {}
@@ -237,55 +236,21 @@ def _update_task(task_id: str, **fields: Any) -> None:
 def _run_buy_task(
     task_id: str,
     config: dict[str, Any],
-    runtime_options: dict[str, Any],
+    runtime_options: RuntimeOptions,
 ) -> None:
-    from task.buy import buy_stream
-    from util.Notifier import NotifierConfig
+    from config.BuyConfig import BuyConfig
+    from task.buy import Buy
 
-    notifier_config = NotifierConfig(
-        serverchan_key=runtime_options.get("serverchanKey", ""),
-        serverchan3_api_url=runtime_options.get("serverchan3ApiUrl", ""),
-        pushplus_token=runtime_options.get("pushplusToken", ""),
-        bark_token=runtime_options.get("barkToken", ""),
-        meow_nickname=runtime_options.get("meowNickname", ""),
-        ntfy_url=runtime_options.get("ntfy_url", ""),
-        ntfy_username=runtime_options.get("ntfy_username", ""),
-        ntfy_password=runtime_options.get("ntfy_password", ""),
-        audio_path=runtime_options.get("audio_path", ""),
-        notify_proxy_exhausted=runtime_options.get("notify_proxy_exhausted", False),
+    buy_job = Buy(
+        config=BuyConfig.from_runtime_options(
+            json.dumps(config, ensure_ascii=False),
+            runtime_options,
+        ),
     )
     _update_task(task_id, status="running", started_at=time.time())
     succeeded = False
     try:
-        for event in buy_stream(
-            json.dumps(config, ensure_ascii=False),
-            runtime_options.get("time_start", ""),
-            runtime_options.get("interval", 1000),
-            notifier_config,
-            runtime_options.get("https_proxys", "none"),
-            runtime_options.get("show_random_message", True),
-            runtime_options.get("show_qrcode", False),
-            use_local_token=runtime_options.get("use_local_token", False),
-            create_retry_limit=runtime_options.get("create_retry_limit", 20),
-            create_request_batch_size=runtime_options.get(
-                "create_request_batch_size",
-                3,
-            ),
-            outer_loop_interval=runtime_options.get("outer_interval", 0),
-            proxy_max_consecutive_failures=runtime_options.get(
-                "proxy_max_consecutive_failures",
-                2,
-            ),
-            proxy_cooldown_seconds=runtime_options.get("proxy_cooldown_seconds", 180),
-            proxy_backoff_max_seconds=runtime_options.get(
-                "proxy_backoff_max_seconds",
-                600,
-            ),
-            auto_open_payment_url=runtime_options.get(
-                "auto_open_payment_url",
-                False,
-            ),
-        ):
+        for event in buy_job.stream():
             message = event.message
             if message is None:
                 continue
@@ -313,7 +278,7 @@ def _run_buy_task(
 def start_buy(
     config_or_path: str | Path | dict[str, Any],
     *,
-    runtime_options: dict[str, Any] | None = None,
+    runtime_options: dict[str, Any] | RuntimeOptions | None = None,
 ) -> dict[str, Any]:
     validation = validate_config(config_or_path)
     if not validation.ok:
@@ -321,8 +286,7 @@ def start_buy(
 
     assert validation.normalized_config is not None
     runtime = build_runtime_options()
-    if runtime_options:
-        runtime.update(copy.deepcopy(runtime_options))
+    runtime = runtime.merged_with(runtime_options)
 
     task_id = uuid.uuid4().hex
     record = BuyTaskRecord(
@@ -360,10 +324,10 @@ def task_status(task_id: str) -> dict[str, Any]:
 def run_buy_sync(
     config_or_path: str | Path | dict[str, Any],
     *,
-    runtime_options: dict[str, Any] | None = None,
+    runtime_options: dict[str, Any] | RuntimeOptions | None = None,
 ) -> dict[str, Any]:
-    from task.buy import buy_stream
-    from util.Notifier import NotifierConfig
+    from config.BuyConfig import BuyConfig
+    from task.buy import Buy
 
     validation = validate_config(config_or_path)
     if not validation.ok:
@@ -376,45 +340,19 @@ def run_buy_sync(
 
     assert validation.normalized_config is not None
     runtime = build_runtime_options()
-    if runtime_options:
-        runtime.update(copy.deepcopy(runtime_options))
+    runtime = runtime.merged_with(runtime_options)
 
-    notifier_config = NotifierConfig(
-        serverchan_key=runtime.get("serverchanKey", ""),
-        serverchan3_api_url=runtime.get("serverchan3ApiUrl", ""),
-        pushplus_token=runtime.get("pushplusToken", ""),
-        bark_token=runtime.get("barkToken", ""),
-        meow_nickname=runtime.get("meowNickname", ""),
-        ntfy_url=runtime.get("ntfy_url", ""),
-        ntfy_username=runtime.get("ntfy_username", ""),
-        ntfy_password=runtime.get("ntfy_password", ""),
-        audio_path=runtime.get("audio_path", ""),
-        notify_proxy_exhausted=runtime.get("notify_proxy_exhausted", False),
+    buy_job = Buy(
+        config=BuyConfig.from_runtime_options(
+            json.dumps(validation.normalized_config, ensure_ascii=False),
+            runtime,
+        ),
     )
 
     logs: list[str] = []
     payment_qr_url: str | None = None
     succeeded = False
-    for event in buy_stream(
-        json.dumps(validation.normalized_config, ensure_ascii=False),
-        runtime.get("time_start", ""),
-        runtime.get("interval", 1000),
-        notifier_config,
-        runtime.get("https_proxys", "none"),
-        runtime.get("show_random_message", True),
-        runtime.get("show_qrcode", False),
-        use_local_token=runtime.get("use_local_token", False),
-        create_retry_limit=runtime.get("create_retry_limit", 20),
-        create_request_batch_size=runtime.get("create_request_batch_size", 3),
-        outer_loop_interval=runtime.get("outer_interval", 0),
-        proxy_max_consecutive_failures=runtime.get(
-            "proxy_max_consecutive_failures",
-            2,
-        ),
-        proxy_cooldown_seconds=runtime.get("proxy_cooldown_seconds", 180),
-        proxy_backoff_max_seconds=runtime.get("proxy_backoff_max_seconds", 600),
-        auto_open_payment_url=runtime.get("auto_open_payment_url", False),
-    ):
+    for event in buy_job.stream():
         message = event.message
         if message is None:
             continue
@@ -436,7 +374,7 @@ def run_buy_sync(
 def start_managed_buy(
     config_or_path: str | Path | dict[str, Any],
     *,
-    runtime_options: dict[str, Any] | None = None,
+    runtime_options: dict[str, Any] | RuntimeOptions | None = None,
     run_id: str | None = None,
     runs_root: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -446,8 +384,7 @@ def start_managed_buy(
 
     assert validation.normalized_config is not None
     runtime = build_runtime_options(show_qrcode=False)
-    if runtime_options:
-        runtime.update(build_runtime_options(**runtime_options))
+    runtime = runtime.merged_with(runtime_options)
 
     managed_root = _managed_runs_root(runs_root)
     assigned_run_id = run_id or uuid.uuid4().hex
@@ -468,7 +405,7 @@ def start_managed_buy(
     }
     _dump_json(run_dir / "run.json", run_metadata)
     _dump_json(run_dir / "config.json", validation.normalized_config)
-    _dump_json(run_dir / "runtime.json", runtime)
+    _dump_json(run_dir / "runtime.json", runtime.to_dict())
 
     status = {
         "ok": True,
@@ -483,9 +420,7 @@ def start_managed_buy(
         "payment_qr_url": None,
         "error": None,
         "last_message": None,
-        "heartbeat_timeout_seconds": max(
-            float(runtime.get("interval", 1000)) / 1000.0 * 20.0, 30.0
-        ),
+        "heartbeat_timeout_seconds": max(float(runtime.interval) / 1000.0 * 20.0, 30.0),
         "logs_path": str(run_dir / "events.log"),
         "result_path": str(run_dir / "result.json"),
         "config_path": str(run_dir / "config.json"),

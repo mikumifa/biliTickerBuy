@@ -3,7 +3,7 @@ import requests
 import loguru
 from typing import List, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from util.ProxyManager import ProxyManager
+from util.proxy.ProxyManager import ProxyManager
 
 
 # 代理连通性测试工具

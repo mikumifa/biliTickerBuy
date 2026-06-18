@@ -2,7 +2,7 @@ import json
 import requests
 
 from urllib.parse import urlparse
-from util.Notifier import NotifierBase
+from util.notifer.Notifier import NotifierBase
 
 
 class BarkNotifier(NotifierBase):
