@@ -128,7 +128,7 @@ curl -fsSL https://raw.githubusercontent.com/mikumifa/biliTickerBuy/main/install
 
 具体步骤请参考：
 
-[Docker 运行指南](https://github.com/mikumifa/biliTickerBuy/wiki/Docker%E8%BF%90%E8%A1%8C%E6%96%B9%E6%B3%95)
+[Docker 部署指南](./docker-deployment.md)
 
 使用 Docker 前，请先确认已经安装：
 
