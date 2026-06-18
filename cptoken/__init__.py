@@ -301,7 +301,6 @@ def init_ctoken_state(
         ticket_collection_t=ticket_collection_t,
         created_at_ms=ticket_collection_t or int(time.time() * 1000),
     )
-    logger.info(state.snapshot().to_dict())
     return state
 
 
@@ -318,7 +317,9 @@ def sim_ctoken_state(
     touchend_add = random.choice([0, 0, 1, 2])
     open_window_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
     visibilitychange_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
-
+    # logger.info(
+    #     f"touchend_add {touchend_add} open_window_add {open_window_add} visibilitychange_add {visibilitychange_add}"
+    # )
     snapshot = CTokenSnapshot(
         m1=source.m1,
         touchend=source.touchend + touchend_add,

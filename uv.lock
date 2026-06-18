@@ -47,7 +47,7 @@ wheels = [
 
 [[package]]
 name = "bilitickerbuy"
-version = "2.15.5"
+version = "2.15.7"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
