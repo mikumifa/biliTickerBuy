@@ -238,6 +238,14 @@ def on_submit_ticket_id(num):
     global sales_dates
     global project_id
     global is_hot_project
+
+    def _raise_login_error(exc: Exception) -> None:
+        message = str(exc).strip()
+        if "当前未登录" in message or "请先登录" in message or "请重新登陆" in message:
+            raise gr.Error(
+                "当前未登录或登录状态已失效，请先在“账号登录”页重新登录。"
+            ) from exc
+
     try:
         buyer_value = []
         addr_value = []
@@ -318,12 +326,17 @@ def on_submit_ticket_id(num):
                     {"project_id": current_project_id, "ticket": ticket}
                 )
 
-        buyer_json = util.main_request.get(
-            url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={project_id}"
-        ).json()
-        addr_json = util.main_request.get(
-            url="https://show.bilibili.com/api/ticket/addr/list"
-        ).json()
+        try:
+            buyer_json = util.main_request.get(
+                url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={project_id}"
+            ).json()
+            addr_json = util.main_request.get(
+                url="https://show.bilibili.com/api/ticket/addr/list"
+            ).json()
+        except Exception as exc:
+            _raise_login_error(exc)
+            raise
+
         buyer_value = buyer_json["data"]["list"]
         buyer_str_list = [
             f"{item['name']}-{item['personal_id']}" for item in buyer_value
@@ -358,6 +371,14 @@ def on_submit_ticket_id(num):
         gr.Warning(exc.message)
         yield _empty_ticket_info_updates()
     except Exception as exc:
+        if (
+            "当前未登录" in str(exc)
+            or "请先登录" in str(exc)
+            or "请重新登陆" in str(exc)
+        ):
+            gr.Warning("当前未登录或登录状态已失效，请先在“账号登录”页重新登录。")
+            yield _empty_ticket_info_updates()
+            return
         logger.exception(exc)
         gr.Warning("获取票务信息失败，请确认活动链接是否正确，或稍后重试。")
         yield _empty_ticket_info_updates()

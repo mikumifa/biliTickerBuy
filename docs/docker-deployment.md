@@ -44,10 +44,10 @@ docker run -d \
   -e BTB_SERVER_NAME=0.0.0.0 \
   -e GRADIO_SERVER_PORT=7860 \
   -e GRADIO_NUM_PORTS=100 \
-  -e BTB_CONFIG_PATH=/data/config.json \
-  -e BTB_COOKIES_PATH=/data/cookies.json \
-  -e BTB_LOG_DIR=/data/btb_logs \
-  -v $(pwd)/data:/data \
+  -e BTB_CONFIG_PATH=/app/data/config.json \
+  -e BTB_COOKIES_PATH=/app/data/cookies.json \
+  -e BTB_LOG_DIR=/app/data/btb_logs \
+  -v $(pwd)/data:/app/data \
   ghcr.io/mikumifa/bilitickerbuy:latest
 ```
 
@@ -60,10 +60,10 @@ docker run -d `
   -e BTB_SERVER_NAME=0.0.0.0 `
   -e GRADIO_SERVER_PORT=7860 `
   -e GRADIO_NUM_PORTS=100 `
-  -e BTB_CONFIG_PATH=/data/config.json `
-  -e BTB_COOKIES_PATH=/data/cookies.json `
-  -e BTB_LOG_DIR=/data/btb_logs `
-  -v ${PWD}/data:/data `
+  -e BTB_CONFIG_PATH=/app/data/config.json `
+  -e BTB_COOKIES_PATH=/app/data/cookies.json `
+  -e BTB_LOG_DIR=/app/data/btb_logs `
+  -v ${PWD}/data:/app/data `
   ghcr.io/mikumifa/bilitickerbuy:latest
 ```
 
@@ -97,11 +97,11 @@ services:
       BTB_SERVER_NAME: 0.0.0.0
       GRADIO_SERVER_PORT: 7860
       GRADIO_NUM_PORTS: 100
-      BTB_CONFIG_PATH: /data/config.json
-      BTB_COOKIES_PATH: /data/cookies.json
-      BTB_LOG_DIR: /data/btb_logs
+      BTB_CONFIG_PATH: /app/data/config.json
+      BTB_COOKIES_PATH: /app/data/cookies.json
+      BTB_LOG_DIR: /app/data/btb_logs
     volumes:
-      - ./data:/data
+      - ./data:/app/data
 ```
 
 启动：
@@ -131,9 +131,9 @@ docker compose down
 | `BTB_SERVER_NAME`    | Web 服务监听地址         | `0.0.0.0`                                                  |
 | `GRADIO_SERVER_PORT` | Web 服务端口             | `7860`                                                     |
 | `GRADIO_NUM_PORTS`   | Gradio 可用端口池大小    | `100`                                                      |
-| `BTB_CONFIG_PATH`    | 配置文件路径             | 默认 `/app/config.json`，Docker 推荐 `/data/config.json`   |
-| `BTB_COOKIES_PATH`   | Cookies 文件路径         | 默认 `/app/cookies.json`，Docker 推荐 `/data/cookies.json` |
-| `BTB_LOG_DIR`        | 日志目录                 | 默认 `/app/btb_logs`，Docker 推荐 `/data/btb_logs`         |
+| `BTB_CONFIG_PATH`    | 配置文件路径             | 默认 `/app/config.json`，Docker 推荐 `/app/data/config.json`   |
+| `BTB_COOKIES_PATH`   | Cookies 文件路径         | 默认 `/app/cookies.json`，Docker 推荐 `/app/data/cookies.json` |
+| `BTB_LOG_DIR`        | 日志目录                 | 默认 `/app/btb_logs`，Docker 推荐 `/app/data/btb_logs`         |
 | `BTB_SHARE`          | 是否启用 Gradio 公网分享 | `false`                                                    |
 | `BTB_PUSHPLUSTOKEN`  | PushPlus 通知 token      | 空                                                         |
 | `BTB_BARKTOKEN`      | Bark 通知 token          | 空                                                         |
@@ -152,10 +152,10 @@ docker run -d \
   -e BTB_SERVER_NAME=0.0.0.0 \
   -e GRADIO_SERVER_PORT=7860 \
   -e GRADIO_NUM_PORTS=100 \
-  -e BTB_CONFIG_PATH=/data/config.json \
-  -e BTB_COOKIES_PATH=/data/cookies.json \
-  -e BTB_LOG_DIR=/data/btb_logs \
-  -v $(pwd)/data:/data \
+  -e BTB_CONFIG_PATH=/app/data/config.json \
+  -e BTB_COOKIES_PATH=/app/data/cookies.json \
+  -e BTB_LOG_DIR=/app/data/btb_logs \
+  -v $(pwd)/data:/app/data \
   ghcr.io/mikumifa/bilitickerbuy:latest
 ```
 
@@ -195,9 +195,22 @@ docker compose up -d
 
 1. 删除错误创建的目录
 2. 重新创建 `config.json` 和 `cookies.json` 空文件
-3. 改用整目录挂载 `./data:/data`
-4. 把 `BTB_CONFIG_PATH` 设置为 `/data/config.json`
-5. 把 `BTB_COOKIES_PATH` 设置为 `/data/cookies.json`
+3. 改用整目录挂载 `./data:/app/data`
+4. 把 `BTB_CONFIG_PATH` 设置为 `/app/data/config.json`
+5. 把 `BTB_COOKIES_PATH` 设置为 `/app/data/cookies.json`
+
+### 报错 `gradio.exceptions.InvalidPathError`
+
+这通常说明你把持久化文件放在了 `/data` 这种不在 Gradio 默认允许范围内的目录。
+
+最直接的修复是把数据目录挂到 `/app/data`，因为 `/app` 就是应用当前工作目录：
+
+```bash
+-e BTB_CONFIG_PATH=/app/data/config.json \
+-e BTB_COOKIES_PATH=/app/data/cookies.json \
+-e BTB_LOG_DIR=/app/data/btb_logs \
+-v $(pwd)/data:/app/data \
+```
 
 ### 想使用其他标签
 

@@ -11,7 +11,6 @@ from app_cmd.config.NotifierConfig import NotifierConfig
 from util.Constant import (
     BASE_URL,
     BEIJING_TZ,
-    COUNTDOWN_REPORT_INTERVAL_SECONDS,
     WARMUP_AT_SECONDS,
 )
 from util.notifer.Notifier import NotifierManager
@@ -38,9 +37,24 @@ def get_order_detail_url(order_id: int | str) -> str:
 
 def format_countdown(seconds: float) -> str:
     total_seconds = max(0, int(seconds))
-    hours, remainder = divmod(total_seconds, 3600)
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
     minutes, secs = divmod(remainder, 60)
+    if days > 0:
+        return f"{days}天{hours}小时{minutes}分{secs}秒"
     return f"{hours}小时{minutes}分{secs}秒"
+
+
+def next_countdown_report_at(countdown_seconds: int) -> int:
+    if countdown_seconds > 86400:
+        return ((countdown_seconds - 1) // 86400) * 86400
+    if countdown_seconds > 3600:
+        return ((countdown_seconds - 1) // 3600) * 3600
+    if countdown_seconds > 60:
+        return ((countdown_seconds - 1) // 60) * 60
+    if countdown_seconds > 10:
+        return ((countdown_seconds - 1) // 10) * 10
+    return -1
 
 
 def wait_until_start(time_start: str, warmup=None):
@@ -97,14 +111,13 @@ def wait_until_start(time_start: str, warmup=None):
                 }
             continue
         if countdown_seconds <= next_report_at:
-            yield {
-                "message": f"距离开始抢票还有: {countdown_text}",
-                "countdown": countdown_text,
-                "countdown_seconds": countdown_seconds,
-            }
-            next_report_at = max(
-                0, countdown_seconds - COUNTDOWN_REPORT_INTERVAL_SECONDS
-            )
+            if countdown_seconds > 10:
+                yield {
+                    "message": f"距离开始抢票还有: {countdown_text}",
+                    "countdown": countdown_text,
+                    "countdown_seconds": countdown_seconds,
+                }
+            next_report_at = next_countdown_report_at(countdown_seconds)
         time.sleep(min(0.5, remaining))
 
 
