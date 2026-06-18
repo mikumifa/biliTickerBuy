@@ -95,7 +95,8 @@ jobs:
             cp dist/biliTickerBuy.exe "$RELEASE_DIR/biliTickerBuy.exe"
             cp assets/updater/update.bat "$RELEASE_DIR/update.bat"
           elif [[ "${{ matrix.config.os.filename }}" == macos_* ]]; then
-            cp -R dist/biliTickerBuy.app "$RELEASE_DIR/biliTickerBuy.app"
+            # Avoid duplicating the .app bundle before DMG creation.
+            mv dist/biliTickerBuy.app "$RELEASE_DIR/biliTickerBuy.app"
             cp assets/updater/update.sh "$RELEASE_DIR/update.sh"
             chmod +x "$RELEASE_DIR/update.sh"
           else
@@ -131,6 +132,8 @@ jobs:
         shell: bash
         run: |
           APP_DIR="./release/biliTickerBuy"
+          # PyInstaller's build directory is no longer needed once the bundle is staged.
+          rm -rf ./build
           hdiutil create \
             -volname "biliTickerBuy" \
             -srcfolder "$APP_DIR" \
