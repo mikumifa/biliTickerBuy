@@ -185,10 +185,14 @@ def ticker_cmd(args: TickerCliArgs):
                         load_go_start_configs,
                         go_start_load_outputs,
                     ) = go_start_tab()
-                with gr.Tab("高级设置", id="advanced", elem_id="btb-tab-advanced"):
+                with gr.Tab(
+                    "高级设置",
+                    id="advanced",
+                    elem_id="btb-tab-advanced",
+                ) as advanced_tab:
                     (
-                        _load_go_settings_configs,
-                        _go_settings_load_outputs,
+                        load_go_settings_configs,
+                        go_settings_load_outputs,
                     ) = go_settings_tab(header_ui)
                 with gr.Tab("项目说明", id="guide", elem_id="btb-tab-guide"):
                     problems_tab()
@@ -206,6 +210,13 @@ def ticker_cmd(args: TickerCliArgs):
                 log_task_panel,
                 *go_start_load_outputs,
             ],
+        )
+        advanced_tab.select(
+            fn=load_go_settings_configs,
+            inputs=None,
+            outputs=go_settings_load_outputs,
+            show_progress="hidden",
+            queue=False,
         )
 
     is_docker = os.path.exists("/.dockerenv") or os.environ.get("BTB_DOCKER") == "1"
