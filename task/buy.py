@@ -55,10 +55,6 @@ from task.buy_types import (
 )
 
 
-def start_buy_stream_worker(*args, **kwargs) -> BuyStreamWorker:
-    return BuyStreamWorker(buy_stream, *args, **kwargs).start()
-
-
 def buy_stream(
     tickets_info,
     time_start,
@@ -622,7 +618,8 @@ def buy(
         notify_proxy_exhausted=notify_proxy_exhausted,
     )
 
-    for msg in buy_stream(
+    worker = BuyStreamWorker.start_buy_stream_worker(
+        buy_stream,
         tickets_info,
         time_start,
         interval,
@@ -638,7 +635,8 @@ def buy(
         proxy_cooldown_seconds=proxy_cooldown_seconds,
         proxy_backoff_max_seconds=proxy_backoff_max_seconds,
         auto_open_payment_url=auto_open_payment_url,
-    ):
+    )
+    for msg in worker.iter_events():
         if msg.message is not None:
             logger.info(msg.message)
 

@@ -30,6 +30,7 @@ def buy_cmd(args: Namespace):
 
     from util import LOG_DIR
     from task.buy import buy, buy_stream
+    from task.buy_types import BuyStreamWorker
     from util.Notifier import NotifierConfig
     from util.terminal_renderer import (
         TerminalRenderContext,
@@ -206,7 +207,8 @@ def buy_cmd(args: Namespace):
         )
         render_message_stream(
             renderer,
-            buy_stream(
+            BuyStreamWorker.start_buy_stream_worker(
+                buy_stream,
                 tickets_info,
                 args.time_start,
                 args.interval,
@@ -222,7 +224,7 @@ def buy_cmd(args: Namespace):
                 args.proxy_cooldown_seconds,
                 args.proxy_backoff_max_seconds,
                 args.auto_open_payment_url,
-            ),
+            ).iter_events(),
             on_message=logger.info,
         )
 

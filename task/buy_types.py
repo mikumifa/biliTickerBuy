@@ -193,3 +193,23 @@ class BuyStreamWorker(LatestValueWorker[BuyStreamEvent]):
 
     def get_event(self, timeout: float | None = None) -> BuyStreamEvent | None:
         return self.get_value(timeout=timeout)
+
+    def iter_events(self, *, timeout: float = 0.1):
+        while not self.done():
+            event = self.get_event(timeout=timeout)
+            if event is not None:
+                yield event
+
+        while True:
+            event = self.get_event(timeout=0)
+            if event is None:
+                break
+            yield event
+
+        self.raise_if_failed()
+
+    @staticmethod
+    def start_buy_stream_worker(
+        producer: Callable[..., Iterable[BuyStreamEvent]], *args, **kwargs
+    ) -> "BuyStreamWorker":
+        return BuyStreamWorker(producer, *args, **kwargs).start()
