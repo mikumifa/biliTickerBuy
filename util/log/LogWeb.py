@@ -11,9 +11,7 @@ from fastapi import HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from util import LOG_DIR
-
-_LOG_VIEW_ROUTE = "/__btb/logs/view"
-_LOG_STREAM_ROUTE = "/__btb/logs/stream"
+from util.Constant import _LOG_STREAM_ROUTE, _LOG_VIEW_ROUTE
 
 
 def build_log_view_url(path: str) -> str:

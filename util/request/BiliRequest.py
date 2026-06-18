@@ -4,6 +4,7 @@ import time
 import loguru
 import requests
 from requests import Response
+from util.Constant import H2_LIMITS, H2_TIMEOUT
 from util.request.BrowerState import (
     BrowserFingerprintState,
     build_headers_from_browser_state,
@@ -12,19 +13,6 @@ from util.request.BrowerState import (
 )
 from util.request.CookieManager import CookieManager
 from util.proxy.ProxyManager import ProxyManager
-
-DEFAULT_TIMEOUT = (3.05, 8)
-H2_TIMEOUT = {
-    "connect": 3.05,
-    "read": 5.0,
-    "write": 5.0,
-    "pool": 5.0,
-}
-H2_LIMITS = {
-    "max_keepalive_connections": 10,
-    "max_connections": 20,
-    "keepalive_expiry": 60.0,
-}
 
 
 class BiliRequest:

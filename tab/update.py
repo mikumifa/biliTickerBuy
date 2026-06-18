@@ -14,9 +14,7 @@ import requests
 from app_update import UPDATE_CHANNEL_STABLE, ReleaseInfo, UpdateError, fetch_update
 from app_version import get_app_version
 from util import ConfigDB, EXE_PATH
-
-UPDATE_CHANNEL_KEY = "update_channel"
-PACKAGE_NAME = "bilitickerbuy"
+from util.Constant import PACKAGE_NAME, UPDATE_CHANNEL_KEY
 
 
 def _saved_channel() -> str:

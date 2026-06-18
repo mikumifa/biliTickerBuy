@@ -3,7 +3,7 @@ import threading
 import loguru
 import time
 
-from config.NotifierConfig import NotifierConfig
+from app_cmd.config.NotifierConfig import NotifierConfig
 
 
 class NotifierBase(ABC):

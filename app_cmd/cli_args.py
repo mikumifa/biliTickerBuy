@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from config.BuyConfig import BuyConfig
+from app_cmd.config.BuyConfig import BuyConfig
 
 
 def _env_bool(key: str, default: bool) -> bool:

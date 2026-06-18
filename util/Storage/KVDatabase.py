@@ -45,6 +45,20 @@ class KVDatabase:
 
         return result["value"] if result else None
 
+    def get_as_int(self, key: str, default: int) -> int:
+        raw = self.get(key)
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            return default
+        return value
+
+    def get_as_bool(self, key: str, default: bool) -> bool:
+        value = self.get(key)
+        if value is None:
+            return default
+        return bool(value)
+
     def update(self, key: str, value: Any) -> None:
         """
         更新已存在的 key。

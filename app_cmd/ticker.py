@@ -73,11 +73,15 @@ def ticker_cmd(args: TickerCliArgs):
     def refresh_all_task_panels():
         go_refresh_token, go_panel_update = refresh_task_panel()
         log_refresh_token, log_panel_update = refresh_log_panel()
+        go_start_updates = load_go_start_configs()
+        go_settings_updates = load_go_settings_configs()
         return (
             go_refresh_token,
             go_panel_update,
             log_refresh_token,
             log_panel_update,
+            go_start_updates,
+            *go_settings_updates,
         )
 
     with gr.Blocks(
@@ -177,9 +181,17 @@ def ticker_cmd(args: TickerCliArgs):
                 with gr.Tab("生成配置", id="config", elem_id="btb-tab-config"):
                     setting_tab()
                 with gr.Tab("操作抢票", id="go", elem_id="btb-tab-go"):
-                    go_task_refresh_token, go_task_panel = go_start_tab()
+                    (
+                        go_task_refresh_token,
+                        go_task_panel,
+                        load_go_start_configs,
+                        go_start_load_outputs,
+                    ) = go_start_tab()
                 with gr.Tab("高级设置", id="advanced", elem_id="btb-tab-advanced"):
-                    go_settings_tab(header_ui)
+                    (
+                        load_go_settings_configs,
+                        go_settings_load_outputs,
+                    ) = go_settings_tab(header_ui)
                 with gr.Tab("项目说明", id="guide", elem_id="btb-tab-guide"):
                     problems_tab()
                 with gr.Tab("软件更新", id="update", elem_id="btb-tab-update"):
@@ -194,6 +206,8 @@ def ticker_cmd(args: TickerCliArgs):
                 go_task_panel,
                 log_task_refresh_token,
                 log_task_panel,
+                *go_start_load_outputs,
+                *go_settings_load_outputs,
             ],
         )
 

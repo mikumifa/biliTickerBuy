@@ -7,7 +7,13 @@ import time
 from cptoken import CTokenRuntimeState, sim_ctoken_state
 
 from util import time_service
-from config.NotifierConfig import NotifierConfig
+from app_cmd.config.NotifierConfig import NotifierConfig
+from util.Constant import (
+    BASE_URL,
+    BEIJING_TZ,
+    COUNTDOWN_REPORT_INTERVAL_SECONDS,
+    WARMUP_AT_SECONDS,
+)
 from util.notifer.Notifier import NotifierManager
 from util.proxy.ProxyBackoff import ProxyBackoff
 from util.TimeUtil import current_time_ms
@@ -16,14 +22,6 @@ from util.request.TokenUtil import generate_token
 from util.ErrorCodes import ErrorCodes
 
 from .buy_types import CreateOrderTerminalRule, RetryOutcome
-
-BASE_URL = "https://show.bilibili.com"
-BEIJING_TZ = datetime.timezone(datetime.timedelta(hours=8), name="Asia/Shanghai")
-WARMUP_AT_SECONDS = 5.0
-COUNTDOWN_REPORT_INTERVAL_SECONDS = 15
-DEFAULT_CREATE_RETRY_LIMIT = 20
-DEFAULT_CREATE_REQUEST_BATCH_SIZE = 3
-DEFAULT_OUTER_LOOP_INTERVAL = 0
 
 
 def get_qrcode_url(_request, order_id) -> str:

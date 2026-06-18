@@ -47,7 +47,7 @@ def _heartbeat_loop(
 
 
 def main(run_dir_arg: str) -> int:
-    from config.BuyConfig import BuyConfig
+    from app_cmd.config.BuyConfig import BuyConfig
     from interface.config import RuntimeOptions
     from task.buy import Buy
 

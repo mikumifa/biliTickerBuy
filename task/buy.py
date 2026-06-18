@@ -19,7 +19,7 @@ from cptoken import (
     init_ctoken_state,
 )
 
-from config.BuyConfig import BuyConfig
+from app_cmd.config.BuyConfig import BuyConfig
 from util.notifer.Notifier import NotifierManager
 from util.proxy.ProxyBackoff import ProxyBackoff
 from util.proxy.ProxyManager import ProxyManager

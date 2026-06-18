@@ -238,7 +238,7 @@ def _run_buy_task(
     config: dict[str, Any],
     runtime_options: RuntimeOptions,
 ) -> None:
-    from config.BuyConfig import BuyConfig
+    from app_cmd.config.BuyConfig import BuyConfig
     from task.buy import Buy
 
     buy_job = Buy(
@@ -326,7 +326,7 @@ def run_buy_sync(
     *,
     runtime_options: dict[str, Any] | RuntimeOptions | None = None,
 ) -> dict[str, Any]:
-    from config.BuyConfig import BuyConfig
+    from app_cmd.config.BuyConfig import BuyConfig
     from task.buy import Buy
 
     validation = validate_config(config_or_path)
