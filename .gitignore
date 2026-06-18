@@ -28,3 +28,4 @@ confirmOrder.*.js
 dev
 local_overrides/
 test.py
+!app_cmd/config
