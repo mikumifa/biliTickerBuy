@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import subprocess
 import sys
@@ -6,7 +7,6 @@ import time
 import uuid
 import copy
 import webbrowser
-from random import randint
 import datetime
 from collections.abc import Generator
 from dataclasses import dataclass, field
@@ -32,16 +32,20 @@ from util.RandomMessages import get_random_fail_message
 from util.TimeUtil import current_time_ms
 from util.TokenUtil import generate_token
 from util.error_codes import ErrorCodes
+from interface.project import fetch_project_payload
 
 
 base_url = "https://show.bilibili.com"
 BEIJING_TZ = datetime.timezone(datetime.timedelta(hours=8), name="Asia/Shanghai")
+WARMUP_AT_SECONDS = 5.0
+COUNTDOWN_REPORT_INTERVAL_SECONDS = 15
 
 
 @dataclass
 class BuyStreamState:
     stage: str = "初始化"
     countdown: str = "-"
+    countdown_seconds: int | None = None
     current_proxy: str = "未初始化"
     proxy_pool: str = ""
     cooldown_remaining: int | None = None
@@ -101,13 +105,13 @@ def _format_countdown(seconds: float) -> str:
     return f"{hours}小时{minutes}分{secs}秒"
 
 
-def _wait_until_start(time_start: str, warmup=None, warmup_at_seconds: float = 3.0):
+def _wait_until_start(time_start: str, warmup=None):
     if not time_start:
         return
 
     timeoffset = time_service.get_timeoffset()
-    yield "0) 等待开始时间"
-    yield f"时间偏差已被设置为: {timeoffset}秒"
+    yield {"message": "0) 等待开始时间"}
+    yield {"message": f"时间偏差已被设置为: {timeoffset}秒"}
 
     for fmt in (
         "%Y-%m-%dT%H:%M:%S",
@@ -125,24 +129,44 @@ def _wait_until_start(time_start: str, warmup=None, warmup_at_seconds: float = 3
     else:
         raise ValueError(f"无法解析抢票时间: {time_start!r}")
 
-    yield f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"
+    yield {"message": f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"}
 
     time_difference = target_time.timestamp() - time.time() + timeoffset
     end_time = time.perf_counter() + time_difference
     next_report_at = float("inf")
     warmed = False
+    last_countdown_seconds: int | None = None
     while True:
         remaining = end_time - time.perf_counter()
         if remaining <= 0:
             return
-        if not warmed and warmup is not None and remaining <= warmup_at_seconds:
+        countdown_seconds = max(0, math.ceil(remaining))
+        countdown_text = _format_countdown(remaining)
+        if countdown_seconds != last_countdown_seconds:
+            last_countdown_seconds = countdown_seconds
+            yield {
+                "message": None,
+                "countdown": countdown_text,
+                "countdown_seconds": countdown_seconds,
+            }
+        if not warmed and warmup is not None and remaining <= WARMUP_AT_SECONDS:
             warmed = True
             for warm_message in warmup() or []:
-                yield warm_message
+                yield {
+                    "message": warm_message,
+                    "countdown": countdown_text,
+                    "countdown_seconds": countdown_seconds,
+                }
             continue
-        if remaining <= next_report_at:
-            yield f"距离开始抢票还有: {_format_countdown(remaining)}"
-            next_report_at = max(0.0, remaining - 5)
+        if countdown_seconds <= next_report_at:
+            yield {
+                "message": f"距离开始抢票还有: {countdown_text}",
+                "countdown": countdown_text,
+                "countdown_seconds": countdown_seconds,
+            }
+            next_report_at = max(
+                0, countdown_seconds - COUNTDOWN_REPORT_INTERVAL_SECONDS
+            )
         time.sleep(min(0.5, remaining))
 
 
@@ -184,15 +208,6 @@ def _normalize_prepare_ptoken(value: str | None) -> str:
     if value is None:
         return ""
     return str(value).replace("=", "")
-
-
-def _build_click_position(origin_ms: int, now_ms: int) -> dict[str, int]:
-    return {
-        "x": randint(400, 900),
-        "y": randint(400, 900),
-        "origin": origin_ms,
-        "now": now_ms,
-    }
 
 
 CREATE_ORDER_TERMINAL_RULES: dict[int, CreateOrderTerminalRule] = {
@@ -337,7 +352,6 @@ def _format_status_result(prefix: str, ret: dict) -> str:
 
 
 def _prepare_create_request(
-    _request: BiliRequest,
     tickets_info: dict,
     order_token: str,
     is_hot_project: bool,
@@ -361,18 +375,13 @@ def _prepare_create_request(
 
     if not is_hot_project:
         return url, payload
-    payload["clickPosition"] = _build_click_position(
-        _request.createTime,
-        now_ms,
-    )
     create_state = sim_ctoken_state(
         before_state=ticket_state,
         now_ms=now_ms,
     )
     payload["ctoken"] = create_state.generate_create_ctoken()
-    ptoken = _normalize_prepare_ptoken(
-        request_result["data"].get("ptoken") if request_result else ""
-    )
+    prepare_data = request_result.get("data", {}) if request_result else {}
+    ptoken = _normalize_prepare_ptoken(prepare_data.get("ptoken"))
     payload["ptoken"] = ptoken
     payload["orderCreateUrl"] = "https://show.bilibili.com/api/ticket/order/createV2"
     url += "&ptoken=" + ptoken
@@ -403,6 +412,8 @@ def buy_stream(
             state.stage = data["stage"]
         if "countdown" in data:
             state.countdown = data["countdown"]
+        if "countdown_seconds" in data:
+            state.countdown_seconds = data["countdown_seconds"]
         if "current_proxy" in data:
             state.current_proxy = data["current_proxy"]
         if "proxy_pool" in data:
@@ -534,7 +545,6 @@ def buy_stream(
     )
     proxy_backoff = ProxyBackoff(max_seconds=proxy_backoff_max_seconds)
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
-    _request.use_h2 = is_hot_project
     use_local_token = bool(use_local_token)
     browser_window_state = generate_browser_window_state()
     token_payload = _build_token_payload(tickets_info)
@@ -546,49 +556,35 @@ def buy_stream(
     def refresh_hot_and_warm():
         nonlocal is_hot_project
         messages: list[str] = []
-        try:
-            _request.session.head(f"{base_url}/", timeout=(3.05, 3))
-        except Exception:
-            pass
-        try:
-            from interface.project import fetch_project_payload
-
-            payload = fetch_project_payload(
-                request=_request, project_id=int(tickets_info["project_id"])
-            )
-            if "hotProject" not in payload:
-                messages.append("hotProject 复检：响应缺该字段，沿用配置值，连接已预热")
-            elif bool(payload["hotProject"]) and not is_hot_project:
-                is_hot_project = True
-                tickets_info["is_hot_project"] = True
-                _request.use_h2 = True
-                messages.append("运行时检测到 hotProject=True，已升级为 hot 抢票策略")
-            else:
-                messages.append(
-                    f"hotProject 复检：实时={bool(payload['hotProject'])}，"
-                    f"保持 is_hot_project={is_hot_project}，连接已预热"
-                )
-        except Exception as exc:
-            messages.append(
-                f"hotProject 复检/预热失败（忽略，沿用配置值 {is_hot_project}）：{exc}"
-            )
+        payload = fetch_project_payload(
+            request=_request, project_id=int(tickets_info["project_id"])
+        )
+        if bool(payload["hotProject"]) and not is_hot_project:
+            is_hot_project = True
+            tickets_info["is_hot_project"] = True
+        _request.prewarm_h2_connection(f"{base_url}/")
         return messages
 
     for warm_message in refresh_hot_and_warm():
         yield emit("status", warm_message)
 
-    for wait_message in _wait_until_start(time_start, warmup=refresh_hot_and_warm):
-        countdown_value = None
+    for wait_state in _wait_until_start(time_start, warmup=refresh_hot_and_warm):
+        wait_message = wait_state.get("message")
+        countdown_value = wait_state.get("countdown")
+        countdown_seconds = wait_state.get("countdown_seconds")
         stage_value = None
-        if wait_message.startswith("0)"):
+        if isinstance(wait_message, str) and wait_message.startswith("0)"):
             stage_value = "等待开票"
-        elif wait_message.startswith("距离开始抢票还有:"):
-            countdown_value = wait_message.split(":", 1)[1].strip()
         yield emit(
             "status",
             wait_message,
             stage=stage_value or state.stage,
             countdown=countdown_value or state.countdown,
+            countdown_seconds=(
+                countdown_seconds
+                if countdown_seconds is not None
+                else state.countdown_seconds
+            ),
         )
     yield emit(
         "proxy",
@@ -672,7 +668,6 @@ def buy_stream(
                     effective_retry_limit,
                 )
                 url, payload = _prepare_create_request(
-                    _request,
                     tickets_info,
                     order_token,
                     is_hot_project=is_hot_project,
