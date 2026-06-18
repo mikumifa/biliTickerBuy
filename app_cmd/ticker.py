@@ -29,7 +29,7 @@ def ticker_cmd(args: TickerCliArgs):
     from tab.settings import login_tab, setting_tab
     from tab.update import update_tab
     from util.log.LogWeb import attach_log_routes
-    from util import ConfigDB, LOG_DIR
+    from util import ConfigDB, GLOBAL_COOKIE_PATH, LOG_DIR, TEMP_PATH
     from util.log.LogConfig import loguru_config
 
     loguru_config(LOG_DIR, "app.log", enable_console=True, file_colorize=False)
@@ -220,11 +220,25 @@ def ticker_cmd(args: TickerCliArgs):
         )
 
     is_docker = os.path.exists("/.dockerenv") or os.environ.get("BTB_DOCKER") == "1"
+    allowed_paths: list[str] = []
+    for candidate in [
+        os.environ.get("BTB_CONFIG_PATH"),
+        GLOBAL_COOKIE_PATH,
+        LOG_DIR,
+        TEMP_PATH,
+    ]:
+        if not candidate:
+            continue
+        target = candidate if os.path.isdir(candidate) else os.path.dirname(candidate)
+        if target and os.path.exists(target) and target not in allowed_paths:
+            allowed_paths.append(target)
+
     demo.launch(
         share=args.share or is_docker,
         inbrowser=not is_docker,
         server_name=args.server_name,
         server_port=args.port,
+        allowed_paths=allowed_paths,
         prevent_thread_lock=True,
         footer_links=[],
         css_paths=css_path,
