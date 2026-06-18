@@ -26,7 +26,6 @@ from util import (
 BEIJING_TZ = datetime.timezone(datetime.timedelta(hours=8), name="Asia/Shanghai")
 GO_UPLOADED_FILES_STATE_KEY = "go.uploaded_config_files"
 DEFAULT_REQUEST_INTERVAL = 1000
-DEFAULT_OUTER_INTERVAL = 0
 DEFAULT_CREATE_RETRY_LIMIT = 20
 DEFAULT_CREATE_REQUEST_BATCH_SIZE = 3
 DEFAULT_PROXY_MAX_CONSECUTIVE_FAILURES = 2
@@ -218,7 +217,7 @@ def go_start_tab():
                 label="抢票间隔",
                 value=_get_config_int("requestInterval", DEFAULT_REQUEST_INTERVAL),
                 minimum=1,
-                info="抢票请求之间的时间间隔（单位：毫秒）",
+                info="默认抢票请求间隔（单位：毫秒）",
             )
 
     @runtime_state_writer(GO_UPLOADED_FILES_STATE_KEY, kind="path_list")
@@ -330,7 +329,7 @@ def go_start_tab():
         https_proxy_list = ["none"] + https_proxys.split(",")
         assigned_proxies: list[list[str]] = []
         assigned_proxies_next_idx = 0
-
+        # 从配置文件加载
         buy_config = BuyConfig.from_config_db(
             time_start=time_start,
             interval=interval,
@@ -675,16 +674,6 @@ def go_settings_tab(header_ui):
             value=_get_config_int("requestInterval", DEFAULT_REQUEST_INTERVAL)
         )
 
-    def update_outer_loop_interval(value):
-        try:
-            parsed = max(0, int(value))
-        except (TypeError, ValueError):
-            parsed = DEFAULT_OUTER_INTERVAL
-        ConfigDB.insert("outerLoopInterval", parsed)
-        return gr.update(
-            value=_get_config_int("outerLoopInterval", DEFAULT_OUTER_INTERVAL)
-        )
-
     def update_create_retry_limit(value):
         try:
             parsed = max(1, int(value))
@@ -786,7 +775,6 @@ def go_settings_tab(header_ui):
     ).lower()
     log_level_default = buy_defaults.log_level
     request_interval_default = int(buy_defaults.interval or DEFAULT_REQUEST_INTERVAL)
-    outer_loop_interval_default = buy_defaults.outer_loop_interval
     create_retry_limit_default = buy_defaults.create_retry_limit
     create_request_batch_size_default = buy_defaults.create_request_batch_size
     proxy_max_consecutive_failures_default = buy_defaults.proxy_max_consecutive_failures
@@ -1095,32 +1083,23 @@ def go_settings_tab(header_ui):
                         info="默认关闭。开启后，非 hotproject 直接使用本地生成 token。",
                     )
                     request_interval_ui = gr.Number(
-                        label="内层请求间隔（毫秒）",
+                        label="默认抢票间隔（毫秒）",
                         value=request_interval_default,
                         minimum=1,
                         step=1,
-                        info="创建订单内层循环的请求间隔。",
-                    )
-                    outer_loop_interval_ui = gr.Number(
-                        label="外层批次间隔（毫秒）",
-                        value=outer_loop_interval_default,
-                        minimum=0,
-                        step=1,
-                        info="每批 create 请求失败后，下一批前等待多久。",
+                        info="作为抢票请求的默认间隔配置。",
                     )
                     create_retry_limit_ui = gr.Number(
-                        label="最大重试次数",
+                        label="创建订单重试次数",
                         value=create_retry_limit_default,
                         minimum=1,
                         step=1,
-                        info="create 阶段最多尝试多少次。",
                     )
                     create_request_batch_size_ui = gr.Number(
-                        label="单批请求数",
+                        label="每一次准备订单后尝试抢票次数",
                         value=create_request_batch_size_default,
                         minimum=1,
                         step=1,
-                        info="每一批会连续发送多少次 create 请求。",
                     )
 
     save_proxy_btn.click(
@@ -1252,11 +1231,6 @@ def go_settings_tab(header_ui):
         fn=update_request_interval,
         inputs=request_interval_ui,
         outputs=request_interval_ui,
-    )
-    outer_loop_interval_ui.change(
-        fn=update_outer_loop_interval,
-        inputs=outer_loop_interval_ui,
-        outputs=outer_loop_interval_ui,
     )
     create_retry_limit_ui.change(
         fn=update_create_retry_limit,

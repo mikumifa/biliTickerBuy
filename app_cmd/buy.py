@@ -25,16 +25,33 @@ def buy_cmd(args: BuyCliArgs):
 
     console_close_handler_ref = None
 
-    def load_tickets_info(tickets_info: str) -> tuple[str, str | None]:
-        config_path = os.path.expanduser(tickets_info)
-        if os.path.isfile(config_path):
+    def load_tickets_info(
+        tickets_info: str,
+        config_file: str,
+    ) -> tuple[str, str | None, str]:
+        tickets_info = (tickets_info or "").strip()
+        config_file = (config_file or "").strip()
+
+        if tickets_info:
+            config_path = os.path.expanduser(tickets_info)
+            if os.path.isfile(config_path):
+                logger.info(f"使用配置文件：{config_path}")
+                try:
+                    with open(config_path, "r", encoding="utf-8") as config_handle:
+                        return config_handle.read(), config_path, "tickets_info"
+                except OSError as exc:
+                    raise SystemExit(f"读取配置文件失败: {exc}") from exc
+            return tickets_info, None, "tickets_info"
+
+        if config_file:
+            config_path = os.path.expanduser(config_file)
             logger.info(f"使用配置文件：{config_path}")
             try:
-                with open(config_path, "r", encoding="utf-8") as config_file:
-                    return config_file.read(), config_path
+                with open(config_path, "r", encoding="utf-8") as config_handle:
+                    return config_handle.read(), config_path, "config_file"
             except OSError as exc:
                 raise SystemExit(f"读取配置文件失败: {exc}") from exc
-        return tickets_info, None
+        return "", None, "none"
 
     def resolve_log_file_name() -> str:
         configured_name = os.environ.get("BTB_APP_LOG_NAME", "").strip()
@@ -167,7 +184,12 @@ def buy_cmd(args: BuyCliArgs):
         ).start()
 
     def run_with_terminal_renderer(tickets_info: str):
-        buy_job = Buy(config=args.with_overrides(tickets_info=tickets_info))
+        buy_job = Buy(
+            config=args.with_overrides(
+                tickets_info=tickets_info,
+                config_file=args.config_file if tickets_source == "config_file" else "",
+            )
+        )
         renderer = create_terminal_renderer(
             TerminalRenderContext(
                 config_name=filename_only,
@@ -182,7 +204,10 @@ def buy_cmd(args: BuyCliArgs):
             on_message=logger.info,
         )
 
-    tickets_info, config_path = load_tickets_info(args.tickets_info)
+    tickets_info, config_path, tickets_source = load_tickets_info(
+        args.tickets_info,
+        args.config_file,
+    )
     filename = os.path.basename(config_path) if config_path else "default"
     filename_only = os.path.basename(filename)
     log_file_name = resolve_log_file_name()
@@ -202,7 +227,14 @@ def buy_cmd(args: BuyCliArgs):
         if use_terminal_renderer:
             run_with_terminal_renderer(tickets_info)
         else:
-            Buy(config=args.with_overrides(tickets_info=tickets_info)).buy()
+            Buy(
+                config=args.with_overrides(
+                    tickets_info=tickets_info,
+                    config_file=args.config_file
+                    if tickets_source == "config_file"
+                    else "",
+                )
+            ).buy()
     except KeyboardInterrupt:
         logger.warning("收到 Ctrl+C，已停止当前抢票流程。")
         exit_immediately_if_child_process()

@@ -58,14 +58,38 @@ from util.request.BiliRequest import BiliRequest
 class Buy:
     config: BuyConfig
 
+    def _resolved_tickets_info(self) -> str:
+        if self.config.config_file:
+            config_path = os.path.expanduser(self.config.config_file)
+            with open(config_path, "r", encoding="utf-8") as config_file:
+                return config_file.read()
+        return self.config.tickets_info
+
+    def resolved_config(self) -> BuyConfig:
+        return self.config.with_overrides(
+            tickets_info=self._resolved_tickets_info(),
+        )
+
     def stream(self):
-        yield from buy_stream(self.config)
+        yield from buy_stream(self.resolved_config())
 
     def start_worker(self) -> BuyStreamWorker:
         return BuyStreamWorker.start_buy_stream_worker(self.stream)
 
     def to_cli_args(self) -> list[str]:
-        return ["buy", self.config.tickets_info, *self.config.to_cli_args()]
+        if self.config.config_file:
+            return [
+                "buy",
+                "--config-file",
+                self.config.config_file,
+                *self.config.to_cli_args(),
+            ]
+        return [
+            "buy",
+            "--tickets-info",
+            self.config.tickets_info,
+            *self.config.to_cli_args(),
+        ]
 
     def run(self, on_message=None) -> None:
         worker = self.start_worker()
@@ -301,10 +325,9 @@ def buy_stream(config: BuyConfig):
     use_local_token = bool(config.use_local_token)
     browser_window_state = generate_browser_window_state()
     token_payload = _build_token_payload(tickets_info)
-    inner_loop_interval = max(1, int(config.interval or 1000))
+    request_interval = max(1, int(config.interval or 1000))
     effective_retry_limit = max(1, int(config.create_retry_limit))
     effective_batch_size = max(1, int(config.create_request_batch_size))
-    effective_outer_loop_interval = max(0, int(config.outer_loop_interval))
 
     def refresh_hot_and_warm():
         nonlocal is_hot_project
@@ -500,7 +523,7 @@ def buy_stream(config: BuyConfig):
                                 ),
                             )
                             tickets_info["pay_money"] = ret["data"]["pay_money"]
-                        time.sleep(inner_loop_interval / 1000)
+                        time.sleep(request_interval / 1000)
                     except JSONDecodeError as exc:
                         handled_412 = yield from handle_non_json_response(
                             "创建订单接口",
@@ -509,7 +532,7 @@ def buy_stream(config: BuyConfig):
                         )
                         if not handled_412:
                             retry_outcome.set_exception(exc)
-                            time.sleep(inner_loop_interval / 1000)
+                            time.sleep(request_interval / 1000)
                         attempt += 1
                     except RequestException as e:
                         retry_outcome.set_exception(e)
@@ -544,7 +567,7 @@ def buy_stream(config: BuyConfig):
                     ):
                         break
                     attempt += 1
-                    time.sleep(inner_loop_interval / 1000)
+                    time.sleep(request_interval / 1000)
 
                 if (
                     result is not None
@@ -554,8 +577,6 @@ def buy_stream(config: BuyConfig):
                 ):
                     break
 
-                if effective_outer_loop_interval > 0:
-                    time.sleep(effective_outer_loop_interval / 1000)
             else:
                 if config.show_random_message:
                     yield emit("status", f"群友说👴： {get_random_fail_message()}")
