@@ -1,37 +1,68 @@
-FROM python:3.12
+FROM python:3.12-slim
+
+ENV TZ=Asia/Shanghai \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    BTB_SERVER_NAME=0.0.0.0 \
+    GRADIO_SERVER_PORT=7860 \
+    GRADIO_NUM_PORTS=100 \
+    BTB_DOCKER=1 \
+    DISPLAY=:99
+
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
 WORKDIR /app
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    curl tzdata xvfb x11vnc supervisor xauth \
-    fluxbox xterm fonts-wqy-zenhei fonts-wqy-microhei \
-    fontconfig && \
-    ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && \
-    echo $TZ > /etc/timezone && \
-    fc-cache -fv && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-RUN curl -sSf https://sh.rustup.rs  | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-ENV TZ=Asia/Shanghai
-COPY requirements.txt .
-RUN python -m pip install --no-cache-dir -r requirements.txt  -i https://pypi.tuna.tsinghua.edu.cn/simple && \
-    python -m pip uninstall -y jinja2 && \
-    python -m pip install --no-cache-dir "jinja2==3.1.2" "fastapi==0.112.2" "starlette==0.38.6" -i https://pypi.tuna.tsinghua.edu.cn/simple && \
-    python -c "import jinja2, fastapi, starlette; assert jinja2.__version__ == '3.1.2', jinja2.__version__; assert fastapi.__version__ == '0.112.2', fastapi.__version__; assert starlette.__version__ == '0.38.6', starlette.__version__"
-COPY . .
-RUN apt-get update --allow-unauthenticated && \
-    apt-get install -y --allow-unauthenticated --no-install-recommends \
-    libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
-    libgtk-3-0 libgbm1 libasound2 && \
-    apt-get clean && \
+    fluxbox \
+    fontconfig \
+    fonts-wqy-microhei \
+    fonts-wqy-zenhei \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libxkbcommon0 \
+    supervisor \
+    tzdata \
+    x11vnc \
+    xauth \
+    xvfb && \
+    ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime && \
+    echo "${TZ}" > /etc/timezone && \
+    fc-cache -f && \
     rm -rf /var/lib/apt/lists/*
 
-ENV BTB_SERVER_NAME="0.0.0.0"
-ENV GRADIO_SERVER_PORT=7860
-ENV GRADIO_NUM_PORTS=100
-ENV BTB_DOCKER=1
-ENV DISPLAY=:99
+COPY requirements.txt ./
+
+RUN python -m pip install --upgrade pip setuptools wheel && \
+    python -m pip install --upgrade --index-url "${PIP_INDEX_URL}" -r requirements.txt && \
+    python - <<'PY'
+import fastapi
+import gradio
+import jinja2
+import starlette
+
+print(
+    "Resolved runtime versions:",
+    {
+        "gradio": gradio.__version__,
+        "fastapi": fastapi.__version__,
+        "starlette": starlette.__version__,
+        "jinja2": jinja2.__version__,
+    },
+)
+PY
+
+COPY . .
+
 RUN mkdir -p /etc/supervisor/conf.d
+
 COPY <<EOF /etc/supervisor/conf.d/supervisord.conf
 [supervisord]
 nodaemon=true
@@ -69,5 +100,7 @@ stderr_logfile=/dev/fd/2
 stderr_logfile_maxbytes=0
 priority=400
 EOF
+
 EXPOSE 5900 7860
+
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

@@ -35,7 +35,7 @@ dependencies = [
     "setuptools~=65.5.1",
     "tinydb~=4.8.0",
     "Pillow~=10.3.0",
-    "jinja2==3.1.2",
+    "jinja2>=3.1.6",
     "pytest>=9.0.3",
     "textual>=8.2.7",
     "rich>=15.0.0",
