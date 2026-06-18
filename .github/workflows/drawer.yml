@@ -154,12 +154,29 @@ jobs:
           df -h /tmp || true
           du -sh ./release 2>/dev/null || true
 
+          SOURCE_KB="$(du -sk "$APP_DIR" | awk '{print $1}')"
+          DMG_SIZE_MB="$(( (SOURCE_KB * 2 + 1024 * 200 + 1023) / 1024 ))"
+
+          echo "Source size: ${SOURCE_KB} KiB"
+          echo "Allocated DMG size: ${DMG_SIZE_MB} MiB"
+
+          # Build a writable image with explicit headroom first, then convert it
+          # to a compressed read-only DMG. This avoids hdiutil auto-sizing issues.
           hdiutil create \
             -volname "biliTickerBuy" \
             -srcfolder "$APP_DIR" \
             -ov \
+            -fs HFS+ \
+            -format UDRW \
+            -size "${DMG_SIZE_MB}m" \
+            "./tmp-rw.dmg"
+
+          hdiutil convert "./tmp-rw.dmg" \
+            -ov \
             -format UDZO \
-            "./tmp.dmg"
+            -o "./tmp.dmg"
+
+          rm -f ./tmp-rw.dmg
 
       - name: Prepare release bundle metadata
         shell: bash
