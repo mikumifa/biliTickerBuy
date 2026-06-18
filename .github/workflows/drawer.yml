@@ -127,26 +127,39 @@ jobs:
           cd ./dist
           zip -r ../tmp.zip biliTickerBuy
 
-      - name: Build DMG-macos
-        if: startsWith(matrix.config.os.filename, 'macos_')
-        shell: bash
-        run: |
-          APP_DIR="./release/biliTickerBuy"
-          # PyInstaller's build directory is no longer needed once the bundle is staged.
-          rm -rf ./build
-          hdiutil create \
-            -volname "biliTickerBuy" \
-            -srcfolder "$APP_DIR" \
-            -ov \
-            -format UDZO \
-            "./tmp.dmg"
-
       - name: Zip the Build-macos-cli
         if: startsWith(matrix.config.os.filename, 'macos_')
         shell: bash
         run: |
           cd ./dist
           zip -r ../tmp-macos-cli.zip biliTickerBuy
+
+      - name: Build DMG-macos
+        if: startsWith(matrix.config.os.filename, 'macos_')
+        shell: bash
+        run: |
+          APP_DIR="./release/biliTickerBuy"
+
+          echo "Disk usage before macOS DMG cleanup:"
+          df -h .
+          df -h /tmp || true
+          du -sh ./build ./dist ./release 2>/dev/null || true
+
+          # The CLI asset is already archived, so dist/build can be removed
+          # before DMG creation to lower peak disk usage on GitHub runners.
+          rm -rf ./dist ./build
+
+          echo "Disk usage after macOS DMG cleanup:"
+          df -h .
+          df -h /tmp || true
+          du -sh ./release 2>/dev/null || true
+
+          hdiutil create \
+            -volname "biliTickerBuy" \
+            -srcfolder "$APP_DIR" \
+            -ov \
+            -format UDZO \
+            "./tmp.dmg"
 
       - name: Prepare release bundle metadata
         shell: bash
