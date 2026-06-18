@@ -157,10 +157,15 @@ jobs:
         run: |
           if [[ "${PLATFORM_KEY}" == macos_* ]]; then
             ASSET_EXT="dmg"
-            mv tmp.dmg "tmp.${ASSET_EXT}"
+            SRC_ASSET="tmp.dmg"
           else
             ASSET_EXT="zip"
-            mv tmp.zip "tmp.${ASSET_EXT}"
+            SRC_ASSET="tmp.zip"
+          fi
+
+          TMP_ASSET="tmp.${ASSET_EXT}"
+          if [[ "${SRC_ASSET}" != "${TMP_ASSET}" ]]; then
+            mv "${SRC_ASSET}" "${TMP_ASSET}"
           fi
 
           ASSET_NAME="${RELEASE_ZIP_NAME}_${PLATFORM_KEY}_${DRAFT_TAG}.${ASSET_EXT}"
