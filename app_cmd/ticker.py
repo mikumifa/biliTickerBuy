@@ -175,7 +175,7 @@ def ticker_cmd(args: TickerCliArgs):
             header_ui = gr.HTML(header, visible=not hide_header)
             with gr.Tabs(elem_id="btb-main-tabs", elem_classes="btb-top-tabs"):
                 with gr.Tab("账号登录", id="login", elem_id="btb-tab-login"):
-                    login_tab()
+                    load_login_tab, login_tab_load_outputs = login_tab()
                 with gr.Tab("生成配置", id="config", elem_id="btb-tab-config"):
                     setting_tab()
                 with gr.Tab("操作抢票", id="go", elem_id="btb-tab-go"):
@@ -210,6 +210,12 @@ def ticker_cmd(args: TickerCliArgs):
                 log_task_panel,
                 *go_start_load_outputs,
             ],
+        )
+        demo.load(
+            fn=load_login_tab,
+            outputs=login_tab_load_outputs,
+            show_progress="hidden",
+            queue=False,
         )
         advanced_tab.select(
             fn=load_go_settings_configs,

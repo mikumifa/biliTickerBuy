@@ -35,6 +35,31 @@ project_id = 0
 is_hot_project = False
 
 
+def _format_account_choice(uid: str, name: str, level: int) -> str:
+    return f"{uid} - {name} (Lv{level})"
+
+
+def _find_uid_from_choice(choice: str) -> str:
+    if not choice:
+        return ""
+    return choice.split(" - ")[0] if " - " in choice else choice
+
+
+def _resolve_default_account_choice(
+    choices: list[str], active_uid: str | None = None
+) -> str | None:
+    if not choices:
+        return None
+
+    if active_uid is not None:
+        active_uid = str(active_uid)
+        for choice in choices:
+            if _find_uid_from_choice(choice) == active_uid:
+                return choice
+
+    return choices[0]
+
+
 def _read_positive_int(value) -> int | None:
     if value is None:
         return None
@@ -490,7 +515,7 @@ def upload_file(filepath):
         gr.Info(f"已导入账号 {account.name}", duration=5)
 
         new_choices = [
-            f"{a.uid} - {a.name} (Lv{a.level})"
+            _format_account_choice(a.uid, a.name, a.level)
             for a in util.main_request.cookieManager.get_accounts()
         ]
         yield [
@@ -592,28 +617,22 @@ def login_tab():
 
         def _get_account_choices():
             accounts = util.main_request.cookieManager.get_accounts()
-            return [f"{a.uid} - {a.name} (Lv{a.level})" for a in accounts]
-
-        def _get_default_account_choice() -> str | None:
-            return _get_default_account_choice_from(_get_account_choices())
+            return [_format_account_choice(a.uid, a.name, a.level) for a in accounts]
 
         def _get_default_account_choice_from(choices: list[str]) -> str | None:
-            if not choices:
-                return None
+            active_uid = None
+            if util.main_request.cookieManager.have_cookies():
+                active_uid = util.main_request.cookieManager.get_cookies_value(
+                    "DedeUserID"
+                )
+            return _resolve_default_account_choice(choices, active_uid=active_uid)
 
-            active_uid = util.main_request.cookieManager.get_cookies_value("DedeUserID")
-            if active_uid is not None:
-                active_uid = str(active_uid)
-                for choice in choices:
-                    if _find_uid_from_choice(choice) == active_uid:
-                        return choice
-
-            return choices[0]
-
-        def _find_uid_from_choice(choice: str) -> str:
-            if not choice:
-                return ""
-            return choice.split(" - ")[0] if " - " in choice else choice
+        def load_login_accounts():
+            choices = _get_account_choices()
+            return gr.update(
+                choices=choices,
+                value=_get_default_account_choice_from(choices),
+            )
 
         def _activate_account(account) -> None:
             set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
@@ -819,6 +838,7 @@ def login_tab():
             outputs=[gr_file_ui, account_dropdown, qr_img],
         )
         upload_ui.upload(upload_file, [upload_ui], [gr_file_ui, account_dropdown])
+    return load_login_accounts, [account_dropdown]
 
 
 def setting_tab():
