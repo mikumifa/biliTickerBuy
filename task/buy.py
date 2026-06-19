@@ -52,6 +52,7 @@ from task.buy_types import (
     RetryOutcome,
 )
 from util.request.BiliRequest import BiliRequest
+from util.request.exceptions import BiliConnectionError, BiliRateLimitError
 
 
 @dataclass(slots=True)
@@ -181,6 +182,19 @@ class Buy:
             log_level=log_level,
             log_retention_days=log_retention_days,
         )
+
+
+def _extract_prepare_token(result: dict | None) -> str | None:
+    if not isinstance(result, dict):
+        return None
+    data = result.get("data")
+    if not isinstance(data, dict):
+        return None
+    token = data.get("token")
+    if token is None:
+        return None
+    token = str(token).strip()
+    return token or None
 
 
 def buy_stream(config: BuyConfig):
@@ -407,8 +421,10 @@ def buy_stream(config: BuyConfig):
                         request_result,  # type: ignore
                     ),
                 )
-                order_token = request_result["data"]["token"]  # type: ignore
-                logger.info(f"token: {order_token}")
+                order_token = _extract_prepare_token(request_result)
+                if not order_token:
+                    yield emit("status", "订单准备未返回有效 token，重新准备订单")
+                    continue
 
             else:
                 # normal
@@ -431,7 +447,11 @@ def buy_stream(config: BuyConfig):
                         "status",
                         _format_status_result("订单准备结果", request_result),
                     )
-                    order_token = request_result["data"]["token"]  # type: ignore
+                    order_token = _extract_prepare_token(request_result)
+                    if not order_token:
+                        yield emit("status", "订单准备未返回有效 token，重新准备订单")
+                        time.sleep(request_interval / 1000)
+                        continue
 
             yield emit(
                 "stage",
@@ -532,8 +552,17 @@ def buy_stream(config: BuyConfig):
                         )
                         if not handled_412:
                             retry_outcome.set_exception(exc)
-                            time.sleep(request_interval / 1000)
-                        attempt += 1
+                    except BiliRateLimitError as e:
+                        retry_outcome.set_exception(e)
+                        yield emit(
+                            "attempt",
+                            str(e),
+                            BuyStreamUpdate(
+                                attempt_current=attempt,
+                                attempt_total=effective_retry_limit,
+                            ),
+                        )
+                        continue  # 不需要sleep
                     except RequestException as e:
                         retry_outcome.set_exception(e)
                         for message in handle_proxy_failure(
@@ -560,13 +589,15 @@ def buy_stream(config: BuyConfig):
                                 attempt_total=effective_retry_limit,
                             ),
                         )
+                    finally:
+                        attempt += 1
+
                     if (
                         result is not None
                         or token_expired
                         or terminal_result is not None
                     ):
                         break
-                    attempt += 1
                     time.sleep(request_interval / 1000)
 
                 if (
@@ -682,6 +713,18 @@ def buy_stream(config: BuyConfig):
                 f"订单准备请求异常({e.__class__.__name__})"
             ):
                 yield message
+        except BiliRateLimitError as e:
+            logger.warning(str(e))
+            yield emit(
+                "error",
+                str(e),
+            )
+        except BiliConnectionError as e:
+            logger.warning(str(e))
+            yield emit(
+                "error",
+                str(e),
+            )
         except Exception as e:
             logger.exception(e)
             yield emit(

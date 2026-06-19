@@ -12,6 +12,7 @@ from util.request.BrowerState import (
     generate_browser_fingerprint_state,
 )
 from util.request.CookieManager import CookieManager
+from util.request.exceptions import BiliConnectionError, BiliRateLimitError
 from util.proxy.ProxyManager import ProxyManager
 
 
@@ -186,12 +187,45 @@ class BiliRequest:
             )
         return client.get(url, params=data)
 
+    def _send_with_h2_recovery(self, method: str, url, data=None, isJson=False):
+        import httpx
+
+        for attempt in range(2):
+            try:
+                return self._h2_send(method, url, data=data, isJson=isJson)
+            except httpx.TimeoutException as exc:
+                self._invalidate_h2_client()
+                if attempt >= 1:
+                    raise BiliConnectionError(
+                        "网络请求超时：服务器响应过慢，请稍后重试",
+                        cause=exc,
+                    ) from exc
+                loguru.logger.warning("HTTP 请求超时，已重建连接后重试: {}", exc)
+            except httpx.LocalProtocolError as exc:
+                self._invalidate_h2_client()
+                if attempt >= 1:
+                    raise BiliConnectionError(
+                        "网络连接异常：HTTP/2 连接已断开，重试后仍失败，请稍后再试",
+                        cause=exc,
+                    ) from exc
+                loguru.logger.warning("HTTP/2 连接状态异常，已重建连接后重试: {}", exc)
+
     def _request(self, method: str, url, data=None, isJson=False):
-        response = self._h2_send(method, url, data=data, isJson=isJson)
+        response = self._send_with_h2_recovery(
+            method,
+            url,
+            data=data,
+            isJson=isJson,
+        )
 
         if response.status_code == 412:
             self.request_count += 1
             return response
+        if response.status_code == 429:
+            raise BiliRateLimitError(
+                f"请求被限流(HTTP 429): {response.url}",
+                response=response,
+            )
 
         response.raise_for_status()
         self.clear_request_count()
