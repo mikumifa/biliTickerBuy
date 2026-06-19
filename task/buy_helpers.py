@@ -318,8 +318,8 @@ def prepare_create_request(
         f"{BASE_URL}/api/ticket/order/createV2?project_id={tickets_info['project_id']}"
     )
 
-    if not is_hot_project:
-        return url, payload
+    # if not is_hot_project:
+    #     return url, payload
     create_state = sim_ctoken_state(
         before_state=ticket_state,
         now_ms=now_ms,

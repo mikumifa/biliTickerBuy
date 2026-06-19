@@ -29,7 +29,6 @@ from util.ErrorCodes import ErrorCodes
 from interface.project import fetch_project_payload
 from task.buy_helpers import (
     BASE_URL as base_url,
-    build_order_token as _build_order_token,
     build_token_payload as _build_token_payload,
     create_order_terminal_rule as _create_order_terminal_rule,
     extract_order_id as _extract_order_id,
@@ -336,7 +335,7 @@ def buy_stream(config: BuyConfig):
     )
     proxy_backoff = ProxyBackoff(max_seconds=config.proxy_backoff_max_seconds)
     is_hot_project = bool(tickets_info.get("is_hot_project", False))
-    use_local_token = bool(config.use_local_token)
+    # use_local_token = bool(config.use_local_token)
     browser_window_state = generate_browser_window_state()
     token_payload = _build_token_payload(tickets_info)
     request_interval = max(1, int(config.interval or 1000))
@@ -402,56 +401,55 @@ def buy_stream(config: BuyConfig):
                 user_agent_length=len(_request.get_user_agent()),
                 ticket_collection_t=ticket_collection_t,
             )
-            if is_hot_project:
-                # hot
-                yield emit("stage", "开始准备订单", BuyStreamUpdate(stage="订单准备"))
-                prepare_ctoken_state = ticket_state.snapshot(now_ms=ticket_collection_t)
-                token_payload["token"] = prepare_ctoken_state.generate_prepare_ctoken()
-                request_result_normal = _request.post(
-                    url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                    data=token_payload,
-                    isJson=True,
-                )
-                request_result = request_result_normal.json()
-                proxy_backoff.reset()
-                yield emit(
-                    "status",
-                    _format_status_result(
-                        "订单准备结果",
-                        request_result,  # type: ignore
-                    ),
-                )
-                order_token = _extract_prepare_token(request_result)
-                if not order_token:
-                    yield emit("status", "订单准备未返回有效 token，重新准备订单")
-                    continue
-
-            else:
-                # normal
-                yield emit("status", None, BuyStreamUpdate(stage="订单准备"))
-                if use_local_token:
-                    order_token = _build_order_token(tickets_info)
-                    yield emit(
-                        "status",
-                        "已启用本地 token 模式，跳过 prepare",
-                    )
-                else:
-                    request_result_normal = _request.post(
-                        url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
-                        data=token_payload,
-                        isJson=True,
-                    )
-                    request_result = request_result_normal.json()
-                    proxy_backoff.reset()
-                    yield emit(
-                        "status",
-                        _format_status_result("订单准备结果", request_result),
-                    )
-                    order_token = _extract_prepare_token(request_result)
-                    if not order_token:
-                        yield emit("status", "订单准备未返回有效 token，重新准备订单")
-                        time.sleep(request_interval / 1000)
-                        continue
+            # if is_hot_project:
+            # hot
+            yield emit("stage", "开始准备订单", BuyStreamUpdate(stage="订单准备"))
+            prepare_ctoken_state = ticket_state.snapshot(now_ms=ticket_collection_t)
+            token_payload["token"] = prepare_ctoken_state.generate_prepare_ctoken()
+            request_result_normal = _request.post(
+                url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
+                data=token_payload,
+                isJson=True,
+            )
+            request_result = request_result_normal.json()
+            proxy_backoff.reset()
+            yield emit(
+                "status",
+                _format_status_result(
+                    "订单准备结果",
+                    request_result,  # type: ignore
+                ),
+            )
+            order_token = _extract_prepare_token(request_result)
+            if not order_token:
+                yield emit("status", "订单准备未返回有效 token，重新准备订单")
+                continue
+            # else:
+            #     # normal
+            #     yield emit("status", None, BuyStreamUpdate(stage="订单准备"))
+            #     if use_local_token:
+            #         order_token = _build_order_token(tickets_info)
+            #         yield emit(
+            #             "status",
+            #             "已启用本地 token 模式，跳过 prepare",
+            #         )
+            #     else:
+            #         request_result_normal = _request.post(
+            #             url=f"{base_url}/api/ticket/order/prepare?project_id={tickets_info['project_id']}",
+            #             data=token_payload,
+            #             isJson=True,
+            #         )
+            #         request_result = request_result_normal.json()
+            #         proxy_backoff.reset()
+            #         yield emit(
+            #             "status",
+            #             _format_status_result("订单准备结果", request_result),
+            #         )
+            #         order_token = _extract_prepare_token(request_result)
+            #         if not order_token:
+            #             yield emit("status", "订单准备未返回有效 token，重新准备订单")
+            #             time.sleep(request_interval / 1000)
+            #             continue
 
             yield emit(
                 "stage",
