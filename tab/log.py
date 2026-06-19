@@ -186,11 +186,61 @@ def is_task_running(pid: int | None) -> bool:
                 return False
         except OSError:
             return False
+    if _is_posix_zombie_process(pid):
+        return False
     try:
         os.kill(pid, 0)
-    except (OSError, ProcessLookupError):
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
         return False
     return True
+
+
+def _is_posix_zombie_process(pid: int) -> bool:
+    try:
+        result = subprocess.run(
+            ["ps", "-o", "stat=", "-p", str(pid)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=1,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+    stat = result.stdout.strip().splitlines()
+    if not stat:
+        return False
+    return stat[0].strip().startswith("Z")
+
+
+def _send_posix_signal(pid: int, sig: signal.Signals) -> str:
+    try:
+        pgid = os.getpgid(pid)
+    except ProcessLookupError:
+        return "not_found"
+    except PermissionError:
+        pgid = pid
+    except OSError:
+        pgid = pid
+
+    saw_permission_error = False
+    for sender in (lambda: os.killpg(pgid, sig), lambda: os.kill(pid, sig)):
+        try:
+            sender()
+            return "sent"
+        except ProcessLookupError:
+            return "not_found"
+        except PermissionError:
+            saw_permission_error = True
+        except OSError:
+            continue
+
+    return "permission_denied" if saw_permission_error else "failed"
 
 
 def terminate_task(pid: int) -> str:
@@ -226,10 +276,13 @@ def terminate_task(pid: int) -> str:
 
         return "已发送停止任务请求"
 
-    try:
-        os.killpg(pid, signal.SIGTERM)
-    except ProcessLookupError:
+    terminate_result = _send_posix_signal(pid, signal.SIGTERM)
+    if terminate_result == "not_found":
         return "任务进程已结束。"
+    if terminate_result == "permission_denied":
+        return "停止任务进程失败：没有权限。"
+    if terminate_result == "failed":
+        return "停止任务进程失败。"
 
     deadline = time.time() + 3
     while time.time() < deadline:
@@ -237,10 +290,13 @@ def terminate_task(pid: int) -> str:
             return "已停止任务进程。"
         time.sleep(0.1)
 
-    try:
-        os.killpg(pid, signal.SIGKILL)
-    except ProcessLookupError:
+    kill_result = _send_posix_signal(pid, signal.SIGKILL)
+    if kill_result == "not_found":
         return "已停止任务进程。"
+    if kill_result == "permission_denied":
+        return "强制停止任务进程失败：没有权限。"
+    if kill_result == "failed":
+        return "强制停止任务进程失败。"
 
     return "已强制停止任务进程。"
 
