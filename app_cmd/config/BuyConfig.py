@@ -112,7 +112,7 @@ class BuyConfig(BasicConfig):
     """Number of create-order requests sent in one batch."""
 
     proxy_max_consecutive_failures: int = config_field(
-        2,
+        10,
         env="BTB_PROXY_MAX_CONSECUTIVE_FAILURES",
         runtime="proxy_max_consecutive_failures",
         db="proxyMaxConsecutiveFailures",
@@ -122,7 +122,7 @@ class BuyConfig(BasicConfig):
     """Failures before one proxy is temporarily cooled down."""
 
     proxy_cooldown_seconds: int = config_field(
-        180,
+        60,
         env="BTB_PROXY_COOLDOWN_SECONDS",
         runtime="proxy_cooldown_seconds",
         db="proxyCooldownSeconds",
@@ -132,7 +132,7 @@ class BuyConfig(BasicConfig):
     """Cooldown duration for a failed proxy, in seconds."""
 
     proxy_backoff_max_seconds: int = config_field(
-        600,
+        240,
         env="BTB_PROXY_BACKOFF_MAX_SECONDS",
         runtime="proxy_backoff_max_seconds",
         db="proxyBackoffMaxSeconds",
