@@ -223,7 +223,7 @@ class BiliRequest:
             return response
         if response.status_code == 429:
             raise BiliRateLimitError(
-                f"请求被限流(HTTP 429): {response.url}",
+                "请求被限流(HTTP 429)",
                 response=response,
             )
 
