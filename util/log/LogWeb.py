@@ -62,9 +62,7 @@ def attach_log_routes(app) -> None:
         log_path = _resolve_log_path(raw_path=path, log_name=name)
         initial_text = escape(_read_log_text(log_path))
         title = escape(log_path.name)
-        stream_url = (
-            f"{_LOG_STREAM_ROUTE}?name={quote(log_path.name, safe='')}"
-        )
+        stream_url = f"{_LOG_STREAM_ROUTE}?name={quote(log_path.name, safe='')}"
         body = f"""<!doctype html>
 <html lang="zh-CN">
 <head>

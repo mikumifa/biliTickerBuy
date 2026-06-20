@@ -47,8 +47,7 @@ def _ensure_valid_tinydb_file(path: str) -> None:
     if "_default" in data and isinstance(data["_default"], dict):
         # 验证文档 ID 都是有效的整数，防止损坏的 ID（如 "bad"）导致 TinyDB 后续崩溃
         if all(
-            isinstance(doc_id, str) and doc_id.isdigit()
-            for doc_id in data["_default"]
+            isinstance(doc_id, str) and doc_id.isdigit() for doc_id in data["_default"]
         ):
             return
 
