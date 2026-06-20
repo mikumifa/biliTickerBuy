@@ -357,6 +357,15 @@ def buy_stream(config: BuyConfig):
     for warm_message in refresh_hot_and_warm():
         yield emit("status", warm_message)
 
+    yield emit(
+        "proxy",
+        f"当前代理: {_request.current_proxy_status()}",
+        BuyStreamUpdate(
+            current_proxy=_request.current_proxy_status(),
+            proxy_pool=_request.proxy_pool_status(),
+        ),
+    )
+
     for wait_state in _wait_until_start(
         config.time_start,
         warmup=refresh_hot_and_warm,
@@ -380,15 +389,6 @@ def buy_stream(config: BuyConfig):
                 ),
             ),
         )
-    yield emit(
-        "proxy",
-        f"当前代理: {_request.current_proxy_status()}",
-        BuyStreamUpdate(
-            current_proxy=_request.current_proxy_status(),
-            proxy_pool=_request.proxy_pool_status(),
-        ),
-    )
-
     while isRunning:
         try:
             request_result: dict | None = None
