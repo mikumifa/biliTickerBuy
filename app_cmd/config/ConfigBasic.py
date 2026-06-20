@@ -6,7 +6,7 @@ from dataclasses import MISSING, field, fields
 from typing import Any, Callable, ClassVar
 
 
-DEFAULT_CREATE_RETRY_LIMIT = 3
+DEFAULT_CREATE_RETRY_LIMIT = 10
 DEFAULT_CREATE_REQUEST_BATCH_SIZE = 1
 DEFAULT_OUTER_LOOP_INTERVAL = 1000
 
