@@ -481,6 +481,7 @@ def buy_stream(config: BuyConfig):
                     if not isRunning:
                         yield emit("status", "抢票结束")
                         break
+                    should_sleep_before_next_attempt = False
                     try:
                         create_response = _request.post(
                             url=url,
@@ -541,7 +542,7 @@ def buy_stream(config: BuyConfig):
                                 ),
                             )
                             tickets_info["pay_money"] = ret["data"]["pay_money"]
-                        time.sleep(request_interval / 1000)
+                        should_sleep_before_next_attempt = True
                     except JSONDecodeError as exc:
                         handled_412 = yield from handle_non_json_response(
                             "创建订单接口",
@@ -596,7 +597,8 @@ def buy_stream(config: BuyConfig):
                         or terminal_result is not None
                     ):
                         break
-                    time.sleep(request_interval / 1000)
+                    if should_sleep_before_next_attempt:
+                        time.sleep(request_interval / 1000)
 
                 if (
                     result is not None
