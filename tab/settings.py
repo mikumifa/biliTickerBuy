@@ -212,6 +212,13 @@ def _empty_ticket_info_updates():
     ]
 
 
+def _has_invalid_index(indices: list[int], values: list[Any]) -> bool:
+    return any(
+        not isinstance(item, int) or item < 0 or item >= len(values)
+        for item in indices
+    )
+
+
 def _format_ticket_option(screen_name: str, ticket: dict, ticket_price: int) -> str:
     ticket_desc = ticket.get("desc", "")
     sale_start = str(ticket.get("sale_start", "未知"))
@@ -372,9 +379,9 @@ def on_submit_ticket_id(num):
         ]
 
         yield [
-            gr.update(choices=ticket_str_list),
-            gr.update(choices=buyer_str_list),
-            gr.update(choices=addr_str_list),
+            gr.update(choices=ticket_str_list, value=None),
+            gr.update(choices=buyer_str_list, value=[]),
+            gr.update(choices=addr_str_list, value=None),
             gr.update(visible=True),
             gr.update(
                 value=_render_ticket_info_html(
@@ -429,7 +436,7 @@ def on_submit_all(
     try:
         if ticket_id is None:
             raise gr.Error("请输入正确的活动链接。")
-        if len(people_indices) == 0:
+        if not isinstance(people_indices, list) or len(people_indices) == 0:
             raise gr.Error("请至少选择一位实名购票人。")
         if addr_value is None:
             raise gr.Error("没有可用的收货地址。")
@@ -441,6 +448,20 @@ def on_submit_all(
             raise gr.Error("请填写联系人电话。")
         if address_index is None:
             raise gr.Error("请先选择收货地址。")
+        if _has_invalid_index(people_indices, buyer_value):
+            raise gr.Error("实名购票人选择已失效，请重新获取票务信息后选择。")
+        if (
+            not isinstance(ticket_info, int)
+            or ticket_info < 0
+            or ticket_info >= len(ticket_value)
+        ):
+            raise gr.Error("票档选择已失效，请重新获取票务信息后选择。")
+        if (
+            not isinstance(address_index, int)
+            or address_index < 0
+            or address_index >= len(addr_value)
+        ):
+            raise gr.Error("收货地址选择已失效，请重新获取票务信息后选择。")
 
         ticket_cur: dict[str, Any] = ticket_value[ticket_info]
         people_cur = [buyer_value[item] for item in people_indices]
@@ -971,7 +992,7 @@ def setting_tab():
                         gr.Warning("该日期暂无票务信息。")
                         return [
                             gr.update(choices=sales_dates, value=_date, visible=True),
-                            gr.update(choices=[]),
+                            gr.update(choices=[], value=None),
                             gr.update(value="", visible=False),
                         ]
 
@@ -1001,7 +1022,7 @@ def setting_tab():
 
                     return [
                         gr.update(choices=sales_dates, value=_date, visible=True),
-                        gr.update(choices=ticket_str_list),
+                        gr.update(choices=ticket_str_list, value=None),
                         gr.update(
                             value=_render_ticket_info_html(
                                 title="票务信息",
