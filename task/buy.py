@@ -20,13 +20,13 @@ from cptoken import (
 )
 
 from app_cmd.config.BuyConfig import BuyConfig
+from interface.project import fetch_project_payload
 from util.notifer.Notifier import NotifierManager
 from util.proxy.ProxyBackoff import ProxyBackoff
 from util.proxy.ProxyManager import ProxyManager
 from util.notifer.RandomMessages import get_random_fail_message
 from util.TimeUtil import current_time_ms
 from util.ErrorCodes import ErrorCodes
-from interface.project import fetch_project_payload
 from task.buy_helpers import (
     BASE_URL as base_url,
     build_token_payload as _build_token_payload,
@@ -344,19 +344,17 @@ def buy_stream(config: BuyConfig):
 
     def refresh_hot_and_warm():
         nonlocal is_hot_project
-        messages: list[str] = []
         payload = fetch_project_payload(
             request=_request, project_id=int(tickets_info["project_id"])
         )
         if bool(payload["hotProject"]) and not is_hot_project:
             is_hot_project = True
             tickets_info["is_hot_project"] = True
-        # _request._invalidate_h2_client()
         _request.prewarm_h2_connection(f"{base_url}/")
-        return messages
 
-    for warm_message in refresh_hot_and_warm():
-        yield emit("status", warm_message)
+    _request.set_100001_handler(refresh_hot_and_warm)
+
+    refresh_hot_and_warm()
 
     yield emit(
         "proxy",
@@ -493,6 +491,7 @@ def buy_stream(config: BuyConfig):
                         proxy_backoff.reset()
                         err = int(ret.get("errno", ret.get("code")))
                         retry_outcome.set_response(err, ret)
+                        _request.handle_100001(err)
                         if _is_create_success(ret, err):
                             yield emit(
                                 "success",
