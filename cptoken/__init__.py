@@ -2,14 +2,13 @@ import base64
 from dataclasses import asdict, dataclass, field
 import logging
 import random
-import struct
 import time
 from typing import TypedDict
 
 try:
     from loguru import logger
 except ImportError:  # pragma: no cover - test/runtime fallback
-    logger = logging.getLogger(__name__)  # type:ignore
+    logger = logging.getLogger(__name__)
 
 
 def generate_ctoken(
@@ -27,38 +26,56 @@ def generate_ctoken(
     m7: int = -1,
     m8: int = -1,
     m9: int = -1,
+    beforeunload: int = -1,
+    ticket_collection_t: int = 0,
 ) -> str:
-    def _js_uint8(value: int | float) -> int:
-        v = int(float(value))
-        if v > 255:
-            v = 255
-        return v & 0xFF
+    _ = ticket_collection_t
 
-    def _js_uint16(value: int | float) -> int:
-        v = int(float(value))
-        if v > 65535:
-            v = 65535
-        return v & 0xFFFF
+    if touchend == -1:
+        touchend = random.randint(30, 50)
+    if visibilitychange == -1:
+        visibilitychange = random.randint(10, 50)
+    if beforeunload == -1:
+        beforeunload = openWindow if openWindow != -1 else random.randint(10, 50)
+    if timer == -1:
+        timer = random.randint(1, 10)
 
-    semantic_bytes = struct.pack(
-        ">8B2H4B",
-        _js_uint8(m1),
-        _js_uint8(touchend),
-        _js_uint8(m2),
-        _js_uint8(visibilitychange),
-        _js_uint8(m3),
-        _js_uint8(m4),
-        _js_uint8(openWindow),
-        _js_uint8(m5),
-        _js_uint16(timer),
-        _js_uint16(timediff),
-        _js_uint8(m6),
-        _js_uint8(m7),
-        _js_uint8(m8),
-        _js_uint8(m9),
+    def _b1(x: int) -> bytes:
+        try:
+            return int(x).to_bytes(1, "big")
+        except OverflowError:
+            return b"\xff"
+
+    tb = (
+        _b1(m1)
+        + b"\x00"
+        + _b1(touchend)
+        + b"\x00"
+        + _b1(m2)
+        + b"\x00"
+        + _b1(visibilitychange)
+        + b"\x00"
+        + _b1(m3)
+        + b"\x00"
+        + _b1(m4)
+        + b"\x00"
+        + _b1(beforeunload)
+        + b"\x00"
+        + _b1(m5)
+        + b"\x00"
     )
-    transport_bytes = semantic_bytes.decode("latin1").encode("utf-16le")
-    return base64.b64encode(transport_bytes).decode("utf-8")
+    try:
+        tt = int(timer).to_bytes(2, "big")
+        tb += _b1(tt[0]) + b"\x00" + _b1(tt[1]) + b"\x00"
+    except OverflowError:
+        tb += b"\xff\x00\xff\x00"
+    try:
+        tc = int(float(timediff)).to_bytes(2, "big")
+        tb += _b1(tc[0]) + b"\x00" + _b1(tc[1]) + b"\x00"
+    except OverflowError:
+        tb += b"\xff\x00\xff\x00"
+    tb += _b1(m6) + b"\x00" + _b1(m7) + b"\x00" + _b1(m8) + b"\x00" + _b1(m9) + b"\x00"
+    return base64.b64encode(tb).decode("utf-8")
 
 
 @dataclass(slots=True)
@@ -77,6 +94,8 @@ class CTokenSnapshot:
     m7: int
     m8: int
     m9: int
+    beforeunload: int = -1
+    ticket_collection_t: int = 0
     base_timer: int = 0
 
     def to_dict(self) -> dict[str, int | float]:
@@ -98,16 +117,20 @@ class CTokenSnapshot:
             "m7": self.m7,
             "m8": self.m8,
             "m9": self.m9,
+            "beforeunload": self.beforeunload,
         }
 
     def generate_ctoken(self) -> str:
         return self.generate_prepare_ctoken()
 
     def generate_prepare_ctoken(self) -> str:
-        return generate_ctoken(**self.kwargs())  # type:ignore
+        return generate_ctoken(**self.kwargs())
 
     def generate_create_ctoken(self) -> str:
-        return generate_ctoken(**self.kwargs())  # type:ignore
+        fields = self.kwargs()
+        fields.pop("openWindow", None)
+        fields.pop("beforeunload", None)
+        return generate_ctoken(**fields)
 
 
 class BrowserWindowState(TypedDict):
@@ -133,13 +156,13 @@ def generate_browser_window_state(
     scroll: bool = False,
 ) -> BrowserWindowState:
     common_screens = [
-        (375, 667),
-        (414, 896),
-        (412, 715),
-        (820, 1180),
-        (375, 667),
-        (390, 844),
-        (360, 740),
+        (1920, 1080),
+        (2560, 1440),
+        (1366, 768),
+        (1440, 900),
+        (1536, 864),
+        (1600, 900),
+        (1280, 720),
     ]
 
     if screen_width is None or screen_height is None:
@@ -218,6 +241,7 @@ class CTokenRuntimeState:
     m7: int
     m8: int
     m9: int
+    beforeunload: int = field(default_factory=lambda: random.randint(1, 3))
     ticket_collection_t: int = 0
     base_timer: int = field(default_factory=lambda: random.randint(10, 100))
     base_timediff: float = 0
@@ -245,6 +269,8 @@ class CTokenRuntimeState:
             m7=self.m7,
             m8=self.m8,
             m9=self.m9,
+            beforeunload=self.beforeunload,
+            ticket_collection_t=self.ticket_collection_t,
             base_timer=self.base_timer,
         )
 
@@ -301,6 +327,7 @@ def init_ctoken_state(
         ticket_collection_t=ticket_collection_t,
         created_at_ms=ticket_collection_t or int(time.time() * 1000),
     )
+    logger.info(state.snapshot().to_dict())
     return state
 
 
@@ -312,14 +339,12 @@ def sim_ctoken_state(
         now_ms = int(time.time() * 1000)
 
     source = before_state.snapshot(now_ms=before_state.created_at_ms)
-    ticket_collection_t = before_state.ticket_collection_t
+    ticket_collection_t = source.ticket_collection_t
     base_timer = source.base_timer or source.timer
     touchend_add = random.choice([0, 0, 1, 2])
     open_window_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
     visibilitychange_add = random.choices([0, 0, 1], weights=[60, 20, 20], k=1)[0]
-    # logger.info(
-    #     f"touchend_add {touchend_add} open_window_add {open_window_add} visibilitychange_add {visibilitychange_add}"
-    # )
+
     snapshot = CTokenSnapshot(
         m1=source.m1,
         touchend=source.touchend + touchend_add,
@@ -335,6 +360,7 @@ def sim_ctoken_state(
         m7=source.m7,
         m8=source.m8,
         m9=source.m9,
+        ticket_collection_t=ticket_collection_t,
         base_timer=base_timer,
     )
     return snapshot

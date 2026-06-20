@@ -351,8 +351,7 @@ def buy_stream(config: BuyConfig):
         if bool(payload["hotProject"]) and not is_hot_project:
             is_hot_project = True
             tickets_info["is_hot_project"] = True
-        _request._invalidate_h2_client()
-
+        # _request._invalidate_h2_client()
         _request.prewarm_h2_connection(f"{base_url}/")
         return messages
 
