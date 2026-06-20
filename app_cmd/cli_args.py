@@ -21,6 +21,14 @@ def _env_optional_int(*keys: str) -> int | None:
     return None
 
 
+def _env_optional_str(*keys: str) -> str | None:
+    for key in keys:
+        raw = os.environ.get(key)
+        if raw not in (None, ""):
+            return raw
+    return None
+
+
 @dataclass(slots=True)
 class TickerCliArgs:
     """Web UI launch options."""
@@ -33,6 +41,9 @@ class TickerCliArgs:
 
     port: int | None = _env_optional_int("BTB_PORT", "GRADIO_SERVER_PORT")
     """Port for the UI server. Defaults to Gradio or environment configuration."""
+
+    root_path: str | None = _env_optional_str("BTB_ROOT_PATH", "GRADIO_ROOT_PATH")
+    """External URL or root path used when the UI is accessed through a remote IP, domain, or reverse proxy."""
 
 
 BuyCliArgs = BuyConfig
