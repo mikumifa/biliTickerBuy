@@ -9,7 +9,6 @@
 
 import random
 
-import pytest
 
 from app_cmd.config.BuyConfig import BuyConfig
 
@@ -134,3 +133,4 @@ def test_default_config_values():
     cfg = BuyConfig()
     assert cfg.refresh_interval_min_count == 10
     assert cfg.refresh_interval_max_count == 30
+    assert cfg.rate_limit_delay_ms == 100

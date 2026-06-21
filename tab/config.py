@@ -16,6 +16,7 @@ from util.Constant import (
     DEFAULT_PROXY_BACKOFF_MAX_SECONDS,
     DEFAULT_PROXY_COOLDOWN_SECONDS,
     DEFAULT_PROXY_MAX_CONSECUTIVE_FAILURES,
+    DEFAULT_RATE_LIMIT_DELAY_MS,
     DEFAULT_REQUEST_INTERVAL,
 )
 
@@ -225,6 +226,16 @@ def go_settings_tab(header_ui):
                 "createRequestBatchSize",
                 DEFAULT_CREATE_REQUEST_BATCH_SIZE,
             )
+        )
+
+    def update_rate_limit_delay_ms(value):
+        try:
+            parsed = max(0, int(value))
+        except (TypeError, ValueError):
+            parsed = DEFAULT_RATE_LIMIT_DELAY_MS
+        ConfigDB.insert("rateLimitDelayMs", parsed)
+        return gr.update(
+            value=ConfigDB.get_as_int("rateLimitDelayMs", DEFAULT_RATE_LIMIT_DELAY_MS)
         )
 
     def _update_positive_int_config(key: str, value, default: int):
@@ -612,6 +623,13 @@ def go_settings_tab(header_ui):
                         minimum=1,
                         step=1,
                     )
+                    rate_limit_delay_ms_ui = gr.Number(
+                        label="429后延迟时间（毫秒）",
+                        value=buy_defaults.rate_limit_delay_ms,
+                        minimum=0,
+                        step=1,
+                        info="请求返回 HTTP 429 后，等待多久再继续后续流程。默认 100ms。",
+                    )
 
     save_proxy_btn.click(
         fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
@@ -742,6 +760,10 @@ def go_settings_tab(header_ui):
     _bind_number_commit(
         create_request_batch_size_ui,
         update_create_request_batch_size,
+    )
+    _bind_number_commit(
+        rate_limit_delay_ms_ui,
+        update_rate_limit_delay_ms,
     )
     test_audio_button.click(
         fn=test_terminal_audio,
