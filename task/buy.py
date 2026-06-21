@@ -761,6 +761,8 @@ def buy_stream(config: BuyConfig):
                     qr_gen.make(fit=True)
                     qr_gen_image = qr_gen.make_image()
                     qr_gen_image.show()  # type: ignore
+                # 让 Server酱/Bark/PushPlus 等渠道的 HTTP 请求有时间发完，否则会被掐断。
+                notifierManager.join_all(timeout=15)
                 break
         except (HTTPError, RequestException) as e:
             logger.exception(e)
