@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import subprocess
 import sys
 import time
@@ -352,7 +353,32 @@ def buy_stream(config: BuyConfig):
             tickets_info["is_hot_project"] = True
         _request.prewarm_h2_connection(f"{base_url}/")
 
-    _request.set_100001_handler(refresh_hot_and_warm)
+    # 循环内主动复检项目详情：按随机 create 次数触发纯拉取，与 100001 路径共享计数。
+    # fetch 落在两次 create 的 sleep 窗口，不与 create 并发。
+    refresh_min_count = max(0, int(config.refresh_interval_min_count))
+    refresh_max_count = max(0, int(config.refresh_interval_max_count))
+    refresh_count_enabled = (
+        refresh_max_count > 0 and refresh_min_count <= refresh_max_count
+    )
+    refresh_counter = 0
+    refresh_target = (
+        random.randint(refresh_min_count, refresh_max_count)
+        if refresh_count_enabled
+        else None
+    )
+
+    def _reset_refresh_counter():
+        """重置计数器并重抽下一次目标次数。定时与 100001 两路径共用。"""
+        nonlocal refresh_counter, refresh_target
+        refresh_counter = 0
+        if refresh_count_enabled:
+            refresh_target = random.randint(refresh_min_count, refresh_max_count)
+
+    def _on_100001():
+        refresh_hot_and_warm()
+        _reset_refresh_counter()
+        
+    _request.set_100001_handler(_on_100001)
 
     refresh_hot_and_warm()
 
@@ -597,6 +623,15 @@ def buy_stream(config: BuyConfig):
                         or terminal_result is not None
                     ):
                         break
+                    # 按随机 create 次数主动复检项目详情（纯拉取，落在 sleep 窗口，不与 create 并发）
+                    if refresh_count_enabled and refresh_target is not None:
+                        refresh_counter += 1
+                        if refresh_counter >= refresh_target:
+                            try:
+                                refresh_hot_and_warm()
+                            except Exception as exc:
+                                logger.warning(f"循环内项目详情复检失败（忽略）：{exc}")
+                            _reset_refresh_counter()
                     if should_sleep_before_next_attempt:
                         time.sleep(request_interval / 1000)
 

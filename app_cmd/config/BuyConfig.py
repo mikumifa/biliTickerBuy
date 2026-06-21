@@ -111,6 +111,26 @@ class BuyConfig(BasicConfig):
     )
     """Number of create-order requests sent in one batch."""
 
+    refresh_interval_min_count: int = config_field(
+        10,
+        env="BTB_REFRESH_INTERVAL_MIN_COUNT",
+        runtime="refresh_interval_min_count",
+        db="refreshIntervalMinCount",
+        cli="--refresh-interval-min-count",
+        cast=int,
+    )
+    """循环内主动复检项目详情的最小 create 次数。"""
+
+    refresh_interval_max_count: int = config_field(
+        30,
+        env="BTB_REFRESH_INTERVAL_MAX_COUNT",
+        runtime="refresh_interval_max_count",
+        db="refreshIntervalMaxCount",
+        cli="--refresh-interval-max-count",
+        cast=int,
+    )
+    """循环内主动复检项目详情的最大 create 次数。"""
+
     proxy_max_consecutive_failures: int = config_field(
         10,
         env="BTB_PROXY_MAX_CONSECUTIVE_FAILURES",
