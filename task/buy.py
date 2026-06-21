@@ -345,12 +345,18 @@ def buy_stream(config: BuyConfig):
 
     def refresh_hot_and_warm():
         nonlocal is_hot_project
+        logger.info("预热/复检：开始拉取项目详情并预热连接")
         payload = fetch_project_payload(
             request=_request, project_id=int(tickets_info["project_id"])
         )
         if bool(payload["hotProject"]) and not is_hot_project:
             is_hot_project = True
             tickets_info["is_hot_project"] = True
+            logger.info("预热/复检：检测到 hotProject=True，已升级为 hot 抢票策略")
+        else:
+            logger.info(
+                "预热/复检完成。"
+            )
         _request.prewarm_h2_connection(f"{base_url}/")
 
     # 循环内主动复检项目详情：按随机 create 次数触发纯拉取，与 100001 路径共享计数。
