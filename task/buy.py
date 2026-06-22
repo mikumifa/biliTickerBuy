@@ -24,6 +24,7 @@ from app_cmd.config.BuyConfig import BuyConfig
 from interface.project import fetch_project_payload
 from util.notifer.Notifier import NotifierManager
 from util.proxy.ProxyBackoff import ProxyBackoff
+from util.proxy.ProxyApiProvider import fetch_proxy_api
 from util.proxy.ProxyManager import ProxyManager
 from util.notifer.RandomMessages import get_random_fail_message
 from util.TimeUtil import current_time_ms
@@ -226,11 +227,45 @@ def buy_stream(config: BuyConfig):
         *,
         attempt: int | None = None,
     ):
+        def replenish_proxy_pool():
+            if not str(config.proxy_api_url or "").strip():
+                return False, None
+            try:
+                request_count = int(config.proxy_api_request_count or 0)
+            except (TypeError, ValueError):
+                request_count = 0
+            if request_count <= 0:
+                request_count = max(
+                    1,
+                    len(
+                        [
+                            proxy
+                            for proxy in _request.proxy_manager.proxy_list
+                            if proxy.lower() != "none"
+                        ]
+                    ),
+                )
+            try:
+                result = fetch_proxy_api(
+                    config.proxy_api_url,
+                    count=request_count,
+                    protocol=config.proxy_api_protocol,
+                )
+                _request.replace_proxy_pool(",".join(result.proxies))
+                return (
+                    True,
+                    f"已从代理 API 自动获取 {len(result.proxies)} 个新代理",
+                )
+            except Exception as exc:
+                logger.warning(f"代理 API 自动获取失败: {exc}")
+                return False, f"代理 API 自动获取失败: {exc}"
+
         immediate_message, delay_seconds = _handle_proxy_failure(
             _request,
             reason,
             proxy_backoff,
             config.notifier_config,
+            replenish_proxy_pool=replenish_proxy_pool,
         )
         attempt_total = (
             effective_retry_limit if attempt is not None else state.attempt_total

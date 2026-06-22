@@ -46,6 +46,13 @@ def go_settings_tab(header_ui):
     def get_latest_proxy():
         return _format_proxy_text(ConfigDB.get("https_proxy") or "")
 
+    def get_proxy_api_url():
+        return ConfigDB.get("proxyApiUrl") or ""
+
+    def get_proxy_api_protocol():
+        protocol = str(ConfigDB.get("proxyApiProtocol") or "http").lower()
+        return "socks5" if protocol in {"socks", "socks5"} else "http"
+
     def input_https_proxy(_https_proxy):
         normalized_proxy = _serialize_proxy_text(_https_proxy)
         ConfigDB.insert("https_proxy", normalized_proxy)
@@ -71,6 +78,43 @@ def go_settings_tab(header_ui):
 
     def show_proxy_test_loading():
         return gr.update(value="正在测试代理连通性，请稍候...", visible=True)
+
+    def fetch_proxy_from_api(api_url, protocol):
+        try:
+            from util.proxy.ProxyApiProvider import fetch_proxy_api
+
+            protocol = (
+                "socks5"
+                if str(protocol).lower() in {"socks", "socks5"}
+                else "http"
+            )
+            ConfigDB.insert("proxyApiUrl", str(api_url or "").strip())
+            ConfigDB.insert("proxyApiProtocol", protocol)
+            count = ConfigDB.get_as_int("queueConcurrencyLimit", 0)
+            if count <= 0:
+                count = max(1, len(_split_proxy_lines(ConfigDB.get("https_proxy") or "")))
+            result = fetch_proxy_api(api_url, count=count, protocol=protocol)
+            ConfigDB.insert("https_proxy", ",".join(result.proxies))
+            gr.Info(f"已从代理 API 获取 {len(result.proxies)} 个代理。")
+            return gr.update(value="\n".join(result.proxies)), gr.update(
+                value=f"✅ 已获取 {len(result.proxies)} 个代理",
+                visible=True,
+            )
+        except Exception as e:
+            return gr.update(), gr.update(value=f"❌ 获取代理失败: {str(e)}", visible=True)
+
+    def save_proxy_api_config(api_url, protocol):
+        protocol = (
+            "socks5"
+            if str(protocol).lower() in {"socks", "socks5"}
+            else "http"
+        )
+        ConfigDB.insert("proxyApiUrl", str(api_url or "").strip())
+        ConfigDB.insert("proxyApiProtocol", protocol)
+        gr.Info("代理 API 配置已保存。")
+        return gr.update(value=ConfigDB.get("proxyApiUrl") or ""), gr.update(
+            value=protocol
+        )
 
     def inner_input_serverchan(x):
         ConfigDB.insert("serverchanKey", x)
@@ -347,6 +391,37 @@ def go_settings_tab(header_ui):
                         placeholder="点击上方按钮开始测试代理连通性...",
                         visible=False,
                     )
+                    gr.Markdown("### 通过代理 API 获取")
+                    proxy_api_url_ui = gr.Textbox(
+                        label="代理 API 地址",
+                        placeholder="例如：http://api.youdaili.com/v1/proxy/get?app_key=...&app_secret=...&count=&format=&protocol=",
+                        value=get_proxy_api_url(),
+                    )
+                    proxy_api_protocol_ui = gr.Dropdown(
+                        label="代理地址类型",
+                        choices=[
+                            ("HTTP / HTTPS", "http"),
+                            ("SOCKS5", "socks5"),
+                        ],
+                        value=get_proxy_api_protocol(),
+                        interactive=True,
+                        allow_custom_value=False,
+                        filterable=False,
+                    )
+                    with gr.Row(elem_classes="btb-inline-actions !justify-end"):
+                        save_proxy_api_btn = gr.Button(
+                            "保存 API 配置",
+                            elem_classes="btb-soft-button",
+                        )
+                        fetch_proxy_api_btn = gr.Button(
+                            "获取并填入代理",
+                            elem_classes="btb-soft-button",
+                        )
+                    proxy_api_result_ui = gr.Textbox(
+                        label="代理 API 结果",
+                        interactive=False,
+                        visible=False,
+                    )
                     gr.Markdown(
                         """
                         <div class="mt-3 text-sm leading-7 text-slate-700">
@@ -355,6 +430,7 @@ def go_settings_tab(header_ui):
                           <p><strong>带账号密码的 HTTP 代理示例：</strong><code>http://proxyuser:proxypass@xx.xx.xx.xx:8080</code></p>
                           <p><strong>程序什么时候会用代理：</strong>当抢票流程检测到风控时，会按你填写的顺序切换到下一个代理；当前请求不会在请求层立刻自动重试，下一次抢票重试才会使用新代理。</p>
                           <p><strong>代理失效怎么处理：</strong>同一代理在短时间内连续失败会被暂时冷却；如果所有代理都不可用，程序会按递增时间休息后再试。</p>
+                          <p><strong>代理 API：</strong>保存 API 地址后，程序会在代理全部不可用时自动按并发数请求新代理；请求会自动带上 <code>format=json</code>、<code>count</code> 和所选 <code>protocol</code>。</p>
                           <p><strong>建议先测试再开抢：</strong>保存后点击上方“测试代理连通性”，确认代理能正常访问哔哩哔哩接口。</p>
                           <p><strong>自建代理：</strong>如果你没有现成代理，可以自己在 Ubuntu / Debian 服务器上搭建 Squid HTTP 代理。</p>
                           <p><strong>完整搭建说明：</strong><a href="https://github.com/mikumifa/biliTickerBuy/blob/main/docs/proxy-self-hosting.md" target="_blank" rel="noopener noreferrer">GitHub 查看自建代理指南</a></p>
@@ -643,6 +719,16 @@ def go_settings_tab(header_ui):
         inputs=[https_proxy_ui, test_timeout_ui],
         outputs=test_result_ui,
     )
+    save_proxy_api_btn.click(
+        fn=save_proxy_api_config,
+        inputs=[proxy_api_url_ui, proxy_api_protocol_ui],
+        outputs=[proxy_api_url_ui, proxy_api_protocol_ui],
+    )
+    fetch_proxy_api_btn.click(
+        fn=fetch_proxy_from_api,
+        inputs=[proxy_api_url_ui, proxy_api_protocol_ui],
+        outputs=[https_proxy_ui, proxy_api_result_ui],
+    )
 
     serverchan_ui.submit(
         fn=inner_input_serverchan, inputs=serverchan_ui, outputs=serverchan_ui
@@ -786,6 +872,8 @@ def go_settings_tab(header_ui):
         hide_header = ConfigDB.get_as_bool("hideHeader", False)
         return [
             gr.update(value=get_latest_proxy()),
+            gr.update(value=get_proxy_api_url()),
+            gr.update(value=get_proxy_api_protocol()),
             gr.update(value=ConfigDB.get("audioPath") or None),
             gr.update(value=ConfigDB.get("serverchanKey") or ""),
             gr.update(value=ConfigDB.get("serverchan3ApiUrl") or ""),
@@ -827,6 +915,8 @@ def go_settings_tab(header_ui):
 
     return load_go_settings_configs, [
         https_proxy_ui,
+        proxy_api_url_ui,
+        proxy_api_protocol_ui,
         audio_path_ui,
         serverchan_ui,
         serverchan3_ui,

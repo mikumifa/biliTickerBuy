@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import math
 import time
+from collections.abc import Callable
 
 from cptoken import CTokenRuntimeState, sim_ctoken_state
 
@@ -258,6 +259,7 @@ def handle_proxy_failure(
     reason: str,
     proxy_backoff: ProxyBackoff,
     notifier_config: NotifierConfig,
+    replenish_proxy_pool: Callable[[], tuple[bool, str | None]] | None = None,
 ) -> tuple[str | None, int | None]:
     previous_proxy = _request.current_proxy_display()
     cooled = _request.mark_current_proxy_failure(reason)
@@ -275,6 +277,20 @@ def handle_proxy_failure(
 
     if _request.has_available_proxy():
         return immediate_message, None
+
+    if replenish_proxy_pool is not None:
+        replenished, replenish_message = replenish_proxy_pool()
+        if replenished:
+            proxy_backoff.reset()
+            if immediate_message and replenish_message:
+                return f"{immediate_message}\n{replenish_message}", None
+            return replenish_message or immediate_message, None
+        if replenish_message:
+            immediate_message = (
+                f"{immediate_message}\n{replenish_message}"
+                if immediate_message
+                else replenish_message
+            )
 
     delay_seconds = proxy_backoff.next_delay_seconds()
     if proxy_backoff.should_notify():
