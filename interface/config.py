@@ -34,6 +34,9 @@ class RuntimeOptions:
     barkToken: str = ""
     meowNickname: str = ""
     https_proxys: str = "none"
+    proxy_api_url: str = ""
+    proxy_api_protocol: str = "http"
+    proxy_api_request_count: int = 0
     serverchan3ApiUrl: str = ""
     ntfy_url: str = ""
     ntfy_username: str = ""
@@ -299,6 +302,9 @@ def build_runtime_options(
     barkToken: str = "",
     meowNickname: str = "",
     https_proxys: str = "none",
+    proxy_api_url: str = "",
+    proxy_api_protocol: str = "http",
+    proxy_api_request_count: int = 0,
     serverchan3ApiUrl: str = "",
     ntfy_url: str = "",
     ntfy_username: str = "",
@@ -332,6 +338,12 @@ def build_runtime_options(
         barkToken=barkToken,
         meowNickname=meowNickname,
         https_proxys=https_proxys,
+        proxy_api_url=proxy_api_url,
+        proxy_api_protocol=proxy_api_protocol,
+        proxy_api_request_count=normalize_non_negative_interval(
+            proxy_api_request_count,
+            default=0,
+        ),
         serverchan3ApiUrl=serverchan3ApiUrl,
         ntfy_url=ntfy_url,
         ntfy_username=ntfy_username,

@@ -60,6 +60,34 @@ class BuyConfig(BasicConfig):
     )
     """Proxy string or comma-separated proxy pool."""
 
+    proxy_api_url: str = config_field(
+        "",
+        env="BTB_PROXY_API_URL",
+        runtime="proxy_api_url",
+        db="proxyApiUrl",
+        cli="--proxy-api-url",
+    )
+    """Proxy provider API URL used to replenish the proxy pool."""
+
+    proxy_api_protocol: str = config_field(
+        "http",
+        env="BTB_PROXY_API_PROTOCOL",
+        runtime="proxy_api_protocol",
+        db="proxyApiProtocol",
+        cli="--proxy-api-protocol",
+    )
+    """Proxy provider protocol parameter: http or socks5."""
+
+    proxy_api_request_count: int = config_field(
+        0,
+        env="BTB_PROXY_API_REQUEST_COUNT",
+        runtime="proxy_api_request_count",
+        db="queueConcurrencyLimit",
+        cli="--proxy-api-request-count",
+        cast=int,
+    )
+    """Number of proxies requested from the API; 0 follows the current pool size."""
+
     # ConfigDB 里原字段是 hideRandomMessage，语义和 show_random_message 相反
     show_random_message: bool = config_field(
         True,

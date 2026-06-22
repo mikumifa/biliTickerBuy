@@ -107,6 +107,11 @@ class BiliRequest:
     def proxy_pool_status(self) -> str:
         return self.proxy_manager.proxy_pool_status()
 
+    def replace_proxy_pool(self, proxy_string: str) -> None:
+        self.proxy_manager.replace_proxy_list(proxy_string)
+        self.proxy_manager.apply_to_session(self.session)
+        self._invalidate_h2_client()
+
     def has_available_proxy(self) -> bool:
         return self.proxy_manager.has_available_proxy()
 
