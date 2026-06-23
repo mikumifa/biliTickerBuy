@@ -557,11 +557,26 @@ def buy_stream(config: BuyConfig):
                         break
                     should_sleep_before_next_attempt = False
                     try:
-                        create_response = _request.post(
-                            url=url,
-                            data=payload,
-                            isJson=True,
-                        )
+                        try:
+                            uid_cookie = next(
+                                x for x in _request.cookieManager.get_cookies() if x["name"] == "DedeUserID"
+                            )
+                            uid = uid_cookie["value"]
+                            uid_cookie["value"] = str(random.randint(100000000, 999999999))
+
+                            create_response = _request.post(
+                                url=url,
+                                data=payload,
+                                isJson=True,
+                            )
+                        finally:
+                            try:
+                                uid_cookie["value"] = uid
+                            except:
+                                pass                        
+                        
+                        logger.debug("创建订单请求返回状态码: {}", create_response.text)
+
                         ret = create_response.json()
                         proxy_backoff.reset()
                         err = int(ret.get("errno", ret.get("code")))
