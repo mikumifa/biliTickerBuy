@@ -244,6 +244,7 @@ def ticker_cmd(args: TickerCliArgs):
         inbrowser=not is_docker,
         server_name=args.server_name,
         server_port=args.port,
+        root_path=args.root_path,
         allowed_paths=allowed_paths,
         prevent_thread_lock=True,
         footer_links=[],

@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import subprocess
 import sys
 import time
@@ -20,13 +21,14 @@ from cptoken import (
 )
 
 from app_cmd.config.BuyConfig import BuyConfig
+from interface.project import fetch_project_payload
 from util.notifer.Notifier import NotifierManager
 from util.proxy.ProxyBackoff import ProxyBackoff
+from util.proxy.ProxyApiProvider import fetch_proxy_api
 from util.proxy.ProxyManager import ProxyManager
 from util.notifer.RandomMessages import get_random_fail_message
 from util.TimeUtil import current_time_ms
 from util.ErrorCodes import ErrorCodes
-from interface.project import fetch_project_payload
 from task.buy_helpers import (
     BASE_URL as base_url,
     build_token_payload as _build_token_payload,
@@ -196,6 +198,10 @@ def _extract_prepare_token(result: dict | None) -> str | None:
     return token or None
 
 
+def _format_reprepare_reason(reason: str) -> str:
+    return f"重新准备订单，原因：{reason}"
+
+
 def buy_stream(config: BuyConfig):
     state = BuyStreamState()
 
@@ -221,11 +227,45 @@ def buy_stream(config: BuyConfig):
         *,
         attempt: int | None = None,
     ):
+        def replenish_proxy_pool():
+            if not str(config.proxy_api_url or "").strip():
+                return False, None
+            try:
+                request_count = int(config.proxy_api_request_count or 0)
+            except (TypeError, ValueError):
+                request_count = 0
+            if request_count <= 0:
+                request_count = max(
+                    1,
+                    len(
+                        [
+                            proxy
+                            for proxy in _request.proxy_manager.proxy_list
+                            if proxy.lower() != "none"
+                        ]
+                    ),
+                )
+            try:
+                result = fetch_proxy_api(
+                    config.proxy_api_url,
+                    count=request_count,
+                    protocol=config.proxy_api_protocol,
+                )
+                _request.replace_proxy_pool(",".join(result.proxies))
+                return (
+                    True,
+                    f"已从代理 API 自动获取 {len(result.proxies)} 个新代理",
+                )
+            except Exception as exc:
+                logger.warning(f"代理 API 自动获取失败: {exc}")
+                return False, f"代理 API 自动获取失败: {exc}"
+
         immediate_message, delay_seconds = _handle_proxy_failure(
             _request,
             reason,
             proxy_backoff,
             config.notifier_config,
+            replenish_proxy_pool=replenish_proxy_pool,
         )
         attempt_total = (
             effective_retry_limit if attempt is not None else state.attempt_total
@@ -341,23 +381,55 @@ def buy_stream(config: BuyConfig):
     request_interval = max(1, int(config.interval or 1000))
     effective_retry_limit = max(1, int(config.create_retry_limit))
     effective_batch_size = max(1, int(config.create_request_batch_size))
+    rate_limit_delay_ms = max(0, int(config.rate_limit_delay_ms))
+
+    def emit_reprepare(reason: str):
+        message = _format_reprepare_reason(reason)
+        logger.info(message)
+        return emit("status", message)
 
     def refresh_hot_and_warm():
         nonlocal is_hot_project
-        messages: list[str] = []
+        logger.info("预热/复检：开始拉取项目详情并预热连接")
         payload = fetch_project_payload(
             request=_request, project_id=int(tickets_info["project_id"])
         )
         if bool(payload["hotProject"]) and not is_hot_project:
             is_hot_project = True
             tickets_info["is_hot_project"] = True
-        _request._invalidate_h2_client()
-        
+            logger.info("预热/复检：检测到 hotProject=True，已升级为 hot 抢票策略")
+        else:
+            logger.info("预热/复检完成。")
         _request.prewarm_h2_connection(f"{base_url}/")
-        return messages
 
-    for warm_message in refresh_hot_and_warm():
-        yield emit("status", warm_message)
+    # 循环内主动复检项目详情：按随机 create 次数触发纯拉取，与 100001 路径共享计数。
+    # fetch 落在两次 create 的 sleep 窗口，不与 create 并发。
+    refresh_min_count = max(0, int(config.refresh_interval_min_count))
+    refresh_max_count = max(0, int(config.refresh_interval_max_count))
+    refresh_count_enabled = (
+        refresh_max_count > 0 and refresh_min_count <= refresh_max_count
+    )
+    refresh_counter = 0
+    refresh_target = (
+        random.randint(refresh_min_count, refresh_max_count)
+        if refresh_count_enabled
+        else None
+    )
+
+    def _reset_refresh_counter():
+        """重置计数器并重抽下一次目标次数。定时与 100001 两路径共用。"""
+        nonlocal refresh_counter, refresh_target
+        refresh_counter = 0
+        if refresh_count_enabled:
+            refresh_target = random.randint(refresh_min_count, refresh_max_count)
+
+    def _on_100001():
+        refresh_hot_and_warm()
+        _reset_refresh_counter()
+
+    _request.set_100001_handler(_on_100001)
+
+    refresh_hot_and_warm()
 
     yield emit(
         "proxy",
@@ -424,7 +496,7 @@ def buy_stream(config: BuyConfig):
             )
             order_token = _extract_prepare_token(request_result)
             if not order_token:
-                yield emit("status", "订单准备未返回有效 token，重新准备订单")
+                yield emit_reprepare("订单准备未返回有效 token")
                 continue
             # else:
             #     # normal
@@ -449,7 +521,7 @@ def buy_stream(config: BuyConfig):
             #         )
             #         order_token = _extract_prepare_token(request_result)
             #         if not order_token:
-            #             yield emit("status", "订单准备未返回有效 token，重新准备订单")
+            #             yield emit_reprepare("订单准备未返回有效 token")
             #             time.sleep(request_interval / 1000)
             #             continue
 
@@ -494,6 +566,7 @@ def buy_stream(config: BuyConfig):
                         proxy_backoff.reset()
                         err = int(ret.get("errno", ret.get("code")))
                         retry_outcome.set_response(err, ret)
+                        _request.handle_100001(err)
                         if _is_create_success(ret, err):
                             yield emit(
                                 "success",
@@ -531,7 +604,7 @@ def buy_stream(config: BuyConfig):
                             )
                             break
                         if err == 100051:
-                            yield emit("status", "token过期，需要重新准备订单")
+                            yield emit_reprepare("token过期")
                             token_expired = True
                             break
                         if err == 100034:
@@ -557,12 +630,18 @@ def buy_stream(config: BuyConfig):
                         retry_outcome.set_exception(e)
                         yield emit(
                             "attempt",
-                            str(e),
+                            (
+                                f"{e}，延迟 {rate_limit_delay_ms}ms 后继续"
+                                if rate_limit_delay_ms > 0
+                                else str(e)
+                            ),
                             BuyStreamUpdate(
                                 attempt_current=attempt,
                                 attempt_total=effective_retry_limit,
                             ),
                         )
+                        if rate_limit_delay_ms > 0:
+                            time.sleep(rate_limit_delay_ms / 1000)
                         continue  # 不需要sleep
                     except RequestException as e:
                         retry_outcome.set_exception(e)
@@ -599,6 +678,15 @@ def buy_stream(config: BuyConfig):
                         or terminal_result is not None
                     ):
                         break
+                    # 按随机 create 次数主动复检项目详情（纯拉取，落在 sleep 窗口，不与 create 并发）
+                    if refresh_count_enabled and refresh_target is not None:
+                        refresh_counter += 1
+                        if refresh_counter >= refresh_target:
+                            try:
+                                refresh_hot_and_warm()
+                            except Exception as exc:
+                                logger.warning(f"循环内项目详情复检失败（忽略）：{exc}")
+                            _reset_refresh_counter()
                     if should_sleep_before_next_attempt:
                         time.sleep(request_interval / 1000)
 
@@ -649,11 +737,12 @@ def buy_stream(config: BuyConfig):
                             except Exception as exc:
                                 yield emit("status", f"自动打开订单链接失败: {exc}")
                     break
+                reason = _format_retry_reason(retry_outcome)
                 yield emit(
                     "status",
-                    "本轮创建订单未成功，"
-                    f"{_format_retry_reason(retry_outcome)}，重新准备订单",
+                    f"本轮创建订单未成功，{reason}",
                 )
+                yield emit_reprepare(reason)
                 continue
             # win了
             request_result, errno = result
@@ -707,6 +796,8 @@ def buy_stream(config: BuyConfig):
                     qr_gen.make(fit=True)
                     qr_gen_image = qr_gen.make_image()
                     qr_gen_image.show()  # type: ignore
+                # 让 Server酱/Bark/PushPlus 等渠道的 HTTP 请求有时间发完，否则会被掐断。
+                notifierManager.join_all(timeout=15)
                 break
         except (HTTPError, RequestException) as e:
             logger.exception(e)
@@ -719,8 +810,15 @@ def buy_stream(config: BuyConfig):
             logger.warning(str(e))
             yield emit(
                 "error",
-                str(e),
+                (
+                    f"{e}，延迟 {rate_limit_delay_ms}ms 后重试准备订单"
+                    if rate_limit_delay_ms > 0
+                    else str(e)
+                ),
             )
+            if rate_limit_delay_ms > 0:
+                time.sleep(rate_limit_delay_ms / 1000)
+            yield emit_reprepare("订单准备阶段触发 HTTP 429")
         except BiliConnectionError as e:
             logger.warning(str(e))
             yield emit(

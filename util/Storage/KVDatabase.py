@@ -1,8 +1,79 @@
+import json
+import os
+import shutil
 from threading import RLock
 from typing import Any, Optional
 
 from tinydb import TinyDB, Query
 from tinydb.storages import MemoryStorage, JSONStorage
+
+
+def _ensure_valid_tinydb_file(path: str) -> None:
+    """检查 TinyDB JSON 文件是否有效，无效则备份并重建。
+
+    旧版本可能产生非 TinyDB 格式的 config.json（如平铺键值对、空对象、
+    列表或损坏的 JSON）。此函数会检测并自动恢复，避免启动时闪退。
+    """
+    if not os.path.isfile(path):
+        return  # 文件不存在，TinyDB 会自己创建
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, ValueError, OSError):
+        # 损坏的 JSON → 备份并重建
+        backup = path + ".bak"
+        try:
+            shutil.copy2(path, backup)
+        except OSError:
+            pass
+        # 写一个空的 TinyDB 数据库
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"_default": {}}, f)
+        return
+
+    # 不是 dict（例如是 list 或 bare string）→ 备份并重建
+    if not isinstance(data, dict):
+        backup = path + ".bak"
+        try:
+            shutil.copy2(path, backup)
+        except OSError:
+            pass
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"_default": {}}, f)
+        return
+
+    # 已有 _default 表且内容有效 → 直接通过
+    if "_default" in data and isinstance(data["_default"], dict):
+        # 验证文档 ID 都是有效的整数，防止损坏的 ID（如 "bad"）导致 TinyDB 后续崩溃
+        if all(
+            isinstance(doc_id, str) and doc_id.isdigit() for doc_id in data["_default"]
+        ):
+            return
+
+    # 平铺的旧版配置（flat dict，没有 _default 表）→ 迁移
+    if not data:
+        # 空 dict → 转为空的 TinyDB 格式
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"_default": {}}, f)
+        return
+
+    # 尝试把平铺键值对转换为 TinyDB 文档
+    docs = {}
+    doc_id = 1
+    for key, value in data.items():
+        if isinstance(key, str):
+            docs[str(doc_id)] = {"key": key, "value": value}
+            doc_id += 1
+
+    backup = path + ".bak"
+    try:
+        shutil.copy2(path, backup)
+    except OSError:
+        pass
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"_default": docs}, f, ensure_ascii=False, indent=2)
 
 
 class KVDatabase:
@@ -14,6 +85,8 @@ class KVDatabase:
         if db_path is None:
             self.db = TinyDB(storage=MemoryStorage)
         else:
+            # 在初始化 TinyDB 之前先验证/修复文件格式
+            _ensure_valid_tinydb_file(db_path)
             self.db = TinyDB(db_path, storage=JSONStorage)
 
         self.KeyValue = Query()

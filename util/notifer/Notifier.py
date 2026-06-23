@@ -111,6 +111,16 @@ class NotifierManager:
         for notifer in self.notifier_dict.values():
             notifer.start()
 
+    def join_all(self, timeout: float = 15.0):
+        """等待所有推送线程结束（或超时）。
+
+        推送线程是 daemon 线程，解释器退出时不会等待它们完成后再退出。
+        抢票成功后，如果不在退出前 join，CLI 进程会立刻结束，HTTP 推送请求会被中断，导致 Server酱/Bark/PushPlus 等渠道收不到通知。
+        此方法给推送线程一个完成窗口。
+        """
+        for notifer in self.notifier_dict.values():
+            notifer.thread.join(timeout=timeout)
+
     def stop_all(self):
         for notifer in self.notifier_dict.values():
             notifer.stop()

@@ -8,6 +8,9 @@ services:
     environment:
       - GRADIO_SERVER_PORT=7860
       - GRADIO_NUM_PORTS=100  # 不小于暴露的端口数量
+      # 如果从远端 IP、域名或反向代理访问，请设置为浏览器访问时使用的外部地址
+      # 例如：http://your-server-ip:7860 或 https://your-domain.example
+      - BTB_ROOT_PATH=${BTB_ROOT_PATH:-}
       # 可在此添加环境变量使得高级设置持久化，避免每次启动容器后都需要在前端重新配置
       # （设置后网页前端仍会显示为空值，但在开始抢票时会使用这些环境变量的值）
       # - BTB_HTTPS_PROXYS=http://127.0.1:8080,socks5://127.0.1:1080

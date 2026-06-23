@@ -1,5 +1,6 @@
 import secrets
 import time
+from collections.abc import Callable
 
 import loguru
 import requests
@@ -46,6 +47,7 @@ class BiliRequest:
         self.proxy_manager.apply_to_session(self.session)
         self._h2_client = None
         self.createTime = int(time.time() * 1000)
+        self._handle_100001: Callable[[], None] | None = None
 
     def _rotate_proxy(self, reason: str) -> bool:
         if not self.proxy_manager.rotate():
@@ -77,6 +79,16 @@ class BiliRequest:
     def clear_request_count(self):
         self.request_count = 0
 
+    def set_100001_handler(self, handler: Callable[[], None] | None) -> None:
+        self._handle_100001 = handler
+
+    def handle_100001(self, err: int) -> bool:
+        if err != 100001 or self._handle_100001 is None:
+            return False
+        loguru.logger.warning("错误码 100001，执行维护逻辑")
+        self._handle_100001()
+        return True
+
     def get(self, url, data=None, isJson=False):
         return self._request("get", url, data=data, isJson=isJson)
 
@@ -94,6 +106,11 @@ class BiliRequest:
 
     def proxy_pool_status(self) -> str:
         return self.proxy_manager.proxy_pool_status()
+
+    def replace_proxy_pool(self, proxy_string: str) -> None:
+        self.proxy_manager.replace_proxy_list(proxy_string)
+        self.proxy_manager.apply_to_session(self.session)
+        self._invalidate_h2_client()
 
     def has_available_proxy(self) -> bool:
         return self.proxy_manager.has_available_proxy()
@@ -223,7 +240,7 @@ class BiliRequest:
             return response
         if response.status_code == 429:
             raise BiliRateLimitError(
-                f"请求被限流(HTTP 429): {response.url}",
+                "请求被限流(HTTP 429)",
                 response=response,
             )
 
