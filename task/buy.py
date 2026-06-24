@@ -555,7 +555,7 @@ def buy_stream(config: BuyConfig):
                     if not isRunning:
                         yield emit("status", "抢票结束")
                         break
-                    should_sleep_before_next_attempt = False
+                    # should_sleep_before_next_attempt = False
                     try:
                         try:
                             uid_cookie = next(
@@ -632,7 +632,7 @@ def buy_stream(config: BuyConfig):
                                 ),
                             )
                             tickets_info["pay_money"] = ret["data"]["pay_money"]
-                        should_sleep_before_next_attempt = True
+                        # should_sleep_before_next_attempt = True
                     except JSONDecodeError as exc:
                         handled_412 = yield from handle_non_json_response(
                             "创建订单接口",
@@ -702,8 +702,9 @@ def buy_stream(config: BuyConfig):
                             except Exception as exc:
                                 logger.warning(f"循环内项目详情复检失败（忽略）：{exc}")
                             _reset_refresh_counter()
-                    if should_sleep_before_next_attempt:
-                        time.sleep(request_interval / 1000)
+                    # if should_sleep_before_next_attempt:
+                    # 我们将会在新client中并行多个create请求，此时已经吃满412盾窗口，因此不再快速重试
+                    time.sleep(request_interval / 1000)
 
                 if (
                     result is not None
