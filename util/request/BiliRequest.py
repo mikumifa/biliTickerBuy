@@ -1,6 +1,8 @@
 import secrets
 import time
+from abc import ABC, abstractmethod
 from collections.abc import Callable
+from typing import Any, Protocol, cast
 
 import loguru
 import requests
@@ -17,6 +19,70 @@ from util.request.exceptions import BiliConnectionError, BiliRateLimitError
 from util.proxy.ProxyManager import ProxyManager
 
 
+class H2Headers(Protocol):
+    def __setitem__(self, key: str, value: str) -> None: ...
+
+
+class H2Cookies(Protocol):
+    def set(
+        self,
+        name: str,
+        value: str,
+        domain: str = "",
+        path: str = "/",
+    ) -> None: ...
+
+
+class H2Response(Protocol):
+    status_code: int
+    text: str
+    url: Any
+    headers: Any
+
+    def json(self) -> Any: ...
+
+    def raise_for_status(self) -> None: ...
+
+
+class AbstractH2Client(ABC):
+    """self._h2_client only needs headers, cookies, head/get/post, and close."""
+
+    @property
+    @abstractmethod
+    def headers(self) -> H2Headers:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def cookies(self) -> H2Cookies:
+        raise NotImplementedError
+
+    @abstractmethod
+    def head(self, url: str) -> H2Response:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get(self, url: str, *, params: Any = None) -> H2Response:
+        raise NotImplementedError
+
+    @abstractmethod
+    def post(
+        self,
+        url: str,
+        *,
+        data: Any = None,
+        json: Any = None,
+    ) -> H2Response:
+        raise NotImplementedError
+
+    @abstractmethod
+    def close(self) -> None:
+        raise NotImplementedError
+
+
+H2ClientConstructor = Callable[..., AbstractH2Client]
+
+
 class BiliRequest:
     def __init__(
         self,
@@ -27,6 +93,7 @@ class BiliRequest:
         browser_state: BrowserFingerprintState | None = None,
         proxy_failure_threshold: int = 2,
         proxy_cooldown_seconds: float = 180.0,
+        h2_client_type: H2ClientConstructor | None = None,
     ):
         self.browser_state = browser_state or generate_browser_fingerprint_state()
         self.deviceId = finalize_device_id(secrets.token_hex(16))
@@ -45,7 +112,8 @@ class BiliRequest:
         )
         self.request_count = 0  # 记录请求次数
         self.proxy_manager.apply_to_session(self.session)
-        self._h2_client = None
+        self._h2_client: AbstractH2Client | None = None
+        self._h2_client_type: H2ClientConstructor | None = h2_client_type
         self.createTime = int(time.time() * 1000)
         self._handle_100001: Callable[[], None] | None = None
 
@@ -147,7 +215,7 @@ class BiliRequest:
             f"body_preview={body}"
         )
 
-    def _build_h2_client(self):
+    def _build_h2_client(self) -> AbstractH2Client:
         import httpx
 
         proxies = self.session.proxies or {}
@@ -157,7 +225,11 @@ class BiliRequest:
             if isinstance(self.session.verify, (bool, str))
             else True
         )
-        return httpx.Client(
+        h2_client_type = self._h2_client_type
+        if h2_client_type is None:
+            AbstractH2Client.register(httpx.Client)
+            h2_client_type = cast(H2ClientConstructor, httpx.Client)
+        return h2_client_type(
             http2=True,
             verify=verify,
             proxy=proxy,

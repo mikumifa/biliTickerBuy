@@ -581,7 +581,7 @@ def buy_stream(config: BuyConfig):
                         proxy_backoff.reset()
                         err = int(ret.get("errno", ret.get("code")))
                         retry_outcome.set_response(err, ret)
-                        _request.handle_100001(err)
+                        # _request.handle_100001(err)
                         if _is_create_success(ret, err):
                             yield emit(
                                 "success",
