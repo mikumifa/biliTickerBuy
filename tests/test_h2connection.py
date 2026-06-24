@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import unittest
+import urllib.parse
 
 from h2client_loader import load_h2client_module
 
@@ -25,6 +27,14 @@ def get_discovered_source_config():
         return None, "auto"
     source = sources[0]
     return source.ip, source.family
+
+
+def get_capture_source_config():
+    source_ip = os.environ.get("BTB_H2_CAPTURE_SOURCE_IP")
+    family = os.environ.get("BTB_H2_CAPTURE_FAMILY")
+    if source_ip:
+        return source_ip, family or ("ipv6" if ":" in source_ip else "ipv4")
+    return get_discovered_source_config()
 
 
 class H2ConnectionTests(unittest.TestCase):
@@ -87,6 +97,54 @@ class H2ConnectionTests(unittest.TestCase):
 
         self.assertFalse(connection.connected)
         self.assertTrue(connection.verify_ja().ok)
+
+    @unittest.skipUnless(
+        os.environ.get("BTB_H2_CAPTURE_ONCE") == "1",
+        "manual packet-capture test; set BTB_H2_CAPTURE_ONCE=1 to run",
+    )
+    def test_manual_capture_single_request(self) -> None:
+        url = os.environ.get("BTB_H2_CAPTURE_URL", "https://show.bilibili.com/api/ticket/order/createV2")
+        method = os.environ.get("BTB_H2_CAPTURE_METHOD", "POST").upper()
+        parsed = urllib.parse.urlsplit(url)
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise ValueError("BTB_H2_CAPTURE_URL must be an absolute https:// URL")
+
+        source_ip, family = get_capture_source_config()
+        headers = {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "user-agent": os.environ.get("BTB_H2_CAPTURE_UA", "Mozilla/5.0"),
+        }
+        connection = H2Connection(
+            parsed.hostname,
+            source_ip,
+            port=parsed.port or 443,
+            family=family,
+            assert_ja=True,
+        )
+        try:
+            if method == "GET":
+                response = connection.get(url, headers=headers)
+            elif method == "POST":
+                body = os.environ.get("BTB_H2_CAPTURE_BODY", "{}")
+                headers["content-type"] = os.environ.get(
+                    "BTB_H2_CAPTURE_CONTENT_TYPE",
+                    "application/json",
+                )
+                response = connection.post(url, headers=headers, content=body)
+            else:
+                raise ValueError("BTB_H2_CAPTURE_METHOD must be GET or POST")
+
+            print(
+                "capture response "
+                f"status={response.status} "
+                f"body_len={len(response.body)} "
+                f"source_ip={source_ip or 'auto'}"
+                f"body_preview={response.body[:100]!r}",
+            )
+            self.assertIsNotNone(response.status)
+        finally:
+            connection.close()
 
 
 if __name__ == "__main__":
