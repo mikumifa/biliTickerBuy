@@ -21,6 +21,58 @@ verify_client_hello_ja = h2connection.verify_client_hello_ja
 discover_interface_source_ips = ja_h2_client.discover_interface_source_ips
 
 
+class DummyH2State:
+    def __init__(self) -> None:
+        self.next_stream_id = 1
+        self.max_outbound_frame_size = 16384
+        self.sent_headers = []
+        self.sent_data = []
+
+    def get_next_available_stream_id(self) -> int:
+        stream_id = self.next_stream_id
+        self.next_stream_id += 2
+        return stream_id
+
+    def send_headers(self, stream_id, headers, end_stream=False) -> None:
+        self.sent_headers.append((stream_id, headers, end_stream))
+
+    def send_data(self, stream_id, data, end_stream=False) -> None:
+        self.sent_data.append((stream_id, data, end_stream))
+
+
+class ReconnectProbeH2Connection(H2Connection):
+    def __init__(self, statuses=None, failures_before_success=0) -> None:
+        super().__init__("show.bilibili.com", None)
+        self.statuses = list(statuses or [200])
+        self.failures_before_success = failures_before_success
+        self.connect_count = 0
+        self.close_count = 0
+        self.read_count = 0
+
+    def connect(self) -> None:
+        self.connect_count += 1
+        self._h2 = DummyH2State()
+
+    def close(self) -> None:
+        self.close_count += 1
+        self._h2 = None
+
+    def _flush(self) -> None:
+        return None
+
+    def _read_response(self, stream_id: int):
+        self.read_count += 1
+        if self.read_count <= self.failures_before_success:
+            raise OSError("stale connection")
+        status = self.statuses.pop(0)
+        return h2connection.H2Response(
+            status=status,
+            headers=[(":status", str(status))],
+            body=b"",
+            stream_id=stream_id,
+        )
+
+
 def get_discovered_source_config():
     sources = discover_interface_source_ips()
     if not sources:
@@ -114,6 +166,29 @@ class H2ConnectionTests(unittest.TestCase):
 
         self.assertFalse(connection.connected)
         self.assertTrue(connection.verify_ja().ok)
+
+    def test_request_reconnects_once_after_transport_failure(self) -> None:
+        connection = ReconnectProbeH2Connection(failures_before_success=1)
+
+        response = connection.get("https://show.bilibili.com/api/ticket")
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(connection.connect_count, 2)
+        self.assertEqual(connection.close_count, 1)
+        self.assertEqual(connection.read_count, 2)
+
+    def test_request_does_not_reconnect_for_http_412(self) -> None:
+        connection = ReconnectProbeH2Connection(statuses=[412])
+
+        response = connection.post(
+            "https://show.bilibili.com/api/ticket/order/createV2",
+            content=b"{}",
+        )
+
+        self.assertEqual(response.status, 412)
+        self.assertEqual(connection.connect_count, 1)
+        self.assertEqual(connection.close_count, 0)
+        self.assertEqual(connection.read_count, 1)
 
     @unittest.skipUnless(
         os.environ.get("BTB_H2_CAPTURE_ONCE") == "1",

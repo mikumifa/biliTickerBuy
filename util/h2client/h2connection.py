@@ -352,14 +352,15 @@ class H2Connection:
                 validate_inbound_headers=False,
             )
         )
-        sock = connect_tcp(
-            host=self.config.remote_host,
-            port=self.config.port,
-            family=self.config.family,
-            source_ip=self.config.source_ip,
-            timeout=self.config.timeout,
-        )
+        sock = None
         try:
+            sock = connect_tcp(
+                host=self.config.remote_host,
+                port=self.config.port,
+                family=self.config.family,
+                source_ip=self.config.source_ip,
+                timeout=self.config.timeout,
+            )
             built = build_client_hello(
                 sni=self.config.effective_sni,
                 profile=self.config.profile,
@@ -374,7 +375,9 @@ class H2Connection:
             self._h2.initiate_connection()
             self._flush()
         except Exception:
-            sock.close()
+            if sock is not None:
+                sock.close()
+            self._sock = None
             self._tls = None
             self._h2 = None
             raise
@@ -393,8 +396,8 @@ class H2Connection:
                     self._sock.close()
                 finally:
                     self._sock = None
-                    self._tls = None
-                    self._h2 = None
+            self._tls = None
+            self._h2 = None
 
     def __enter__(self) -> H2Connection:
         self.connect()
@@ -435,8 +438,37 @@ class H2Connection:
             headers=headers,
             content_length=len(body) if method == "POST" else None,
         )
-        self._log_request(method, request_headers, body)
+        last_exc: Exception | None = None
+        for attempt in range(2):
+            self._log_request(method, request_headers, body)
+            try:
+                response = self._request_once(request_headers, body)
+                self._log_response(response)
+                return response
+            except Exception as exc:
+                last_exc = exc
+                self.close()
+                if attempt == 0:
+                    logger.warning(
+                        "H2 request failed; reconnecting source_ip={} "
+                        "method={} path={} error={}: {}",
+                        self.config.source_ip or "auto",
+                        method,
+                        _header_value(request_headers, ":path"),
+                        exc.__class__.__name__,
+                        exc,
+                    )
+                    continue
+                raise
 
+        assert last_exc is not None
+        raise last_exc
+
+    def _request_once(
+        self,
+        request_headers: list[tuple[str, str]],
+        body: bytes,
+    ) -> H2Response:
         self.connect()
         assert self._h2 is not None
         stream_id = self._h2.get_next_available_stream_id()
@@ -448,9 +480,7 @@ class H2Connection:
         if body:
             self._send_body(stream_id, body)
         self._flush()
-        response = self._read_response(stream_id)
-        self._log_response(response)
-        return response
+        return self._read_response(stream_id)
 
     def _send_body(self, stream_id: int, body: bytes) -> None:
         assert self._h2 is not None
@@ -472,25 +502,21 @@ class H2Connection:
         body: bytes,
     ) -> None:
         logger.debug(
-            "H2 request source_ip={} method={} path={} headers={} body_len={} body={}",
+            "H2 request source_ip={} method={} path={} body_len={}",
             self.config.source_ip or "auto",
             method,
             _header_value(headers, ":path"),
-            headers,
             len(body),
-            _body_for_log(body),
         )
 
     def _log_response(self, response: H2Response) -> None:
         logger.debug(
-            "H2 response source_ip={} stream_id={} status={} headers={} "
-            "body_len={} body={}",
+            "H2 response source_ip={} stream_id={} status={} "
+            "body_len={}",
             self.config.source_ip or "auto",
             response.stream_id,
             response.status,
-            response.headers,
             len(response.body),
-            _body_for_log(response.body),
         )
 
     def _flush(self) -> None:

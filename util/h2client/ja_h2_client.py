@@ -8,10 +8,12 @@ import subprocess
 import threading
 import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+from loguru import logger
 
 try:
     from .abstract_h2_client import AbstractH2Client
@@ -57,6 +59,20 @@ class ConnectionSlot:
 
     def close(self) -> None:
         self.connection.close()
+
+
+@dataclass(frozen=True)
+class FanoutOutcome:
+    slot: ConnectionSlot
+    response: httpx.Response | None = None
+    exc: Exception | None = None
+
+
+@dataclass(frozen=True)
+class HealthcheckOutcome:
+    source: SourceAddress
+    attempt: int
+    ok: bool
 
 
 def _is_usable_source_ip(value: str) -> bool:
@@ -244,6 +260,22 @@ def _content_length(content: bytes | str | None) -> int:
     return len(content.encode("utf-8"))
 
 
+def _response_errno(response: httpx.Response) -> int | None:
+    try:
+        payload = response.json()
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    raw_errno = payload.get("errno", payload.get("code"))
+    if raw_errno is None:
+        return None
+    try:
+        return int(raw_errno)
+    except (TypeError, ValueError):
+        return None
+
+
 class RotatingIPJA3H2Client(AbstractH2Client):
     def __init__(
         self,
@@ -405,34 +437,84 @@ class RotatingIPJA3H2Client(AbstractH2Client):
             raise httpx.ConnectError("no usable local source IPs were discovered")
 
         key = (self._healthcheck_host, 443)
-        healthchecked_slots: list[ConnectionSlot] = []
-        available_sources: list[SourceAddress] = []
+        passed: dict[SourceAddress, int] = {source: 0 for source in sources}
+        max_workers = max(1, min(len(sources) * self._connections_per_source_ip, 64))
+        with ThreadPoolExecutor(
+            max_workers=max_workers,
+            thread_name_prefix="btb-h2-healthcheck",
+        ) as executor:
+            futures = [
+                executor.submit(self._healthcheck_source_once, source, attempt)
+                for source in sources
+                for attempt in range(1, self._connections_per_source_ip + 1)
+            ]
+            for future in as_completed(futures):
+                outcome = future.result()
+                if outcome.ok:
+                    passed[outcome.source] += 1
 
-        for source in sources:
-            source_ok = False
-            for _ in range(self._connections_per_source_ip):
-                connection = self._build_connection(self._healthcheck_host, 443, source)
-                slot = ConnectionSlot(source=source, connection=connection)
-                try:
-                    response = connection.get(
-                        self._healthcheck_url,
-                        headers=self._request_headers("GET", self._healthcheck_url),
-                    )
-                    if response.status is not None and response.status < 500:
-                        healthchecked_slots.append(slot)
-                        source_ok = True
-                    else:
-                        slot.close()
-                except Exception:
-                    slot.close()
-            if source_ok:
-                available_sources.append(source)
-
-        if not healthchecked_slots:
+        available_sources = [
+            source
+            for source in sources
+            if passed[source] > 0
+        ]
+        if not available_sources:
             raise httpx.ConnectError("no local source IP passed H2 healthcheck")
 
         self._available_sources = available_sources
-        self._pools[key] = healthchecked_slots
+        self._pools[key] = [
+            ConnectionSlot(
+                source=source,
+                connection=self._build_connection(self._healthcheck_host, 443, source),
+            )
+            for source in available_sources
+            for _ in range(self._connections_per_source_ip)
+        ]
+        logger.info(
+            "H2 healthcheck completed host={} usable_sources={} pool_slots={}",
+            self._healthcheck_host,
+            len(self._available_sources),
+            len(self._pools[key]),
+        )
+
+    def _healthcheck_source_once(
+        self,
+        source: SourceAddress,
+        attempt: int,
+    ) -> HealthcheckOutcome:
+        connection = self._build_connection(self._healthcheck_host, 443, source)
+        try:
+            response = connection.get(
+                self._healthcheck_url,
+                headers=self._request_headers("GET", self._healthcheck_url),
+            )
+            ok = response.status is not None and response.status < 500
+            if ok:
+                logger.debug(
+                    "H2 healthcheck passed source_ip={} attempt={} status={}",
+                    source.ip,
+                    attempt,
+                    response.status,
+                )
+            else:
+                logger.warning(
+                    "H2 healthcheck rejected source_ip={} attempt={} status={}",
+                    source.ip,
+                    attempt,
+                    response.status,
+                )
+            return HealthcheckOutcome(source=source, attempt=attempt, ok=ok)
+        except Exception as exc:
+            logger.warning(
+                "H2 healthcheck failed source_ip={} attempt={} error={}: {}",
+                source.ip,
+                attempt,
+                exc.__class__.__name__,
+                exc,
+            )
+            return HealthcheckOutcome(source=source, attempt=attempt, ok=False)
+        finally:
+            connection.close()
 
     def _build_connection(
         self,
@@ -476,11 +558,38 @@ class RotatingIPJA3H2Client(AbstractH2Client):
         host: str,
         port: int,
         slot: ConnectionSlot,
+        *,
+        reason: str = "unspecified",
+        exc: Exception | None = None,
     ) -> None:
+        removed = False
         with self._lock:
             pool = self._pools.get((host, port), [])
             if slot in pool:
                 pool.remove(slot)
+                removed = True
+        if exc is None:
+            logger.warning(
+                "H2 discard connection source_ip={} host={}:{} "
+                "reason={} removed={}",
+                slot.source.ip,
+                host,
+                port,
+                reason,
+                removed,
+            )
+        else:
+            logger.warning(
+                "H2 discard connection source_ip={} host={}:{} "
+                "reason={} removed={} error={}: {}",
+                slot.source.ip,
+                host,
+                port,
+                reason,
+                removed,
+                exc.__class__.__name__,
+                exc,
+            )
         slot.close()
 
     def _request(
@@ -530,7 +639,13 @@ class RotatingIPJA3H2Client(AbstractH2Client):
             except Exception as exc:
                 last_exc = exc
                 failed_sources.add(slot.source.ip)
-                self._discard_slot(host, port, slot)
+                self._discard_slot(
+                    host,
+                    port,
+                    slot,
+                    reason="request_exception",
+                    exc=exc,
+                )
 
         raise self._to_httpx_error(method, url, last_exc)
 
@@ -581,3 +696,163 @@ class RotatingIPJA3H2Client(AbstractH2Client):
         if isinstance(exc, OSError):
             return httpx.ConnectError(message, request=request)
         return httpx.LocalProtocolError(message, request=request)
+
+
+class CreateV2FanoutJA3H2Client(RotatingIPJA3H2Client):
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: HeaderItems | None = None,
+        content: bytes | str | None = None,
+    ) -> httpx.Response:
+        if not self._should_fanout_create_v2(url):
+            return super()._request(method, url, headers=headers, content=content)
+
+        parsed = urllib.parse.urlsplit(url)
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise ValueError("only absolute https:// URLs are supported")
+        host = parsed.hostname
+        port = parsed.port or 443
+        request = httpx.Request(method, url)
+        request_headers = self._request_headers(
+            method,
+            url,
+            headers=headers,
+            content=content,
+        )
+        pool = list(self._ensure_pool(host, port))
+        if not pool:
+            raise httpx.ConnectError(
+                f"no available H2 connections for {host}",
+                request=request,
+            )
+
+        executor = ThreadPoolExecutor(
+            max_workers=len(pool),
+            thread_name_prefix="btb-createv2-fanout",
+        )
+        futures = [
+            executor.submit(
+                self._send_fanout_request,
+                slot,
+                method,
+                url,
+                request_headers,
+                content,
+                request,
+            )
+            for slot in pool
+        ]
+        for future in futures:
+            future.add_done_callback(
+                lambda done, host=host, port=port: self._handle_fanout_done(
+                    host,
+                    port,
+                    done,
+                )
+            )
+
+        first_429: httpx.Response | None = None
+        first_412: httpx.Response | None = None
+        first_900001: httpx.Response | None = None
+        first_other: httpx.Response | None = None
+        last_exc: Exception | None = None
+        shutdown_done = False
+        try:
+            for future in as_completed(futures):
+                outcome = future.result()
+                if outcome.response is None:
+                    last_exc = outcome.exc
+                    continue
+
+                status_code = outcome.response.status_code
+                if status_code == 200:
+                    errno = _response_errno(outcome.response)
+                    if errno != 900001:
+                        executor.shutdown(wait=False, cancel_futures=False)
+                        shutdown_done = True
+                        return outcome.response
+                    if first_900001 is None:
+                        first_900001 = outcome.response
+                if status_code == 429 and first_429 is None:
+                    first_429 = outcome.response
+                elif status_code == 412 and first_412 is None:
+                    first_412 = outcome.response
+                elif status_code not in {412, 429} and first_other is None:
+                    first_other = outcome.response
+
+            if first_900001 is not None:
+                return first_900001
+            if first_429 is not None:
+                return first_429
+            if first_other is not None:
+                return first_other
+            if first_412 is not None:
+                return first_412
+            raise self._to_httpx_error(method, url, last_exc)
+        finally:
+            if not shutdown_done:
+                executor.shutdown(wait=True, cancel_futures=False)
+
+    def _should_fanout_create_v2(self, url: str) -> bool:
+        parsed = urllib.parse.urlsplit(url)
+        return (
+            (parsed.hostname or "").lower() == self._healthcheck_host.lower()
+            and "createV2" in parsed.path
+        )
+
+    def _send_fanout_request(
+        self,
+        slot: ConnectionSlot,
+        method: str,
+        url: str,
+        headers: HeaderItems,
+        content: bytes | str | None,
+        request: httpx.Request,
+    ) -> FanoutOutcome:
+        try:
+            with slot.lock:
+                if method == "GET":
+                    h2_response = slot.connection.get(url, headers=headers)
+                else:
+                    h2_response = slot.connection.post(
+                        url,
+                        headers=headers,
+                        content=content,
+                    )
+            return FanoutOutcome(
+                slot=slot,
+                response=self._to_httpx_response(request, h2_response),
+            )
+        except Exception as exc:
+            return FanoutOutcome(slot=slot, exc=exc)
+
+    def _handle_fanout_done(
+        self,
+        host: str,
+        port: int,
+        future: Future,
+    ) -> None:
+        if future.cancelled():
+            return
+        try:
+            outcome = future.result()
+        except Exception:
+            return
+        if outcome.response is None:
+            self._discard_slot(
+                host,
+                port,
+                outcome.slot,
+                reason="fanout_exception",
+                exc=outcome.exc,
+            )
+        elif outcome.response.status_code == 412:
+            self._discard_slot(
+                host,
+                port,
+                outcome.slot,
+                reason="http_412",
+            )

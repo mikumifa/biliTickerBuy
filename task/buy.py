@@ -640,9 +640,10 @@ def buy_stream(config: BuyConfig):
                                 attempt_total=effective_retry_limit,
                             ),
                         )
-                        if rate_limit_delay_ms > 0:
-                            time.sleep(rate_limit_delay_ms / 1000)
-                        continue  # 不需要sleep
+                        #if rate_limit_delay_ms > 0:
+                        #    time.sleep(rate_limit_delay_ms / 1000)
+                        #continue  # 不需要sleep
+                        # 即使风控也不会有更快的请求速度了，所以走默认值（1000ms）
                     except RequestException as e:
                         retry_outcome.set_exception(e)
                         for message in handle_proxy_failure(

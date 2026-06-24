@@ -163,9 +163,9 @@ class BiliRequest:
         )
         h2_client_type = self._h2_client_type
         if h2_client_type is None:
-            from util.h2client.ja_h2_client import RotatingIPJA3H2Client
-            AbstractH2Client.register(RotatingIPJA3H2Client)
-            h2_client_type = cast(H2ClientConstructor, RotatingIPJA3H2Client)
+            from util.h2client.ja_h2_client import CreateV2FanoutJA3H2Client, RotatingIPJA3H2Client
+            AbstractH2Client.register(CreateV2FanoutJA3H2Client)
+            h2_client_type = cast(H2ClientConstructor, CreateV2FanoutJA3H2Client)
         return h2_client_type(
             http2=True,
             verify=verify,
