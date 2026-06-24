@@ -39,6 +39,7 @@ HeaderItems = Mapping[str, str] | Sequence[tuple[str, str]]
 SourceIPProvider = Callable[[], list["SourceAddress"]]
 ConnectionFactory = Callable[..., H2Connection]
 SlotChooser = Callable[[Sequence["ConnectionSlot"]], "ConnectionSlot"]
+FallbackClientFactory = Callable[..., Any]
 
 
 @dataclass(frozen=True)
@@ -235,6 +236,14 @@ def _timeout_seconds(timeout: Any, default: float) -> float:
     return float(max(values)) if values else default
 
 
+def _content_length(content: bytes | str | None) -> int:
+    if content is None:
+        return 0
+    if isinstance(content, bytes):
+        return len(content)
+    return len(content.encode("utf-8"))
+
+
 class RotatingIPJA3H2Client(AbstractH2Client):
     def __init__(
         self,
@@ -253,6 +262,7 @@ class RotatingIPJA3H2Client(AbstractH2Client):
         source_ip_provider: SourceIPProvider | None = None,
         connection_factory: ConnectionFactory = H2Connection,
         slot_chooser: SlotChooser | None = None,
+        fallback_client_factory: FallbackClientFactory = httpx.Client,
         **_: Any,
     ) -> None:
         if not http2:
@@ -262,8 +272,21 @@ class RotatingIPJA3H2Client(AbstractH2Client):
         self.verify = verify
         self.proxy = proxy
         self.limits = limits
-        self._headers = httpx.Headers(headers or {})
-        self._cookies = httpx.Cookies(cookies)
+        fallback_kwargs: dict[str, Any] = {
+            "http2": http2,
+            "verify": verify,
+            "headers": headers,
+            "cookies": cookies,
+        }
+        if proxy is not None:
+            fallback_kwargs["proxy"] = proxy
+        if timeout is not None:
+            fallback_kwargs["timeout"] = timeout
+        if limits is not None:
+            fallback_kwargs["limits"] = limits
+        self._fallback_client = fallback_client_factory(**fallback_kwargs)
+        self._headers = self._fallback_client.headers
+        self._cookies = self._fallback_client.cookies
         self._interface_aliases = tuple(interface_aliases)
         self._connections_per_source_ip = max(1, int(connections_per_source_ip))
         self._healthcheck_url = healthcheck_url
@@ -278,7 +301,11 @@ class RotatingIPJA3H2Client(AbstractH2Client):
         self._available_sources: list[SourceAddress] = []
         self._pools: dict[tuple[str, int], list[ConnectionSlot]] = {}
 
-        self._init_healthchecked_pool()
+        try:
+            self._init_healthchecked_pool()
+        except Exception:
+            self._fallback_client.close()
+            raise
 
     @property
     def headers(self) -> httpx.Headers:
@@ -303,8 +330,11 @@ class RotatingIPJA3H2Client(AbstractH2Client):
             self._available_sources.clear()
         for slot in slots:
             slot.close()
+        self._fallback_client.close()
 
     def head(self, url: str) -> httpx.Response:
+        if self._should_use_fallback(url):
+            return self._fallback_client.head(url)
         response = self.get(url)
         return httpx.Response(
             response.status_code,
@@ -319,8 +349,15 @@ class RotatingIPJA3H2Client(AbstractH2Client):
         *,
         params: Any = None,
         headers: HeaderItems | None = None,
-        **_: Any,
+        **kwargs: Any,
     ) -> httpx.Response:
+        if self._should_use_fallback(url):
+            return self._fallback_client.get(
+                url,
+                params=params,
+                headers=headers,
+                **kwargs,
+            )
         return self._request("GET", _append_params(url, params), headers=headers)
 
     def post(
@@ -331,8 +368,17 @@ class RotatingIPJA3H2Client(AbstractH2Client):
         json: Any = None,
         content: bytes | str | None = None,
         headers: HeaderItems | None = None,
-        **_: Any,
+        **kwargs: Any,
     ) -> httpx.Response:
+        if self._should_use_fallback(url):
+            return self._fallback_client.post(
+                url,
+                data=data,
+                json=json,
+                content=content,
+                headers=headers,
+                **kwargs,
+            )
         request_headers = _header_mapping(headers)
         if json is not None:
             body = _json_body(json)
@@ -348,6 +394,10 @@ class RotatingIPJA3H2Client(AbstractH2Client):
                     "application/x-www-form-urlencoded",
                 )
         return self._request("POST", url, headers=request_headers, content=body)
+
+    def _should_use_fallback(self, url: str) -> bool:
+        parsed = urllib.parse.urlsplit(url)
+        return (parsed.hostname or "").lower() != self._healthcheck_host.lower()
 
     def _init_healthchecked_pool(self) -> None:
         sources = _dedupe_sources(self._source_ip_provider())
@@ -447,7 +497,12 @@ class RotatingIPJA3H2Client(AbstractH2Client):
         host = parsed.hostname
         port = parsed.port or 443
         request = httpx.Request(method, url)
-        request_headers = self._request_headers(method, url, headers=headers)
+        request_headers = self._request_headers(
+            method,
+            url,
+            headers=headers,
+            content=content,
+        )
 
         last_exc: Exception | None = None
         failed_sources: set[str] = set()
@@ -484,11 +539,14 @@ class RotatingIPJA3H2Client(AbstractH2Client):
         method: str,
         url: str,
         headers: HeaderItems | None = None,
+        content: bytes | str | None = None,
     ) -> httpx.Headers:
         request_headers = httpx.Headers(self._headers)
         request_headers.update(headers or {})
         request = httpx.Request(method, url, headers=request_headers)
         self._cookies.set_cookie_header(request)
+        if method.upper() == "POST":
+            request.headers["content-length"] = str(_content_length(content))
         return request.headers
 
     def _to_httpx_response(

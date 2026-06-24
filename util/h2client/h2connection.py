@@ -16,6 +16,7 @@ from h2.events import (
     StreamReset,
     TrailersReceived,
 )
+from loguru import logger
 
 try:
     from .client_ja import (
@@ -52,6 +53,7 @@ AddressFamily = Literal["auto", "ipv4", "ipv6"]
 
 _CONNECTION_SPECIFIC_HEADERS = {
     "connection",
+    "host",
     "keep-alive",
     "proxy-connection",
     "te",
@@ -189,6 +191,17 @@ def _coerce_body(content: bytes | str | None) -> bytes:
     return content.encode("utf-8")
 
 
+def _body_for_log(body: bytes) -> str:
+    return body.decode("utf-8", errors="replace")
+
+
+def _header_value(headers: Sequence[tuple[str, str]], name: str) -> str:
+    for header_name, value in headers:
+        if header_name == name:
+            return value
+    return ""
+
+
 def _normalize_header_items(headers: HeaderItems | None) -> list[tuple[str, str]]:
     if headers is None:
         return []
@@ -264,11 +277,15 @@ def build_request_headers(
         (":scheme", target.scheme),
         (":path", target.path),
     ]
+    if content_length is not None:
+        user_headers = [
+            (name, value)
+            for name, value in user_headers
+            if name != "content-length"
+        ]
     request_headers.extend(user_headers)
 
-    if content_length is not None and not any(
-        name == "content-length" for name, _ in user_headers
-    ):
+    if content_length is not None:
         request_headers.append(("content-length", str(content_length)))
 
     return request_headers
@@ -418,6 +435,7 @@ class H2Connection:
             headers=headers,
             content_length=len(body) if method == "POST" else None,
         )
+        self._log_request(method, request_headers, body)
 
         self.connect()
         assert self._h2 is not None
@@ -430,7 +448,9 @@ class H2Connection:
         if body:
             self._send_body(stream_id, body)
         self._flush()
-        return self._read_response(stream_id)
+        response = self._read_response(stream_id)
+        self._log_response(response)
+        return response
 
     def _send_body(self, stream_id: int, body: bytes) -> None:
         assert self._h2 is not None
@@ -444,6 +464,34 @@ class H2Connection:
                 chunk,
                 end_stream=(pos >= len(body)),
             )
+
+    def _log_request(
+        self,
+        method: str,
+        headers: list[tuple[str, str]],
+        body: bytes,
+    ) -> None:
+        logger.debug(
+            "H2 request source_ip={} method={} path={} headers={} body_len={} body={}",
+            self.config.source_ip or "auto",
+            method,
+            _header_value(headers, ":path"),
+            headers,
+            len(body),
+            _body_for_log(body),
+        )
+
+    def _log_response(self, response: H2Response) -> None:
+        logger.debug(
+            "H2 response source_ip={} stream_id={} status={} headers={} "
+            "body_len={} body={}",
+            self.config.source_ip or "auto",
+            response.stream_id,
+            response.status,
+            response.headers,
+            len(response.body),
+            _body_for_log(response.body),
+        )
 
     def _flush(self) -> None:
         assert self._tls is not None

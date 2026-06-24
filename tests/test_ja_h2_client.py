@@ -3,6 +3,8 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
+import httpx
+
 from h2client_loader import load_h2client_module
 
 
@@ -70,6 +72,44 @@ class FakeH2Connection:
         self.closed = True
 
 
+class FakeFallbackClient:
+    instances: list["FakeFallbackClient"] = []
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.kwargs = kwargs
+        self.headers = httpx.Headers(kwargs.get("headers") or {})
+        self.cookies = httpx.Cookies(kwargs.get("cookies"))
+        self.calls: list[tuple[str, str, dict[str, Any]]] = []
+        self.closed = False
+        self.instances.append(self)
+
+    def get(self, url: str, **kwargs: Any) -> httpx.Response:
+        self.calls.append(("GET", url, kwargs))
+        return httpx.Response(
+            200,
+            text="fallback-get",
+            request=httpx.Request("GET", url),
+        )
+
+    def post(self, url: str, **kwargs: Any) -> httpx.Response:
+        self.calls.append(("POST", url, kwargs))
+        return httpx.Response(
+            200,
+            text="fallback-post",
+            request=httpx.Request("POST", url),
+        )
+
+    def head(self, url: str, **kwargs: Any) -> httpx.Response:
+        self.calls.append(("HEAD", url, kwargs))
+        return httpx.Response(
+            200,
+            request=httpx.Request("HEAD", url),
+        )
+
+    def close(self) -> None:
+        self.closed = True
+
+
 def first_slot(slots):
     return slots[0]
 
@@ -79,6 +119,7 @@ class RotatingIPJA3H2ClientTests(unittest.TestCase):
         FakeH2Connection.fail_healthcheck_sources = set()
         FakeH2Connection.fail_request_sources = set()
         FakeH2Connection.instances = []
+        FakeFallbackClient.instances = []
 
     def test_constructor_keeps_only_healthchecked_sources(self) -> None:
         FakeH2Connection.fail_healthcheck_sources = {"192.0.2.2"}
@@ -138,6 +179,7 @@ class RotatingIPJA3H2ClientTests(unittest.TestCase):
         self.assertEqual(response.text, '{"project_id":1}')
         _, _, headers, content = FakeH2Connection.instances[0].calls[-1]
         self.assertEqual(headers["content-type"], "application/json")
+        self.assertNotEqual(headers.get("content-length"), "0")
         self.assertEqual(content, b'{"project_id":1}')
 
         client.close()
@@ -157,6 +199,78 @@ class RotatingIPJA3H2ClientTests(unittest.TestCase):
 
         self.assertEqual(response.text, "192.0.2.2")
         self.assertTrue(FakeH2Connection.instances[0].closed)
+
+        client.close()
+
+    def test_non_show_get_delegates_to_fallback_httpx_client(self) -> None:
+        client = RotatingIPJA3H2Client(
+            headers={"user-agent": "ua"},
+            source_ip_provider=lambda: [SourceAddress("192.0.2.1", "ipv4", "WLAN")],
+            connection_factory=FakeH2Connection,
+            slot_chooser=first_slot,
+            fallback_client_factory=FakeFallbackClient,
+        )
+        client.headers["x-client-header"] = "yes"
+        client.cookies.set("SESSDATA", "abc", domain=".bilibili.com")
+
+        response = client.get(
+            "https://api.bilibili.com/x/web-interface/nav",
+            params={"foo": "bar"},
+            headers={"accept": "application/json"},
+        )
+
+        fallback = FakeFallbackClient.instances[0]
+        self.assertEqual(response.text, "fallback-get")
+        self.assertEqual(len(FakeH2Connection.instances[0].calls), 1)
+        self.assertEqual(
+            fallback.calls,
+            [
+                (
+                    "GET",
+                    "https://api.bilibili.com/x/web-interface/nav",
+                    {
+                        "params": {"foo": "bar"},
+                        "headers": {"accept": "application/json"},
+                    },
+                )
+            ],
+        )
+        self.assertEqual(fallback.headers["x-client-header"], "yes")
+        self.assertEqual(fallback.cookies.get("SESSDATA"), "abc")
+
+        client.close()
+
+    def test_non_show_post_delegates_to_fallback_httpx_client(self) -> None:
+        client = RotatingIPJA3H2Client(
+            source_ip_provider=lambda: [SourceAddress("192.0.2.1", "ipv4", "WLAN")],
+            connection_factory=FakeH2Connection,
+            slot_chooser=first_slot,
+            fallback_client_factory=FakeFallbackClient,
+        )
+
+        response = client.post(
+            "https://api.bilibili.com/x/test",
+            json={"ok": True},
+            headers={"accept": "application/json"},
+        )
+
+        fallback = FakeFallbackClient.instances[0]
+        self.assertEqual(response.text, "fallback-post")
+        self.assertEqual(
+            fallback.calls,
+            [
+                (
+                    "POST",
+                    "https://api.bilibili.com/x/test",
+                    {
+                        "data": None,
+                        "json": {"ok": True},
+                        "content": None,
+                        "headers": {"accept": "application/json"},
+                    },
+                )
+            ],
+        )
 
         client.close()
 

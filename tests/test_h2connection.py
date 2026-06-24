@@ -86,6 +86,23 @@ class H2ConnectionTests(unittest.TestCase):
         self.assertIn(("content-type", "application/json"), headers)
         self.assertIn(("content-length", "2"), headers)
 
+    def test_build_post_headers_overrides_stale_content_length(self) -> None:
+        headers = build_request_headers(
+            "POST",
+            "/api/ticket/order/prepare?project_id=1001653",
+            remote_host="show.bilibili.com",
+            headers=[
+                ("host", "show.bilibili.com"),
+                ("content-length", "0"),
+                ("content-type", "application/json"),
+            ],
+            content_length=485,
+        )
+
+        self.assertNotIn(("host", "show.bilibili.com"), headers)
+        self.assertNotIn(("content-length", "0"), headers)
+        self.assertIn(("content-length", "485"), headers)
+
     def test_connection_can_assert_ja_without_connecting(self) -> None:
         source_ip, family = get_discovered_source_config()
         connection = H2Connection(
