@@ -187,13 +187,13 @@ if ! RELEASE_JSON="$(request_release_json)"; then
   exit 1
 fi
 
-# 将每个 asset 对象拆到单独一行，再匹配当前平台。
+# 将每个 asset 对象拆到单独一行，再匹配当前平台的 CLI zip。
 ASSET_URL="$(
   printf '%s' "$RELEASE_JSON" |
     tr -d '\n' |
     sed 's/},{/},\
 {/g' |
-    grep "\"name\":\"[^\"]*_${PLATFORM_KEY}_[^\"]*\"" |
+    grep "\"name\":\"[^\"]*_${PLATFORM_KEY}_[^\"]*\.zip\"" |
     sed -n 's/.*"browser_download_url":"\([^"]*\)".*/\1/p' |
     head -n 1
 )"
