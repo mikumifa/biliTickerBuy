@@ -485,7 +485,7 @@ def buy_stream(config: BuyConfig):
                 data=token_payload,
                 isJson=True,
             )
-            
+
             request_result = request_result_normal.json()
             proxy_backoff.reset()
             yield emit(
@@ -807,7 +807,7 @@ def buy_stream(config: BuyConfig):
                 f"订单准备请求异常({e.__class__.__name__})"
             ):
                 yield message
-        except JSONDecodeError as exc:
+        except JSONDecodeError:
             yield from handle_non_json_response(
                 "准备订单接口",
                 request_result_normal,

@@ -129,7 +129,9 @@ def fetch_proxy_api(
     timeout: int = 15,
 ) -> ProxyApiResult:
     request_url = build_proxy_api_url(api_url, count=count, protocol=protocol)
-    response = requests.request("GET", request_url, headers={}, data={}, timeout=timeout)
+    response = requests.request(
+        "GET", request_url, headers={}, data={}, timeout=timeout
+    )
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, dict):

@@ -15,8 +15,7 @@ def test_build_proxy_api_url_overrides_required_params():
     )
 
     assert url == (
-        "http://api.example.com/get?"
-        "app_key=abc&count=3&format=json&protocol=socks5"
+        "http://api.example.com/get?app_key=abc&count=3&format=json&protocol=socks5"
     )
 
 

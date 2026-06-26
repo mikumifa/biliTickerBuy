@@ -84,15 +84,15 @@ def go_settings_tab(header_ui):
             from util.proxy.ProxyApiProvider import fetch_proxy_api
 
             protocol = (
-                "socks5"
-                if str(protocol).lower() in {"socks", "socks5"}
-                else "http"
+                "socks5" if str(protocol).lower() in {"socks", "socks5"} else "http"
             )
             ConfigDB.insert("proxyApiUrl", str(api_url or "").strip())
             ConfigDB.insert("proxyApiProtocol", protocol)
             count = ConfigDB.get_as_int("queueConcurrencyLimit", 0)
             if count <= 0:
-                count = max(1, len(_split_proxy_lines(ConfigDB.get("https_proxy") or "")))
+                count = max(
+                    1, len(_split_proxy_lines(ConfigDB.get("https_proxy") or ""))
+                )
             result = fetch_proxy_api(api_url, count=count, protocol=protocol)
             ConfigDB.insert("https_proxy", ",".join(result.proxies))
             gr.Info(f"已从代理 API 获取 {len(result.proxies)} 个代理。")
@@ -101,14 +101,12 @@ def go_settings_tab(header_ui):
                 visible=True,
             )
         except Exception as e:
-            return gr.update(), gr.update(value=f"❌ 获取代理失败: {str(e)}", visible=True)
+            return gr.update(), gr.update(
+                value=f"❌ 获取代理失败: {str(e)}", visible=True
+            )
 
     def save_proxy_api_config(api_url, protocol):
-        protocol = (
-            "socks5"
-            if str(protocol).lower() in {"socks", "socks5"}
-            else "http"
-        )
+        protocol = "socks5" if str(protocol).lower() in {"socks", "socks5"} else "http"
         ConfigDB.insert("proxyApiUrl", str(api_url or "").strip())
         ConfigDB.insert("proxyApiProtocol", protocol)
         gr.Info("代理 API 配置已保存。")
