@@ -19,6 +19,9 @@ class BuyStreamState:
     attempt_current: int | None = None
     attempt_total: int | None = None
     payment_qr_url: str | None = None
+    order_id: int | str | None = None
+    order_detail_url: str | None = None
+    payment_code_url: str | None = None
     status: str = "running"
     last_message: str = ""
 
@@ -42,6 +45,9 @@ class BuyStreamUpdate:
     attempt_current: int | None = None
     attempt_total: int | None = None
     payment_qr_url: str | None = None
+    order_id: int | str | None = None
+    order_detail_url: str | None = None
+    payment_code_url: str | None = None
     status: str | None = None
 
     def apply_to(self, state: BuyStreamState) -> None:
@@ -63,6 +69,12 @@ class BuyStreamUpdate:
             state.attempt_total = self.attempt_total
         if self.payment_qr_url is not None:
             state.payment_qr_url = self.payment_qr_url
+        if self.order_id is not None:
+            state.order_id = self.order_id
+        if self.order_detail_url is not None:
+            state.order_detail_url = self.order_detail_url
+        if self.payment_code_url is not None:
+            state.payment_code_url = self.payment_code_url
         if self.status is not None:
             state.status = self.status
 
@@ -86,6 +98,12 @@ class BuyStreamUpdate:
             data["attempt_total"] = self.attempt_total
         if self.payment_qr_url is not None:
             data["payment_qr_url"] = self.payment_qr_url
+        if self.order_id is not None:
+            data["order_id"] = self.order_id
+        if self.order_detail_url is not None:
+            data["order_detail_url"] = self.order_detail_url
+        if self.payment_code_url is not None:
+            data["payment_code_url"] = self.payment_code_url
         if self.status is not None:
             data["status"] = self.status
         return data

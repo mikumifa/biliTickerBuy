@@ -4,6 +4,7 @@ import datetime
 import math
 import time
 from collections.abc import Callable
+from typing import Any
 
 from cptoken import CTokenRuntimeState, sim_ctoken_state
 
@@ -34,6 +35,20 @@ def get_qrcode_url(_request, order_id) -> str:
 
 def get_order_detail_url(order_id: int | str) -> str:
     return f"{BASE_URL}/platform/orderDetail.html?order_id={order_id}"
+
+
+def build_payment_result(
+    _request: BiliRequest,
+    order_id: int | str,
+) -> dict[str, Any]:
+    order_detail_url = get_order_detail_url(order_id)
+    payment_code_url = get_qrcode_url(_request, order_id)
+    return {
+        "order_id": order_id,
+        "order_detail_url": order_detail_url,
+        "payment_code_url": payment_code_url,
+        "payment_qr_url": order_detail_url,
+    }
 
 
 def format_countdown(seconds: float) -> str:

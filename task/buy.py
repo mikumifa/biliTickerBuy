@@ -31,13 +31,13 @@ from util.TimeUtil import current_time_ms
 from util.ErrorCodes import ErrorCodes
 from task.buy_helpers import (
     BASE_URL as base_url,
+    build_payment_result,
     build_token_payload as _build_token_payload,
     create_order_terminal_rule as _create_order_terminal_rule,
     extract_order_id as _extract_order_id,
     format_retry_reason as _format_retry_reason,
     format_status_result as _format_status_result,
     get_order_detail_url,
-    get_qrcode_url,
     handle_proxy_failure as _handle_proxy_failure,
     is_create_success as _is_create_success,
     prepare_create_request as _prepare_create_request,
@@ -221,6 +221,30 @@ def buy_stream(config: BuyConfig):
             state=copy.deepcopy(state),
             data=update.to_dict() if update is not None else {},
         )
+
+    def emit_payment_details(
+        payment_result: dict,
+        *,
+        status: str,
+    ):
+        update = BuyStreamUpdate(
+            order_id=payment_result.get("order_id"),
+            order_detail_url=payment_result.get("order_detail_url"),
+            payment_code_url=payment_result.get("payment_code_url"),
+            payment_qr_url=payment_result.get("payment_qr_url"),
+            status=status,
+        )
+
+        markers = [
+            ("ORDER_ID", payment_result.get("order_id")),
+            ("ORDER_DETAIL_URL", payment_result.get("order_detail_url")),
+            ("PAYMENT_CODE_URL", payment_result.get("payment_code_url")),
+            ("PAYMENT_QR_URL", payment_result.get("payment_qr_url")),
+        ]
+        for marker, value in markers:
+            if value in (None, ""):
+                continue
+            yield emit("payment_qr", f"{marker}={value}", update)
 
     def handle_proxy_failure(
         reason: str,
@@ -715,23 +739,47 @@ def buy_stream(config: BuyConfig):
                     errno, terminal_ret, terminal_rule = terminal_result
                     order_id = _extract_order_id(terminal_ret)
                     if terminal_rule.expose_payment_url and order_id is not None:
-                        payment_url = get_order_detail_url(order_id)
-                        yield emit(
-                            "payment_qr",
-                            "PAYMENT_QR_URL={0}".format(payment_url),
-                            BuyStreamUpdate(
-                                payment_qr_url=payment_url,
-                                status=terminal_rule.status,
-                            ),
-                        )
+                        payment_result = {
+                            "order_id": order_id,
+                            "order_detail_url": get_order_detail_url(order_id),
+                            "payment_code_url": None,
+                            "payment_qr_url": get_order_detail_url(order_id),
+                        }
+                        try:
+                            payment_result = build_payment_result(_request, order_id)
+                        except Exception as exc:
+                            yield emit(
+                                "status",
+                                f"获取支付二维码链接失败，将继续返回订单详情页: {exc}",
+                                BuyStreamUpdate(
+                                    order_id=payment_result["order_id"],
+                                    order_detail_url=payment_result["order_detail_url"],
+                                    payment_qr_url=payment_result["payment_qr_url"],
+                                    status=terminal_rule.status,
+                                ),
+                            )
+                        for payment_event in emit_payment_details(
+                            payment_result,
+                            status=terminal_rule.status,
+                        ):
+                            yield payment_event
                         if config.auto_open_payment_url:
                             try:
-                                webbrowser.open(payment_url)
+                                webbrowser.open(payment_result["order_detail_url"])
                                 yield emit(
                                     "status",
                                     "已自动打开现有订单链接",
                                     BuyStreamUpdate(
-                                        payment_qr_url=payment_url,
+                                        order_id=payment_result.get("order_id"),
+                                        order_detail_url=payment_result.get(
+                                            "order_detail_url"
+                                        ),
+                                        payment_code_url=payment_result.get(
+                                            "payment_code_url"
+                                        ),
+                                        payment_qr_url=payment_result.get(
+                                            "payment_qr_url"
+                                        ),
                                         status=terminal_rule.status,
                                     ),
                                 )
@@ -765,35 +813,31 @@ def buy_stream(config: BuyConfig):
                     ),
                 )
                 order_id = request_result["data"]["orderId"]  # type: ignore
-                payment_url = get_order_detail_url(order_id)
-                qrcode_url = get_qrcode_url(
-                    _request,
-                    order_id,
-                )
-                yield emit(
-                    "payment_qr",
-                    "PAYMENT_QR_URL={0}".format(payment_url),
-                    BuyStreamUpdate(
-                        payment_qr_url=payment_url,
-                        status="succeeded",
-                    ),
-                )
+                payment_result = build_payment_result(_request, order_id)
+                for payment_event in emit_payment_details(
+                    payment_result,
+                    status="succeeded",
+                ):
+                    yield payment_event
                 if config.auto_open_payment_url:
                     try:
-                        webbrowser.open(payment_url)
+                        webbrowser.open(payment_result["order_detail_url"])
                         yield emit(
                             "status",
                             "已自动打开支付链接",
                             BuyStreamUpdate(
-                                payment_qr_url=payment_url,
+                                order_id=payment_result.get("order_id"),
+                                order_detail_url=payment_result.get("order_detail_url"),
+                                payment_code_url=payment_result.get("payment_code_url"),
+                                payment_qr_url=payment_result.get("payment_qr_url"),
                                 status="succeeded",
                             ),
                         )
                     except Exception as exc:
                         yield emit("status", f"自动打开支付链接失败: {exc}")
-                if config.show_qrcode:
+                if config.show_qrcode and payment_result.get("payment_code_url"):
                     qr_gen = qrcode.QRCode()
-                    qr_gen.add_data(qrcode_url)
+                    qr_gen.add_data(payment_result["payment_code_url"])
                     qr_gen.make(fit=True)
                     qr_gen_image = qr_gen.make_image()
                     qr_gen_image.show()  # type: ignore

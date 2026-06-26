@@ -20,6 +20,29 @@ _TASKS: dict[str, BuyTaskRecord] = {}
 _TASKS_LOCK = threading.Lock()
 
 
+def _collect_payment_fields_from_event(event: Any) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    state = getattr(event, "state", None)
+    for key in ("payment_qr_url", "order_id", "order_detail_url", "payment_code_url"):
+        value = getattr(state, key, None) if state is not None else None
+        if value not in (None, ""):
+            result[key] = value
+
+    message = getattr(event, "message", None)
+    if isinstance(message, str):
+        markers = {
+            "PAYMENT_QR_URL=": "payment_qr_url",
+            "ORDER_ID=": "order_id",
+            "ORDER_DETAIL_URL=": "order_detail_url",
+            "PAYMENT_CODE_URL=": "payment_code_url",
+        }
+        for prefix, field in markers.items():
+            if message.startswith(prefix):
+                result[field] = message.split("=", 1)[1]
+                break
+    return result
+
+
 def _package_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
@@ -129,6 +152,9 @@ def _build_managed_failure_result(
         "status": "failed",
         "error": error,
         "payment_qr_url": status.get("payment_qr_url"),
+        "order_id": status.get("order_id"),
+        "order_detail_url": status.get("order_detail_url"),
+        "payment_code_url": status.get("payment_code_url"),
         "logs_path": status.get("logs_path"),
         "last_message": status.get("last_message"),
     }
@@ -202,6 +228,12 @@ def _reconcile_managed_run(run_dir: Path, status: dict[str, Any]) -> dict[str, A
             }
             if result.get("payment_qr_url"):
                 fields["payment_qr_url"] = result["payment_qr_url"]
+            if result.get("order_id") not in (None, ""):
+                fields["order_id"] = result["order_id"]
+            if result.get("order_detail_url"):
+                fields["order_detail_url"] = result["order_detail_url"]
+            if result.get("payment_code_url"):
+                fields["payment_code_url"] = result["payment_code_url"]
             if result.get("last_message"):
                 fields["last_message"] = result["last_message"]
             if terminal_status == "failed" and result.get("error"):
@@ -257,8 +289,9 @@ def _run_buy_task(
             _append_log(task_id, message)
             if "抢票成功" in message:
                 succeeded = True
-            if message.startswith("PAYMENT_QR_URL="):
-                _update_task(task_id, payment_qr_url=message.split("=", 1)[1])
+            payment_fields = _collect_payment_fields_from_event(event)
+            if payment_fields:
+                _update_task(task_id, **payment_fields)
 
         _update_task(
             task_id,
@@ -351,6 +384,9 @@ def run_buy_sync(
 
     logs: list[str] = []
     payment_qr_url: str | None = None
+    order_id: int | str | None = None
+    order_detail_url: str | None = None
+    payment_code_url: str | None = None
     succeeded = False
     for event in buy_job.stream():
         message = event.message
@@ -359,8 +395,15 @@ def run_buy_sync(
         logs.append(message)
         if "抢票成功" in message:
             succeeded = True
-        if message.startswith("PAYMENT_QR_URL="):
-            payment_qr_url = message.split("=", 1)[1]
+        payment_fields = _collect_payment_fields_from_event(event)
+        if "payment_qr_url" in payment_fields:
+            payment_qr_url = payment_fields["payment_qr_url"]
+        if "order_id" in payment_fields:
+            order_id = payment_fields["order_id"]
+        if "order_detail_url" in payment_fields:
+            order_detail_url = payment_fields["order_detail_url"]
+        if "payment_code_url" in payment_fields:
+            payment_code_url = payment_fields["payment_code_url"]
 
     return {
         "ok": True,
@@ -368,6 +411,9 @@ def run_buy_sync(
         "status": "succeeded" if succeeded else "completed",
         "logs": logs,
         "payment_qr_url": payment_qr_url,
+        "order_id": order_id,
+        "order_detail_url": order_detail_url,
+        "payment_code_url": payment_code_url,
     }
 
 
@@ -418,6 +464,9 @@ def start_managed_buy(
         "updated_at": run_metadata["created_at"],
         "finished_at": None,
         "payment_qr_url": None,
+        "order_id": None,
+        "order_detail_url": None,
+        "payment_code_url": None,
         "error": None,
         "last_message": None,
         "heartbeat_timeout_seconds": max(float(runtime.interval) / 1000.0 * 20.0, 30.0),
@@ -558,6 +607,9 @@ def cancel_managed_buy(
             "run_id": run_id,
             "status": "cancelled",
             "payment_qr_url": updated_status.get("payment_qr_url"),
+            "order_id": updated_status.get("order_id"),
+            "order_detail_url": updated_status.get("order_detail_url"),
+            "payment_code_url": updated_status.get("payment_code_url"),
             "logs_path": updated_status.get("logs_path"),
             "last_message": "cancelled by API",
         },

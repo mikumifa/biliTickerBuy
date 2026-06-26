@@ -72,6 +72,9 @@ def main(run_dir_arg: str) -> int:
         "updated_at": time.time(),
         "finished_at": None,
         "payment_qr_url": None,
+        "order_id": None,
+        "order_detail_url": None,
+        "payment_code_url": None,
         "error": None,
         "last_message": None,
         "heartbeat_timeout_seconds": existing_status.get("heartbeat_timeout_seconds"),
@@ -113,8 +116,24 @@ def main(run_dir_arg: str) -> int:
                         final_status = "succeeded"
                     if "有重复订单" in message:
                         final_status = "duplicate_order"
+                    payment_state = event.state
+                    for key in (
+                        "payment_qr_url",
+                        "order_id",
+                        "order_detail_url",
+                        "payment_code_url",
+                    ):
+                        value = getattr(payment_state, key, None)
+                        if value not in (None, ""):
+                            status[key] = value
                     if message.startswith("PAYMENT_QR_URL="):
                         status["payment_qr_url"] = message.split("=", 1)[1]
+                    elif message.startswith("ORDER_ID="):
+                        status["order_id"] = message.split("=", 1)[1]
+                    elif message.startswith("ORDER_DETAIL_URL="):
+                        status["order_detail_url"] = message.split("=", 1)[1]
+                    elif message.startswith("PAYMENT_CODE_URL="):
+                        status["payment_code_url"] = message.split("=", 1)[1]
                 _dump_json(status_path, status)
     except BaseException as exc:
         with status_lock:
@@ -133,6 +152,9 @@ def main(run_dir_arg: str) -> int:
                 "status": "failed",
                 "error": repr(exc),
                 "payment_qr_url": status["payment_qr_url"],
+                "order_id": status["order_id"],
+                "order_detail_url": status["order_detail_url"],
+                "payment_code_url": status["payment_code_url"],
                 "logs_path": str(logs_path),
                 "last_message": status["last_message"],
             },
@@ -153,6 +175,9 @@ def main(run_dir_arg: str) -> int:
             "run_id": metadata["run_id"],
             "status": final_status,
             "payment_qr_url": status["payment_qr_url"],
+            "order_id": status["order_id"],
+            "order_detail_url": status["order_detail_url"],
+            "payment_code_url": status["payment_code_url"],
             "logs_path": str(logs_path),
             "last_message": status["last_message"],
         },

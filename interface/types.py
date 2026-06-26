@@ -25,6 +25,9 @@ class BuyTaskRecord:
     finished_at: float | None = None
     error: str | None = None
     payment_qr_url: str | None = None
+    order_id: int | str | None = None
+    order_detail_url: str | None = None
+    payment_code_url: str | None = None
     logs: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
