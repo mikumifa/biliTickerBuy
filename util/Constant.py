@@ -4,7 +4,7 @@ import datetime
 BEIJING_TZ = datetime.timezone(datetime.timedelta(hours=8), name="Asia/Shanghai")
 GO_UPLOADED_FILES_STATE_KEY = "go.uploaded_config_files"
 DEFAULT_REQUEST_INTERVAL = 1000
-DEFAULT_RATE_LIMIT_DELAY_MS = 100
+DEFAULT_RATE_LIMIT_DELAY_MS = 300  # 963
 DEFAULT_CREATE_REQUEST_BATCH_SIZE = 3
 DEFAULT_PROXY_MAX_CONSECUTIVE_FAILURES = 2
 DEFAULT_PROXY_COOLDOWN_SECONDS = 180
@@ -19,8 +19,6 @@ DEFAULT_CREATE_RETRY_LIMIT = 20
 DEFAULT_OUTER_LOOP_INTERVAL = 0
 UPDATE_CHANNEL_KEY = "update_channel"
 PACKAGE_NAME = "bilitickerbuy"
-_LOG_VIEW_ROUTE = "/__btb/logs/view"
-_LOG_STREAM_ROUTE = "/__btb/logs/stream"
 MEOW_API_BASE = "https://api.chuckfang.com"
 DEFAULT_TIMEOUT = (3.05, 8)
 H2_TIMEOUT = {
