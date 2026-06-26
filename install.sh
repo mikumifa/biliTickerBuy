@@ -184,14 +184,18 @@ parse_version_info() {
   platform_block="$(
     printf '%s\n' "$version_info_json" |
       awk -v target="\"${platform_key}\"" '
-        index($0, target) {
+        !in_block && index($0, target) {
           in_block = 1
         }
 
         in_block {
           print
 
-          if ($0 ~ /^[[:space:]]*}[,]?[[:space:]]*$/) {
+          opens = gsub(/\{/, "{")
+          closes = gsub(/\}/, "}")
+          depth += opens - closes
+
+          if (depth <= 0) {
             exit
           }
         }
@@ -218,6 +222,35 @@ parse_version_info() {
         's/^[[:space:]]*"size"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' |
       head -n 1
   )"
+
+  # macOS 发行包同时包含 dmg 和 CLI zip，安装脚本需要 CLI zip。
+  cli_asset_block="$(
+    printf '%s\n' "$platform_block" |
+      sed -n '/_cli\.zip"/,+4p'
+  )"
+
+  if [ -n "$cli_asset_block" ]; then
+    ASSET_NAME="$(
+      printf '%s\n' "$cli_asset_block" |
+        sed -n \
+          's/^[[:space:]]*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+        head -n 1
+    )"
+
+    ASSET_SHA256="$(
+      printf '%s\n' "$cli_asset_block" |
+        sed -n \
+          's/^[[:space:]]*"sha256"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+        head -n 1
+    )"
+
+    ASSET_SIZE="$(
+      printf '%s\n' "$cli_asset_block" |
+        sed -n \
+          's/^[[:space:]]*"size"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' |
+        head -n 1
+    )"
+  fi
 
   if [ -z "$RELEASE_TAG" ]; then
     echo "version-info.json 中缺少 version 字段。" >&2
