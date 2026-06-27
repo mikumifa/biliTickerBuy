@@ -16,3 +16,4 @@ httpx[brotli,http2,socks,zstd]>=0.28.1
 textual>=8.2.7
 rich>=15.0.0
 tyro>=0.9.28
+cryptography~=48.0.0

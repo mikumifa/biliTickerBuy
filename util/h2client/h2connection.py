@@ -502,11 +502,12 @@ class H2Connection:
         body: bytes,
     ) -> None:
         logger.debug(
-            "H2 request source_ip={} method={} path={} body_len={}",
+            "H2 request source_ip={} method={} path={} body_len={} header={}",
             self.config.source_ip or "auto",
             method,
             _header_value(headers, ":path"),
             len(body),
+            str({name: value for name, value in headers}),
         )
 
     def _log_response(self, response: H2Response) -> None:
