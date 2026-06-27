@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
 
 import requests
 
@@ -68,28 +68,131 @@ def _iter_proxy_items(payload: Any) -> list[Any]:
     return []
 
 
-def _extract_host_port(item: Any) -> tuple[str, str] | None:
-    if isinstance(item, dict):
-        proxy_value = item.get("proxy") or item.get("addr") or item.get("address")
-        if proxy_value:
-            return _extract_host_port(str(proxy_value))
+def _normalize_proxy_scheme(scheme: str | None, fallback_protocol: str) -> str:
+    text = str(scheme or "").strip().lower()
+    if text in {"socks", "socks5"}:
+        return "socks5"
+    if text == "socks4":
+        return "socks4"
+    if text in {"http", "https"}:
+        return text
+    return normalize_proxy_api_protocol(fallback_protocol)
 
-        host = item.get("ip") or item.get("host")
-        port = item.get("port")
+
+def _format_proxy_url(
+    *,
+    scheme: str,
+    host: str,
+    port: str,
+    username: str = "",
+    password: str = "",
+) -> str:
+    host = str(host or "").strip()
+    port = str(port or "").strip()
+    username = str(username or "").strip()
+    password = str(password or "")
+    if ":" in host and not (host.startswith("[") and host.endswith("]")):
+        host = f"[{host}]"
+    if username:
+        auth = quote(username, safe="")
+        if password:
+            auth = f"{auth}:{quote(password, safe='')}"
+        return f"{scheme}://{auth}@{host}:{port}"
+    return f"{scheme}://{host}:{port}"
+
+
+def _get_any_key(item: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in item:
+            return item[key]
+    lower_item = {str(key).lower(): value for key, value in item.items()}
+    for key in keys:
+        value = lower_item.get(key.lower())
+        if value is not None:
+            return value
+    return None
+
+
+def _extract_proxy_parts(
+    item: Any,
+    *,
+    protocol: str,
+) -> tuple[str, str, str, str, str] | None:
+    if isinstance(item, dict):
+        proxy_value = _get_any_key(item, "proxy", "addr", "address")
+        if proxy_value:
+            return _extract_proxy_parts(str(proxy_value), protocol=protocol)
+
+        host = _get_any_key(item, "ip", "host")
+        port = _get_any_key(item, "port")
         if host and port:
-            return str(host).strip(), str(port).strip()
+            username = (
+                _get_any_key(item, "username", "user", "account", "authkey")
+                or ""
+            )
+            password = (
+                _get_any_key(item, "password", "pass", "pwd", "authpwd")
+                or ""
+            )
+            scheme = _normalize_proxy_scheme(
+                _get_any_key(item, "protocol", "scheme", "type"),
+                protocol,
+            )
+            return (
+                scheme,
+                str(host).strip(),
+                str(port).strip(),
+                str(username).strip(),
+                str(password),
+            )
         return None
 
     text = str(item or "").strip()
     if not text:
         return None
-    text = re.sub(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", "", text)
+
+    parsed = urlsplit(text)
+    if parsed.scheme and parsed.netloc:
+        try:
+            port = parsed.port
+        except ValueError:
+            port = None
+        if parsed.hostname and port:
+            return (
+                _normalize_proxy_scheme(parsed.scheme, protocol),
+                parsed.hostname.strip(),
+                str(port),
+                unquote(parsed.username or "").strip(),
+                unquote(parsed.password or ""),
+            )
+
+    scheme = normalize_proxy_api_protocol(protocol)
+    schema_match = re.match(r"^([a-zA-Z][a-zA-Z0-9+.-]*)://(.+)$", text)
+    if schema_match:
+        scheme = _normalize_proxy_scheme(schema_match.group(1), protocol)
+        text = schema_match.group(2)
+
+    text = text.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    username = ""
+    password = ""
     if "@" in text:
-        text = text.rsplit("@", 1)[1]
+        auth, text = text.rsplit("@", 1)
+        username, _, password = auth.partition(":")
+
+    parts = text.split(":")
+    if len(parts) >= 4:
+        return (
+            scheme,
+            parts[0].strip(),
+            parts[1].strip(),
+            username or parts[2].strip(),
+            password or ":".join(parts[3:]),
+        )
+
     if ":" not in text:
         return None
     host, port = text.rsplit(":", 1)
-    return host.strip(), port.strip()
+    return scheme, host.strip(), port.strip(), username.strip(), password
 
 
 def parse_proxy_api_response(payload: dict[str, Any], *, protocol: str) -> list[str]:
@@ -99,17 +202,22 @@ def parse_proxy_api_response(payload: dict[str, Any], *, protocol: str) -> list[
         message = payload.get("msg") or payload.get("message") or payload
         raise ProxyApiError(f"代理 API 返回失败: {message}")
 
-    scheme = "socks" if normalize_proxy_api_protocol(protocol) == "socks5" else "http"
     proxies: list[str] = []
     seen: set[str] = set()
     for item in _iter_proxy_items(payload):
-        host_port = _extract_host_port(item)
-        if not host_port:
+        proxy_parts = _extract_proxy_parts(item, protocol=protocol)
+        if not proxy_parts:
             continue
-        host, port = host_port
+        scheme, host, port, username, password = proxy_parts
         if not host or not port.isdigit():
             continue
-        proxy = f"{scheme}://{host}:{port}"
+        proxy = _format_proxy_url(
+            scheme=scheme,
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+        )
         key = proxy.lower()
         if key in seen:
             continue
