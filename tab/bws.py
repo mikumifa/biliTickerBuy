@@ -408,7 +408,6 @@ def bws_tab():
                     value=None,
                     placeholder="必填",
                     precision=0,
-                    minimum=1,
                     scale=2,
                 )
                 interval = gr.Number(
@@ -491,6 +490,9 @@ def bws_tab():
         _require_login()
         if not _reserve_id:
             raise gr.Error("请填写预约项目 ID。")
+        reserve_id_value = int(_reserve_id)
+        if reserve_id_value <= 0:
+            raise gr.Error("预约项目 ID 必须大于 0。")
         year_value = str(_year or "").strip() or default_bws_year()
         dates_value = resolve_bws_reserve_dates(
             str(_reserve_dates or _reserve_date or "").strip(),
@@ -499,7 +501,7 @@ def bws_tab():
 
         result = run_bws_reserve_sync(
             BwsConfig(
-                reserve_id=int(_reserve_id),
+                reserve_id=reserve_id_value,
                 reserve_dates=dates_value,
                 reserve_date=str(_reserve_date or "").strip(),
                 reserve_type=int(_reserve_type if _reserve_type is not None else -1),
