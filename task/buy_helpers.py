@@ -17,7 +17,6 @@ from util.Constant import (
 )
 from util.notifer.Notifier import NotifierManager
 from util.proxy.ProxyBackoff import ProxyBackoff
-from util.TimeUtil import current_time_ms
 from util.request.BiliRequest import BiliRequest
 from util.request.TokenUtil import generate_token
 from util.ErrorCodes import ErrorCodes
@@ -79,7 +78,22 @@ def wait_until_start(time_start: str, warmup=None):
 
     timeoffset = time_service.get_timeoffset()
     yield {"message": "0) 等待开始时间"}
-    yield {"message": f"时间偏差已被设置为: {timeoffset}秒"}
+    yield {
+        "message": (
+            f"时间偏差已被设置为: {timeoffset}秒"
+            f"（时间源: {getattr(time_service, 'time_source', 'unknown')}）"
+        )
+    }
+    bili_check = time_service.compute_bili_time_check(attempts=2, timeout=1.5)
+    if bili_check is not None:
+        yield {
+            "message": (
+                "会员购Date校验: "
+                f"与当前时间源差异约{bili_check.offset_center - timeoffset:+.3f}秒，"
+                f"不确定度约±{bili_check.uncertainty_seconds:.3f}秒，"
+                f"RTT {bili_check.delay * 1000:.1f}ms"
+            )
+        }
 
     for fmt in (
         "%Y-%m-%dT%H:%M:%S",
@@ -99,7 +113,7 @@ def wait_until_start(time_start: str, warmup=None):
 
     yield {"message": f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"}
 
-    time_difference = target_time.timestamp() - time.time() + timeoffset
+    time_difference = target_time.timestamp() - time_service.now()
     end_time = time.perf_counter() + time_difference
     next_report_at = float("inf")
     warmed = False
@@ -337,7 +351,7 @@ def prepare_create_request(
     payload = dict(tickets_info)
     payload["again"] = 1
     payload["token"] = order_token
-    now_ms = current_time_ms()
+    now_ms = time_service.current_time_ms()
     payload["timestamp"] = now_ms
     payload["newRisk"] = True
     payload["requestSource"] = "neul-next"

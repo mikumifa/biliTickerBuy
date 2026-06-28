@@ -27,7 +27,7 @@ from util.proxy.ProxyBackoff import ProxyBackoff
 from util.proxy.ProxyApiProvider import fetch_proxy_api
 from util.proxy.ProxyManager import ProxyManager
 from util.notifer.RandomMessages import get_random_fail_message
-from util.TimeUtil import current_time_ms
+from util import time_service
 from util.ErrorCodes import ErrorCodes
 from task.buy_helpers import (
     BASE_URL as base_url,
@@ -490,7 +490,7 @@ def buy_stream(config: BuyConfig):
     while isRunning:
         try:
             request_result: dict | None = None
-            ticket_collection_t = current_time_ms()
+            ticket_collection_t = time_service.current_time_ms()
             ticket_state = init_ctoken_state(
                 browser_window_state=browser_window_state,
                 href_length=len(
