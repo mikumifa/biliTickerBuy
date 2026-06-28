@@ -121,7 +121,31 @@ def _extract_proxy_parts(
     if isinstance(item, dict):
         proxy_value = _get_any_key(item, "proxy", "addr", "address")
         if proxy_value:
-            return _extract_proxy_parts(str(proxy_value), protocol=protocol)
+            proxy_parts = _extract_proxy_parts(str(proxy_value), protocol=protocol)
+            if proxy_parts is None:
+                return None
+            scheme, host, port, username, password = proxy_parts
+            if username:
+                return proxy_parts
+            username = (
+                _get_any_key(item, "username", "user", "account", "authkey")
+                or ""
+            )
+            password = (
+                _get_any_key(item, "password", "pass", "pwd", "authpwd")
+                or ""
+            )
+            scheme = _normalize_proxy_scheme(
+                _get_any_key(item, "protocol", "scheme", "type") or scheme,
+                protocol,
+            )
+            return (
+                scheme,
+                host,
+                port,
+                str(username).strip(),
+                str(password),
+            )
 
         host = _get_any_key(item, "ip", "host")
         port = _get_any_key(item, "port")
