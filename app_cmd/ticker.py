@@ -23,6 +23,7 @@ def shutdown_app_process(delay_seconds: float = 1.0) -> None:
 
 def ticker_cmd(args: TickerCliArgs):
     from tab.go import go_start_tab
+    from tab.bws import bws_tab
     from tab.config import go_settings_tab
     from tab.log import log_tab, refresh_log_panel, refresh_task_panel
     from tab.problems import problems_tab
@@ -185,6 +186,8 @@ def ticker_cmd(args: TickerCliArgs):
                         load_go_start_configs,
                         go_start_load_outputs,
                     ) = go_start_tab()
+                with gr.Tab("BW乐园预约", id="bws", elem_id="btb-tab-bws"):
+                    load_bws_tab, bws_tab_load_outputs = bws_tab()
                 with gr.Tab(
                     "高级设置",
                     id="advanced",
@@ -214,6 +217,12 @@ def ticker_cmd(args: TickerCliArgs):
         demo.load(
             fn=load_login_tab,
             outputs=login_tab_load_outputs,
+            show_progress="hidden",
+            queue=False,
+        )
+        demo.load(
+            fn=load_bws_tab,
+            outputs=bws_tab_load_outputs,
             show_progress="hidden",
             queue=False,
         )
