@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-import html
 import datetime
+import html
+import os
+import uuid
 
 import gradio as gr
 import requests
@@ -12,9 +14,10 @@ from interface.bws import (
     default_bws_year,
     get_bws_reserve_context,
     resolve_bws_reserve_dates,
-    run_bws_reserve_sync,
 )
-from util import GLOBAL_COOKIE_PATH, set_main_request
+from tab.log import refresh_task_panel, render_task_manager_panel, visible_task_entries
+from task.bws import bws_new_terminal
+from util import GLOBAL_COOKIE_PATH, GlobalStatusInstance, LOG_DIR, set_main_request
 from util.request.BiliRequest import BiliRequest
 from util.request.CookieManager import CookieManager
 
@@ -334,6 +337,20 @@ def _date_dropdown_update(reserve_dates_value: str, year_value: str):
     )
 
 
+def _build_bws_task_log_path(reserve_id: int, reserve_date: str, year: str) -> str:
+    suffix = reserve_date or year or "auto"
+    filename = f"bws_{reserve_id}_{suffix}_{uuid.uuid4().hex[:8]}.log"
+    safe_name = "".join(
+        ch if ch.isalnum() or ch in "-_." else "_" for ch in filename
+    )
+    return os.path.join(LOG_DIR, safe_name)
+
+
+def _bws_task_title(reserve_id: int, reserve_date: str, year: str) -> str:
+    suffix = reserve_date or year or "自动日期"
+    return f"BW预约 {reserve_id} / {suffix}"
+
+
 def bws_tab():
     initial_account_choices = _get_account_choices()
     initial_year = default_bws_year()
@@ -430,11 +447,11 @@ def bws_tab():
             activity_panel = gr.HTML(
                 value='<div class="btb-card-note">选择账号后点击“获取预约信息”，系统会拉取你的 BW 票种和可预约项目。</div>'
             )
-            result_log = gr.Textbox(
-                label="运行日志",
-                lines=12,
-                interactive=False,
-            )
+            with gr.Column(
+                visible=bool(visible_task_entries()),
+                elem_classes="btb-card btb-card-sky btb-layout-card",
+            ) as task_panel:
+                task_refresh_token = render_task_manager_panel(task_panel)
 
     def refresh_login_status():
         choices = _get_account_choices()
@@ -498,24 +515,32 @@ def bws_tab():
             str(_reserve_dates or _reserve_date or "").strip(),
             year_value,
         )
-
-        result = run_bws_reserve_sync(
-            BwsConfig(
-                reserve_id=reserve_id_value,
-                reserve_dates=dates_value,
-                reserve_date=str(_reserve_date or "").strip(),
-                reserve_type=int(_reserve_type if _reserve_type is not None else -1),
-                year=year_value,
-                interval=int(_interval or 0),
-                retry_limit=int(_retry_limit or 0),
-                cookies_path=GLOBAL_COOKIE_PATH,
-                show_detail=True,
-            )
+        reserve_date_value = str(_reserve_date or "").strip()
+        config = BwsConfig(
+            reserve_id=reserve_id_value,
+            reserve_dates=dates_value,
+            reserve_date=reserve_date_value,
+            reserve_type=int(_reserve_type if _reserve_type is not None else -1),
+            year=year_value,
+            interval=int(_interval or 0),
+            retry_limit=int(_retry_limit or 0),
+            cookies_path=GLOBAL_COOKIE_PATH,
+            show_detail=True,
         )
-        logs = "\n".join(str(item) for item in result.get("logs", []))
-        if not result.get("ok") and result.get("error"):
-            logs = f"{logs}\n{result['error']}".strip()
-        return logs
+        log_file_path = _build_bws_task_log_path(
+            reserve_id_value,
+            reserve_date_value,
+            year_value,
+        )
+        proc = bws_new_terminal(config=config, log_file_path=log_file_path)
+        GlobalStatusInstance.register_task_log(
+            title=_bws_task_title(reserve_id_value, reserve_date_value, year_value),
+            mode="终端",
+            log_file=log_file_path,
+            pid=proc.pid,
+        )
+        gr.Info("BW 乐园预约任务已启动，可在下方任务卡查看日志或终止进程。")
+        return gr.update(visible=True)
 
     refresh_btn.click(refresh_login_status, outputs=[login_status, local_account])
     validate_account_btn.click(
@@ -554,7 +579,11 @@ def bws_tab():
             interval,
             retry_limit,
         ],
-        outputs=result_log,
+        outputs=task_panel,
+    ).then(
+        fn=refresh_task_panel,
+        inputs=None,
+        outputs=[task_refresh_token, task_panel],
     )
 
     return refresh_login_status, [login_status, local_account]

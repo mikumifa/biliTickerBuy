@@ -11,6 +11,7 @@ from interface.bws import (
     resolve_bws_reserve_dates,
     verify_bws_ticket_activation,
 )
+from task.bws import Bws
 
 
 def _reservation_info():
@@ -136,3 +137,24 @@ def test_bws_reserve_stream_stops_when_already_reserved(monkeypatch):
     )
 
     assert any("已在当前账号的预约列表中" in message for message in logs)
+
+
+def test_bws_terminal_task_uses_bws_subcommand():
+    args = Bws(
+        BwsConfig(
+            reserve_id=1001,
+            reserve_dates="20260710",
+            reserve_date="20260710",
+            reserve_type=-1,
+            year="202601",
+            interval=300,
+            retry_limit=2,
+            cookies_path="cookies.json",
+        )
+    ).to_cli_args()
+
+    assert args[0] == "bws"
+    assert args[args.index("--reserve-id") + 1] == "1001"
+    assert args[args.index("--reserve-date") + 1] == "20260710"
+    assert args[args.index("--year") + 1] == "202601"
+    assert args[args.index("--cookies-path") + 1] == "cookies.json"
