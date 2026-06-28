@@ -420,11 +420,10 @@ def bws_tab():
                 info_btn = gr.Button("获取预约信息", elem_classes="btb-soft-button")
 
             with gr.Row(elem_classes="btb-action-band !items-end"):
-                reserve_id = gr.Number(
+                reserve_id = gr.Textbox(
                     label="预约项目 ID",
-                    value=None,
+                    value="",
                     placeholder="必填",
-                    precision=0,
                     scale=2,
                 )
                 interval = gr.Number(
@@ -505,9 +504,13 @@ def bws_tab():
         _retry_limit,
     ):
         _require_login()
-        if not _reserve_id:
+        reserve_id_text = str(_reserve_id or "").strip()
+        if not reserve_id_text:
             raise gr.Error("请填写预约项目 ID。")
-        reserve_id_value = int(_reserve_id)
+        try:
+            reserve_id_value = int(reserve_id_text)
+        except ValueError:
+            raise gr.Error("预约项目 ID 必须是正整数。") from None
         if reserve_id_value <= 0:
             raise gr.Error("预约项目 ID 必须大于 0。")
         year_value = str(_year or "").strip() or default_bws_year()
