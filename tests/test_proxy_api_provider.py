@@ -104,6 +104,24 @@ def test_parse_proxy_api_keeps_auth_from_object_fields():
     ]
 
 
+def test_parse_proxy_api_merges_auth_fields_with_proxy_field():
+    payload = {
+        "code": 0,
+        "data": [
+            {
+                "proxy": "192.0.2.40:15115",
+                "Username": "proxy_user",
+                "Password": "proxy_pass",
+                "protocol": "http",
+            }
+        ],
+    }
+
+    assert parse_proxy_api_response(payload, protocol="http") == [
+        _proxy_url("http", "proxy_user", "proxy_pass", "192.0.2.40", 15115)
+    ]
+
+
 def test_parse_proxy_api_keeps_auth_for_socks5_url():
     proxy = _proxy_url("socks5", "user", "pass", "127.0.0.1", 1080)
     payload = {
