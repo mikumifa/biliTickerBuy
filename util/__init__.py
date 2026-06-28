@@ -86,7 +86,10 @@ def set_main_request(request):
 
 
 time_service = TimeUtil()
-time_service.set_timeoffset(time_service.compute_timeoffset())
+if os.environ.get("BTB_SKIP_INITIAL_TIME_SYNC") == "1":
+    time_service.set_timeoffset("0")
+else:
+    time_service.sync_time(check_bili=False)
 
 
 @dataclass

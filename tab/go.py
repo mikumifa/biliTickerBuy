@@ -234,7 +234,7 @@ def go_start_tab():
 
         sale_start_items: list[tuple[str, datetime.datetime]] = []
         adjusted_now = datetime.datetime.fromtimestamp(
-            time.time() + time_service.get_timeoffset(),
+            time_service.now(),
             tz=BEIJING_TZ,
         )
 
