@@ -11,7 +11,12 @@ from gradio import SelectData
 from loguru import logger
 
 from app_cmd.config.BuyConfig import BuyConfig
-from tab.log import refresh_task_panel, render_task_manager_panel, visible_task_entries
+from tab.log import (
+    refresh_task_panel,
+    render_task_manager_panel,
+    stop_all_running_tasks,
+    visible_task_entries,
+)
 from task.buy import buy_new_terminal
 from util import (
     ConfigDB,
@@ -409,10 +414,20 @@ def go_start_tab():
     )
     upload_ui.select(file_select_handler, upload_ui, ticket_ui)
 
-    go_btn = gr.Button(
-        "开始抢票",
-        elem_classes="btb-strong-button",
-    )
+    with gr.Row(elem_classes="btb-inline-actions !justify-end"):
+        stop_all_btn = gr.Button(
+            "一键终止",
+            variant="stop",
+            elem_classes="btb-soft-button btb-task-button btb-task-button--stop",
+            scale=0,
+            min_width=120,
+        )
+        go_btn = gr.Button(
+            "开始抢票",
+            elem_classes="btb-strong-button",
+            scale=0,
+            min_width=140,
+        )
     with gr.Column(
         visible=bool(visible_task_entries()),
         elem_classes="btb-card btb-card-sky btb-layout-card",
@@ -470,6 +485,11 @@ def go_start_tab():
         outputs=task_panel,
     ).then(
         fn=refresh_task_panel,
+        inputs=None,
+        outputs=[task_refresh_token, task_panel],
+    )
+    stop_all_btn.click(
+        fn=stop_all_running_tasks,
         inputs=None,
         outputs=[task_refresh_token, task_panel],
     )
