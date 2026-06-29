@@ -390,6 +390,45 @@ def stop_task(pid: int):
     return refresh_task_panel()
 
 
+def stop_all_running_tasks():
+    entries = [
+        entry
+        for entry in visible_task_entries()
+        if entry.status == TASK_STATUS_RUNNING and entry.pid
+    ]
+    if not entries:
+        gr.Info("当前没有运行中的抢票任务。")
+        return refresh_task_panel()
+
+    stopped_count = 0
+    force_stopped_count = 0
+    failed_messages: list[str] = []
+
+    for entry in entries:
+        message = terminate_task(entry.pid)
+        if entry.log_file:
+            append_stop_log(entry.log_file, entry.title, message)
+        if "失败" in message or "没有权限" in message:
+            failed_messages.append(f"{entry.title}: {message}")
+            continue
+
+        GlobalStatusInstance.update_task_log_status(entry.pid, TASK_STATUS_STOPPED)
+        stopped_count += 1
+        if "强制" in message:
+            force_stopped_count += 1
+
+    if failed_messages:
+        gr.Warning("部分任务终止失败：" + "；".join(failed_messages))
+    elif force_stopped_count:
+        gr.Warning(
+            f"已终止 {stopped_count} 个抢票任务，其中 {force_stopped_count} 个被强制停止。"
+        )
+    else:
+        gr.Info(f"已终止 {stopped_count} 个抢票任务。")
+
+    return refresh_task_panel()
+
+
 def remove_task(pid: int):
     entry = GlobalStatusInstance.get_task_log(pid)
     if entry is None:
