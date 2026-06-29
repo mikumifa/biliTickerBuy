@@ -4,9 +4,11 @@ from app_cmd.config.BwsConfig import BwsConfig
 import interface.bws as bws
 from interface.bws import (
     DEFAULT_BWS_RESERVE_DATES,
+    BwsApiClient,
     _extract_act_days,
     _extract_bws_year_param,
     _extract_event_year,
+    effective_bws_reserve_begin_time,
     infer_bws_reserve_dates,
     resolve_bws_reserve_dates,
     verify_bws_ticket_activation,
@@ -158,3 +160,125 @@ def test_bws_terminal_task_uses_bws_subcommand():
     assert args[args.index("--reserve-date") + 1] == "20260710"
     assert args[args.index("--year") + 1] == "202601"
     assert args[args.index("--cookies-path") + 1] == "cookies.json"
+
+
+def test_make_reservation_adds_timestamp_and_random_nonce(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"code": 0, "message": "ok"}
+
+    class FakeSession:
+        headers = {}
+
+        def post(self, url, data, cookies, timeout):
+            captured["url"] = url
+            captured["data"] = data
+            captured["cookies"] = cookies
+            captured["timeout"] = timeout
+            return FakeResponse()
+
+    monkeypatch.setattr(bws.requests, "Session", lambda: FakeSession())
+    monkeypatch.setattr(bws.time, "time", lambda: 1783648800.123)
+    monkeypatch.setattr(bws.random, "randint", lambda start, end: 54321)
+
+    client = BwsApiClient(
+        [
+            {"name": "bili_jct", "value": "csrf-token"},
+            {"name": "SESSDATA", "value": "sess"},
+        ]
+    )
+
+    result = client.make_reservation(
+        ticket_no="TICKET-0710",
+        reserve_id=1001,
+        year="202601",
+    )
+
+    assert result["code"] == 0
+    assert captured["data"]["year"] == "202601"
+    assert captured["data"]["ts"] == 1783648800123
+    assert captured["data"]["_"] == 54321
+
+
+def test_effective_bws_reserve_begin_time_uses_common_time_for_non_vip_ticket():
+    activity = {
+        "reserve_begin_time": 100,
+        "is_vip_ticket": 1,
+        "next_reserve": {"reserve_begin_time": 200},
+    }
+
+    assert effective_bws_reserve_begin_time(activity, {"is_vip": False}) == 200
+    assert effective_bws_reserve_begin_time(activity, {"is_vip": True}) == 100
+
+
+def test_bws_reserve_stream_retries_official_hot_status(monkeypatch):
+    class FakeClient:
+        cookies = [{"name": "bili_jct", "value": "csrf"}]
+
+        def get_username(self):
+            return "tester"
+
+        def get_reservation_info(self, **kwargs):
+            return _reservation_info()
+
+        def get_my_reservations(self, **kwargs):
+            return {"reserve_list": {}}
+
+        def make_reservation(self, **kwargs):
+            return {"code": 76651, "message": "female only"}
+
+    monkeypatch.setattr(bws, "_make_bws_client", lambda **kwargs: FakeClient())
+
+    logs = list(
+        bws.bws_reserve_stream(
+            BwsConfig(
+                reserve_id=1001,
+                reserve_dates="20260710",
+                time_start="2020-01-01 00:00:00",
+                retry_limit=3,
+            )
+        )
+    )
+
+    assert sum("预约结果" in message for message in logs) == 3
+    assert any("当前预约火爆，请稍后重试" in message for message in logs)
+    assert not any("仅限女性" in message for message in logs)
+
+
+def test_bws_reserve_stream_marks_unknown_codes_retryable(monkeypatch):
+    class FakeClient:
+        cookies = [{"name": "bili_jct", "value": "csrf"}]
+
+        def get_username(self):
+            return "tester"
+
+        def get_reservation_info(self, **kwargs):
+            return _reservation_info()
+
+        def get_my_reservations(self, **kwargs):
+            return {"reserve_list": {}}
+
+        def make_reservation(self, **kwargs):
+            return {"code": 88001, "message": "new status"}
+
+    monkeypatch.setattr(bws, "_make_bws_client", lambda **kwargs: FakeClient())
+
+    logs = list(
+        bws.bws_reserve_stream(
+            BwsConfig(
+                reserve_id=1001,
+                reserve_dates="20260710",
+                time_start="2020-01-01 00:00:00",
+                retry_limit=2,
+            )
+        )
+    )
+
+    assert sum("预约结果" in message for message in logs) == 2
+    assert any("【未知返回码】" in message for message in logs)
+    assert any("按可重试处理" in message for message in logs)

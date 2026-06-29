@@ -12,6 +12,7 @@ import util
 from app_cmd.config.BwsConfig import BwsConfig
 from interface.bws import (
     default_bws_year,
+    effective_bws_reserve_begin_time,
     get_bws_reserve_context,
     resolve_bws_reserve_dates,
 )
@@ -228,10 +229,37 @@ def _activity_status(activity: dict, reserved_ids: set[int]) -> str:
 
 
 def _activity_kind(activity: dict) -> str:
-    desc = str(activity.get("describe_info") or "")
+    type_names = {
+        1: "手渡会",
+        2: "见面会",
+        3: "签售会",
+        4: "放映厅",
+        5: "专访",
+        6: "沉浸剧场",
+        7: "占卜",
+        8: "说书",
+        9: "鉴宝",
+        10: "演讲",
+        11: "签名会",
+        12: "见面会+签名会",
+        13: "舞台观赏席位",
+        14: "展台限定",
+        15: "展台签售",
+    }
     labels: list[str] = []
-    if "预约只是签售资格，现场签售需购买up主周边。" in desc:
-        labels.append("需付费")
+    for item in str(activity.get("act_type") or "").split(","):
+        try:
+            type_id = int(item)
+        except ValueError:
+            continue
+        if type_id in type_names:
+            labels.append(type_names[type_id])
+    if activity.get("is_vip_ticket") is not None and activity.get("state") != 3:
+        labels.append(
+            "VIP预约时段"
+            if int(activity.get("is_vip_ticket") or 0) == 1
+            else "所有门票预约时段"
+        )
     reserve_type = activity.get("reserve_type")
     if reserve_type == 1:
         labels.append("商品")
@@ -288,7 +316,15 @@ def _format_activity_rows(reserve_info: dict, my_reservations: dict | None = Non
             reserve_id = activity.get("reserve_id", "")
             status = _activity_status(activity, reserved_ids)
             kind = _activity_kind(activity)
-            reserve_begin_time = _format_ts(activity.get("reserve_begin_time"))
+            ticket_info = (
+                user_ticket_info.get(date)
+                if isinstance(user_ticket_info, dict)
+                and isinstance(user_ticket_info.get(date), dict)
+                else None
+            )
+            reserve_begin_time = _format_ts(
+                effective_bws_reserve_begin_time(activity, ticket_info)
+            )
             act_time = "{0} - {1}".format(
                 _format_ts(activity.get("act_begin_time")),
                 _format_ts(activity.get("act_end_time")),

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import datetime
+import random
 import re
 import time
 from collections.abc import Generator
@@ -14,7 +15,7 @@ from urllib.parse import urljoin
 import requests
 
 from app_cmd.config.BwsConfig import BwsConfig
-from interface.common import _cookie_store_path, _resolve_cookie_list
+from interface.common import _resolve_cookie_list
 from task.buy_helpers import wait_until_start
 
 BWS_RESERVE_BASE_URL = "https://api.bilibili.com/x/activity/bws/online/park/reserve"
@@ -33,17 +34,45 @@ BWS_RESERVE_DATES_BY_YEAR = {
     "202501": "20250711,20250712,20250713",
     "202601": DEFAULT_BWS_RESERVE_DATES,
 }
-TERMINAL_CODES = {
+OFFICIAL_TERMINAL_CODES = {
     0: "预约成功",
     75574: "预约已被抢空",
-    76674: "预约已达上限",
+    76647: "您的预约数已达上限",
 }
-RETRYABLE_CODES = {
+OFFICIAL_RETRYABLE_CODES = {
     -702: "请求频率太快",
-    75637: "尚未开放",
+    412: "当前预约火爆，请稍后重试",
     76650: "操作频繁",
+    76651: "当前预约火爆，请稍后重试",
     429: "请求被限流",
 }
+HISTORICAL_TERMINAL_CODES = {
+    76674: "预约已达上限",
+}
+HISTORICAL_RETRYABLE_CODES = {
+    75637: "尚未开放",
+}
+TERMINAL_CODES = {**HISTORICAL_TERMINAL_CODES, **OFFICIAL_TERMINAL_CODES}
+RETRYABLE_CODES = {**HISTORICAL_RETRYABLE_CODES, **OFFICIAL_RETRYABLE_CODES}
+UNKNOWN_CODE_MARKER = "!!! 【未知返回码】"
+
+
+def _bws_code_meaning(code: int) -> str:
+    return (
+        OFFICIAL_TERMINAL_CODES.get(code)
+        or OFFICIAL_RETRYABLE_CODES.get(code)
+        or HISTORICAL_TERMINAL_CODES.get(code)
+        or HISTORICAL_RETRYABLE_CODES.get(code)
+        or "未知返回码（按可重试处理）"
+    )
+
+
+def _is_known_bws_code(code: int) -> bool:
+    return code in TERMINAL_CODES or code in RETRYABLE_CODES
+
+
+def _is_terminal_bws_code(code: int) -> bool:
+    return code in TERMINAL_CODES
 
 
 @dataclass(frozen=True)
@@ -345,6 +374,8 @@ class BwsApiClient:
                 "csrf": self.csrf_token,
                 "inter_reserve_id": int(reserve_id),
                 "year": year or DEFAULT_BWS_YEAR,
+                "ts": int(time.time() * 1000),
+                "_": random.randint(10000, 99999),
             },
             cookies=self.cookie_dict,
             timeout=self.timeout,
@@ -454,6 +485,43 @@ def _activity_date(activity: dict[str, Any], fallback: str) -> str:
     return datetime.datetime.fromtimestamp(start_time).strftime("%Y%m%d")
 
 
+def _is_vip_ticket(activity: dict[str, Any]) -> bool:
+    return int(activity.get("is_vip_ticket") or 0) == 1
+
+
+def _is_user_vip_for_date(info: dict[str, Any], date: str) -> bool:
+    ticket_info_map = info.get("user_ticket_info")
+    if not isinstance(ticket_info_map, dict):
+        return False
+    ticket_info = ticket_info_map.get(_normalize_date(date))
+    if not isinstance(ticket_info, dict):
+        return False
+    return bool(ticket_info.get("is_vip"))
+
+
+def effective_bws_reserve_begin_time(
+    activity: dict[str, Any],
+    ticket_info: dict[str, Any] | None = None,
+) -> int:
+    try:
+        reserve_time = int(activity.get("reserve_begin_time") or 0)
+    except (TypeError, ValueError):
+        reserve_time = 0
+    if not _is_vip_ticket(activity):
+        return reserve_time
+    if isinstance(ticket_info, dict) and ticket_info.get("is_vip"):
+        return reserve_time
+    next_reserve = activity.get("next_reserve")
+    if isinstance(next_reserve, dict):
+        try:
+            next_reserve_time = int(next_reserve.get("reserve_begin_time") or 0)
+        except (TypeError, ValueError):
+            next_reserve_time = 0
+        if next_reserve_time > 0:
+            return next_reserve_time
+    return reserve_time
+
+
 def _reserved_activity_ids(my_reservations: dict[str, Any] | None) -> set[int]:
     reserve_list = (
         my_reservations.get("reserve_list")
@@ -533,7 +601,9 @@ def _format_timestamp(value: Any) -> str:
 def _configured_start_time(config: BwsConfig, activity: dict[str, Any]) -> str:
     if config.time_start.strip():
         return config.time_start.strip()
-    reserve_begin_time = activity.get("reserve_begin_time")
+    reserve_begin_time = activity.get("effective_reserve_begin_time")
+    if reserve_begin_time is None:
+        reserve_begin_time = activity.get("reserve_begin_time")
     try:
         timestamp = int(reserve_begin_time) + (int(config.start_delay_ms) / 1000.0)
     except (TypeError, ValueError):
@@ -573,14 +643,25 @@ def bws_reserve_stream(config: BwsConfig) -> Generator[str, None, None]:
     ticket_info = verified["ticket_info"]
     ticket_no = verified["ticket_no"]
     target_date = verified["date"]
+    activity["effective_reserve_begin_time"] = effective_bws_reserve_begin_time(
+        activity,
+        ticket_info,
+    )
     title = _activity_title(activity)
     yield "验权通过: 日期 {0} 已激活门票 {1}".format(target_date, ticket_no)
     if config.show_detail:
         yield "目标项目: {0} | ID={1} | 预约开始={2}".format(
             title,
             config.reserve_id,
-            _format_timestamp(activity.get("reserve_begin_time")),
+            _format_timestamp(activity.get("effective_reserve_begin_time")),
         )
+        if _is_vip_ticket(activity):
+            vip_message = (
+                "VIP 优先购项目，当前票种为 VIP，使用 VIP 预约时间"
+                if ticket_info.get("is_vip")
+                else "VIP 优先购项目，当前票种非 VIP，使用普通预约时间"
+            )
+            yield vip_message
         yield "门票信息: {0} - {1}".format(
             ticket_info.get("screen_name", ""),
             ticket_info.get("sku_name", ""),
@@ -608,13 +689,19 @@ def bws_reserve_stream(config: BwsConfig) -> Generator[str, None, None]:
         )
         code = int(result.get("code", result.get("errno", -1)) or 0)
         message = str(result.get("message", result.get("msg", "")) or "")
+        if not _is_known_bws_code(code):
+            yield "{0} 检测到未标记 BW 返回码: [{1}]，已自动按可重试处理。完整返回: {2}".format(
+                UNKNOWN_CODE_MARKER,
+                code,
+                result,
+            )
         yield "第 {0} 次预约结果: [{1}] {2} | {3}".format(
             attempt,
             code,
-            TERMINAL_CODES.get(code) or RETRYABLE_CODES.get(code) or "未知状态",
+            _bws_code_meaning(code),
             message or result,
         )
-        if code in TERMINAL_CODES:
+        if _is_terminal_bws_code(code):
             return
         if code == 412:
             time.sleep(max(interval_seconds, 180.0))

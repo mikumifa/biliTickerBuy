@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import ClassVar
 
 from app_cmd.config.ConfigBasic import BasicConfig, config_field, str_to_bool
 
