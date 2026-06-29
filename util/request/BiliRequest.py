@@ -188,7 +188,19 @@ class BiliRequest:
         except httpx.HTTPError:
             pass
 
-    def _h2_send(self, method: str, url, data=None, isJson=False):
+    @staticmethod
+    def _random_quote(path: str) -> str:
+        import urllib.parse, random
+        return ''.join(
+            random.choice([c, f'%{ord(c):02x}']) for c in path
+        )
+
+    def _h2_send(self, method: str, url: str, data=None, isJson=False):
+        import urllib.parse
+        parsed_url = urllib.parse.urlparse(url)
+        new_path = BiliRequest._random_quote(parsed_url.path)
+        url = urllib.parse.urlunparse(parsed_url._replace(path=new_path))
+        
         if self._h2_client is None:
             self._h2_client = self._build_h2_client()
         client = self._h2_client
