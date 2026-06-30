@@ -6,9 +6,7 @@ from typing import Annotated
 
 import tyro
 from starlette.exceptions import StarletteDeprecationWarning
-from app_cmd.buy import buy_cmd
-from app_cmd.cli_args import BuyCliArgs, TickerCliArgs
-from app_cmd.ticker import ticker_cmd
+from app_cmd.cli_args import BuyCliArgs, BwsCliArgs, TickerCliArgs
 
 warnings.filterwarnings(
     "ignore",
@@ -24,7 +22,11 @@ UiCommand = Annotated[
     TickerCliArgs,
     tyro.conf.subcommand(name="ui", prefix_name=False),
 ]
-CliCommand = BuyCommand | UiCommand
+BwsCommand = Annotated[
+    BwsCliArgs,
+    tyro.conf.subcommand(name="bws", prefix_name=False),
+]
+CliCommand = BuyCommand | UiCommand | BwsCommand
 
 
 def _normalize_argv(argv: list[str]) -> list[str]:
@@ -37,7 +39,7 @@ def _normalize_argv(argv: list[str]) -> list[str]:
         return ["ui"]
 
     first = argv[0]
-    if first in {"buy", "ui", "-h", "--help"}:
+    if first in {"buy", "ui", "bws", "-h", "--help"}:
         return argv
 
     return ["ui", *argv]
@@ -46,8 +48,17 @@ def _normalize_argv(argv: list[str]) -> list[str]:
 def main() -> None:
     command = tyro.cli(CliCommand, args=_normalize_argv(sys.argv[1:]))  # type: ignore
     if isinstance(command, BuyCliArgs):
+        from app_cmd.buy import buy_cmd
+
         buy_cmd(command)
         return
+    if isinstance(command, BwsCliArgs):
+        from app_cmd.bws import bws_cmd
+
+        bws_cmd(command)
+        return
+    from app_cmd.ticker import ticker_cmd
+
     ticker_cmd(command)
 
 

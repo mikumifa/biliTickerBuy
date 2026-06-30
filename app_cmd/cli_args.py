@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from app_cmd.config.BwsConfig import BwsConfig
 from app_cmd.config.BuyConfig import BuyConfig
 
 
@@ -47,3 +48,4 @@ class TickerCliArgs:
 
 
 BuyCliArgs = BuyConfig
+BwsCliArgs = BwsConfig
