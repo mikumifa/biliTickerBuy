@@ -1,3 +1,4 @@
+
 <div align="center">
   <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">
     <img width="160" src="assets/icon.ico" alt="logo">
@@ -27,6 +28,10 @@
 这是一个开源免费，简单易用的 B 站会员购辅助工具
 
 </div>
+
+## 提示
+
+此项目为biliTickerBuy的fork，旨在使用并行化技术提升请求效率
 
 ## 💻 快速安装
 

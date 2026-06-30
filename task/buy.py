@@ -580,7 +580,7 @@ def buy_stream(config: BuyConfig):
                     if not isRunning:
                         yield emit("status", "抢票结束")
                         break
-                    should_sleep_before_next_attempt = False
+                    # should_sleep_before_next_attempt = False
                     try:
                         create_response = _request.post(
                             url=url,
@@ -591,7 +591,7 @@ def buy_stream(config: BuyConfig):
                         proxy_backoff.reset()
                         err = int(ret.get("errno", ret.get("code")))
                         retry_outcome.set_response(err, ret)
-                        _request.handle_100001(err)
+                        # _request.handle_100001(err)
                         if _is_create_success(ret, err):
                             yield emit(
                                 "success",
@@ -642,7 +642,7 @@ def buy_stream(config: BuyConfig):
                                 ),
                             )
                             tickets_info["pay_money"] = ret["data"]["pay_money"]
-                        should_sleep_before_next_attempt = True
+                        # should_sleep_before_next_attempt = True
                     except JSONDecodeError as exc:
                         handled_412 = yield from handle_non_json_response(
                             "创建订单接口",
@@ -665,9 +665,10 @@ def buy_stream(config: BuyConfig):
                                 attempt_total=effective_retry_limit,
                             ),
                         )
-                        if rate_limit_delay_ms > 0:
-                            time.sleep(rate_limit_delay_ms / 1000)
-                        continue  # 不需要sleep
+                        #if rate_limit_delay_ms > 0:
+                        #    time.sleep(rate_limit_delay_ms / 1000)
+                        #continue  # 不需要sleep
+                        # 即使风控也不会有更快的请求速度了，所以走默认值（1000ms）
                     except RequestException as e:
                         retry_outcome.set_exception(e)
                         for message in handle_proxy_failure(
@@ -712,8 +713,9 @@ def buy_stream(config: BuyConfig):
                             except Exception as exc:
                                 logger.warning(f"循环内项目详情复检失败（忽略）：{exc}")
                             _reset_refresh_counter()
-                    if should_sleep_before_next_attempt:
-                        time.sleep(request_interval / 1000)
+                    # if should_sleep_before_next_attempt:
+                    # 我们将会在新client中并行多个create请求，此时已经吃满412盾窗口，因此不再快速重试
+                    time.sleep(request_interval / 1000)
 
                 if (
                     result is not None

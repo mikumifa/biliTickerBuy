@@ -1,11 +1,13 @@
 import secrets
 import time
 from collections.abc import Callable
+from typing import cast
 
 import loguru
 import requests
 from requests import Response
 from util.Constant import H2_LIMITS, H2_TIMEOUT
+from util.h2client.abstract_h2_client import AbstractH2Client, H2ClientConstructor
 from util.request.BrowerState import (
     BrowserFingerprintState,
     build_headers_from_browser_state,
@@ -27,6 +29,7 @@ class BiliRequest:
         browser_state: BrowserFingerprintState | None = None,
         proxy_failure_threshold: int = 2,
         proxy_cooldown_seconds: float = 180.0,
+        h2_client_type: H2ClientConstructor | None = None,
     ):
         self.browser_state = browser_state or generate_browser_fingerprint_state()
         self.deviceId = finalize_device_id(secrets.token_hex(16))
@@ -45,7 +48,8 @@ class BiliRequest:
         )
         self.request_count = 0  # 记录请求次数
         self.proxy_manager.apply_to_session(self.session)
-        self._h2_client = None
+        self._h2_client: AbstractH2Client | None = None
+        self._h2_client_type: H2ClientConstructor | None = h2_client_type
         self.createTime = int(time.time() * 1000)
         self._handle_100001: Callable[[], None] | None = None
 
@@ -147,7 +151,7 @@ class BiliRequest:
             f"body_preview={body}"
         )
 
-    def _build_h2_client(self):
+    def _build_h2_client(self) -> AbstractH2Client:
         import httpx
 
         proxies = self.session.proxies or {}
@@ -157,7 +161,12 @@ class BiliRequest:
             if isinstance(self.session.verify, (bool, str))
             else True
         )
-        return httpx.Client(
+        h2_client_type = self._h2_client_type
+        if h2_client_type is None:
+            from util.h2client.ja_h2_client import CreateV2FanoutJA3H2Client, RotatingIPJA3H2Client
+            AbstractH2Client.register(CreateV2FanoutJA3H2Client)
+            h2_client_type = cast(H2ClientConstructor, CreateV2FanoutJA3H2Client)
+        return h2_client_type(
             http2=True,
             verify=verify,
             proxy=proxy,
