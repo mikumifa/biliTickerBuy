@@ -1,11 +1,13 @@
 import secrets
 import time
 from collections.abc import Callable
+from typing import cast
 
 import loguru
 import requests
 from requests import Response
 from util.Constant import H2_LIMITS, H2_TIMEOUT
+from util.h2client.abstract_h2_client import AbstractH2Client, H2ClientConstructor
 from util.request.BrowerState import (
     BrowserFingerprintState,
     build_headers_from_browser_state,
@@ -27,6 +29,8 @@ class BiliRequest:
         browser_state: BrowserFingerprintState | None = None,
         proxy_failure_threshold: int = 2,
         proxy_cooldown_seconds: float = 180.0,
+        h2_client_type: H2ClientConstructor | None = None,
+        h2_client_options: dict | None = None,
     ):
         self.browser_state = browser_state or generate_browser_fingerprint_state()
         self.deviceId = finalize_device_id(secrets.token_hex(16))
@@ -45,7 +49,9 @@ class BiliRequest:
         )
         self.request_count = 0  # 记录请求次数
         self.proxy_manager.apply_to_session(self.session)
-        self._h2_client = None
+        self._h2_client: AbstractH2Client | None = None
+        self._h2_client_type = h2_client_type
+        self._h2_client_options = dict(h2_client_options or {})
         self.createTime = int(time.time() * 1000)
         self._handle_100001: Callable[[], None] | None = None
 
@@ -109,6 +115,12 @@ class BiliRequest:
 
     def replace_proxy_pool(self, proxy_string: str) -> None:
         self.proxy_manager.replace_proxy_list(proxy_string)
+        if "proxy_pool" in self._h2_client_options:
+            self._h2_client_options["proxy_pool"] = [
+                proxy
+                for proxy in self.proxy_manager.proxy_list
+                if proxy.lower() != "none"
+            ]
         self.proxy_manager.apply_to_session(self.session)
         self._invalidate_h2_client()
 
@@ -147,7 +159,7 @@ class BiliRequest:
             f"body_preview={body}"
         )
 
-    def _build_h2_client(self):
+    def _build_h2_client(self) -> AbstractH2Client:
         import httpx
 
         proxies = self.session.proxies or {}
@@ -157,7 +169,10 @@ class BiliRequest:
             if isinstance(self.session.verify, (bool, str))
             else True
         )
-        return httpx.Client(
+        h2_client_type = self._h2_client_type
+        if h2_client_type is None:
+            h2_client_type = cast(H2ClientConstructor, httpx.Client)
+        return h2_client_type(
             http2=True,
             verify=verify,
             proxy=proxy,
@@ -169,6 +184,7 @@ class BiliRequest:
                 "connection": "keep-alive",
                 "user-agent": self.headers.get("user-agent", ""),
             },
+            **self._h2_client_options,
         )
 
     def prewarm_h2_connection(self, url: str) -> None:

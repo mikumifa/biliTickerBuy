@@ -56,6 +56,9 @@ from util.request.BiliRequest import BiliRequest
 from util.request.exceptions import BiliConnectionError, BiliRateLimitError
 
 
+LOCAL_FANOUT_PROXY_STRATEGY = "local_fanout"
+
+
 @dataclass(slots=True)
 class Buy:
     config: BuyConfig
@@ -391,11 +394,25 @@ def buy_stream(config: BuyConfig):
     tickets_info["deliver_info"] = json.dumps(tickets_info["deliver_info"])
     masked_proxies = ProxyManager.mask_proxy_string(config.https_proxys)
     logger.info(f"目前已配置代理：{masked_proxies or '直连'}")
+    h2_client_type = None
+    h2_client_options = None
+    if config.create_request_proxy_strategy == LOCAL_FANOUT_PROXY_STRATEGY:
+        from util.h2client.ja_h2_client import ProxyPoolCreateV2FanoutJA3H2Client
+
+        proxy_pool = [
+            proxy
+            for proxy in ProxyManager.parse_proxy_list(config.https_proxys)
+            if proxy.lower() != "none"
+        ]
+        h2_client_type = ProxyPoolCreateV2FanoutJA3H2Client
+        h2_client_options = {"proxy_pool": proxy_pool}
     _request = BiliRequest(
         cookies=cookies,
         proxy=config.https_proxys,
         proxy_failure_threshold=config.proxy_max_consecutive_failures,
         proxy_cooldown_seconds=config.proxy_cooldown_seconds,
+        h2_client_type=h2_client_type,
+        h2_client_options=h2_client_options,
     )
     proxy_backoff = ProxyBackoff(max_seconds=config.proxy_backoff_max_seconds)
     is_hot_project = bool(tickets_info.get("is_hot_project", False))

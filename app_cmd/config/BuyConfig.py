@@ -140,6 +140,15 @@ class BuyConfig(BasicConfig):
     )
     """Number of create-order requests sent in one batch."""
 
+    create_request_proxy_strategy: str = config_field(
+        "standard",
+        env="BTB_CREATE_REQUEST_PROXY_STRATEGY",
+        runtime="create_request_proxy_strategy",
+        cli="--create-request-proxy-strategy",
+        cast=lambda value: str(value or "standard").lower(),
+    )
+    """Internal create-order request transport strategy."""
+
     rate_limit_delay_ms: int = config_field(
         DEFAULT_RATE_LIMIT_DELAY_MS,
         env="BTB_RATE_LIMIT_DELAY_MS",

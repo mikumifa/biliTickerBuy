@@ -27,6 +27,12 @@ def go_settings_tab(header_ui):
     proxy_assignment_strategy_default = str(
         ConfigDB.get("proxyAssignmentStrategy") or "balanced"
     ).lower()
+    if proxy_assignment_strategy_default not in {
+        "balanced",
+        "queue",
+        "local_fanout",
+    }:
+        proxy_assignment_strategy_default = "balanced"
 
     def _split_proxy_lines(proxy_text: str | None) -> list[str]:
         if not proxy_text:
@@ -228,6 +234,10 @@ def go_settings_tab(header_ui):
     def update_proxy_assignment_strategy(value):
         ConfigDB.insert("proxyAssignmentStrategy", value)
         return gr.update(value=ConfigDB.get("proxyAssignmentStrategy"))
+
+    def update_proxy_include_direct(value):
+        ConfigDB.insert("proxyIncludeDirect", value)
+        return gr.update(value=ConfigDB.get_as_bool("proxyIncludeDirect", True))
 
     def update_log_level(value):
         ConfigDB.insert("logLevel", value)
@@ -606,11 +616,17 @@ def go_settings_tab(header_ui):
                         choices=[
                             ("均匀分配", "balanced"),
                             ("队列模式", "queue"),
+                            ("代理池并发", "local_fanout"),
                         ],
                         value=proxy_assignment_strategy_default,
                         interactive=True,
                         allow_custom_value=False,
                         filterable=False,
+                    )
+                    proxy_include_direct_ui = gr.Checkbox(
+                        label="允许使用直连（none）",
+                        value=ConfigDB.get_as_bool("proxyIncludeDirect", True),
+                        info="开启后，任务代理分配会把直连作为一个可用出口；关闭后，所有任务只使用已配置代理。",
                     )
                     queue_concurrency_limit_ui = gr.Number(
                         label="队列并发上限（仅队列模式）",
@@ -802,6 +818,11 @@ def go_settings_tab(header_ui):
         inputs=proxy_assignment_strategy_ui,
         outputs=proxy_assignment_strategy_ui,
     )
+    proxy_include_direct_ui.change(
+        fn=update_proxy_include_direct,
+        inputs=proxy_include_direct_ui,
+        outputs=proxy_include_direct_ui,
+    )
     _bind_number_commit(
         queue_concurrency_limit_ui,
         update_queue_concurrency_limit,
@@ -886,6 +907,7 @@ def go_settings_tab(header_ui):
             gr.update(
                 value=str(ConfigDB.get("proxyAssignmentStrategy") or "balanced").lower()
             ),
+            gr.update(value=ConfigDB.get_as_bool("proxyIncludeDirect", True)),
             gr.update(value=ConfigDB.get_as_int("queueConcurrencyLimit", 0)),
             gr.update(value=buy_defaults.log_level),
             gr.update(value=ConfigDB.get_as_bool("autoCleanupLogs", True)),
@@ -927,6 +949,7 @@ def go_settings_tab(header_ui):
         show_qrcode_ui,
         auto_open_payment_url_ui,
         proxy_assignment_strategy_ui,
+        proxy_include_direct_ui,
         queue_concurrency_limit_ui,
         log_level_ui,
         auto_cleanup_logs_ui,

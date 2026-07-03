@@ -27,6 +27,7 @@ class RuntimeOptions:
     outer_interval: int = 0
     create_retry_limit: int = 20
     create_request_batch_size: int = 3
+    create_request_proxy_strategy: str = "standard"
     time_start: str = ""
     audio_path: str = ""
     pushplusToken: str = ""
@@ -295,6 +296,7 @@ def build_runtime_options(
     outer_interval: int = 0,
     create_retry_limit: int = 20,
     create_request_batch_size: int = 3,
+    create_request_proxy_strategy: str = "standard",
     time_start: str = "",
     audio_path: str = "",
     pushplusToken: str = "",
@@ -331,6 +333,9 @@ def build_runtime_options(
             create_request_batch_size,
             default=3,
         ),
+        create_request_proxy_strategy=str(
+            create_request_proxy_strategy or "standard"
+        ).lower(),
         time_start=normalize_time_start(time_start),
         audio_path=audio_path,
         pushplusToken=pushplusToken,
