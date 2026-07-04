@@ -79,6 +79,24 @@ class NotifierConfig(BasicConfig):
     )
     """MeoW nickname."""
 
+    telegram_bot_token: str = config_field(
+        "",
+        env="BTB_TELEGRAM_BOT_TOKEN",
+        runtime="telegram_bot_token",
+        db="telegramBotToken",
+        cli="--notifier-config.telegram-bot-token",
+    )
+    """Telegram Bot token from @BotFather."""
+
+    telegram_chat_id: str = config_field(
+        "",
+        env="BTB_TELEGRAM_CHAT_ID",
+        runtime="telegram_chat_id",
+        db="telegramChatId",
+        cli="--notifier-config.telegram-chat-id",
+    )
+    """Telegram chat ID (user, group, or channel)."""
+
     audio_path: str = config_field(
         "",
         env="BTB_AUDIO_PATH",

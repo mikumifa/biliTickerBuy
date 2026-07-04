@@ -265,6 +265,25 @@ class NotifierManager:
             except Exception as e:
                 loguru.logger.error(f"MeoW创建失败: {e}")
 
+        # Telegram
+        if config.telegram_bot_token and config.telegram_chat_id:
+            try:
+                from util.notifer.TelegramUtil import TelegramNotifier
+
+                notifier = TelegramNotifier(
+                    bot_token=config.telegram_bot_token,
+                    chat_id=config.telegram_chat_id,
+                    title=title,
+                    content=content,
+                    interval_seconds=interval_seconds,
+                    duration_minutes=duration_minutes,
+                )
+                manager.register_notifier("Telegram", notifier)
+            except ImportError as e:
+                loguru.logger.error(f"Telegram导入失败: {e}")
+            except Exception as e:
+                loguru.logger.error(f"Telegram创建失败: {e}")
+
         # Audio
         if include_audio and config.audio_path:
             try:
@@ -307,6 +326,7 @@ class NotifierManager:
             ("Bark", config.bark_token, "Bark"),
             ("Ntfy", config.ntfy_url, "Ntfy"),
             ("MeoW", config.meow_nickname, "MeoW"),
+            ("Telegram", config.telegram_bot_token and config.telegram_chat_id, "Telegram"),
         ]
         if include_audio:
             test_cases.append(("Audio", config.audio_path, "音频通知"))
