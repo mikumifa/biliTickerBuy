@@ -326,7 +326,11 @@ class NotifierManager:
             ("Bark", config.bark_token, "Bark"),
             ("Ntfy", config.ntfy_url, "Ntfy"),
             ("MeoW", config.meow_nickname, "MeoW"),
-            ("Telegram", config.telegram_bot_token and config.telegram_chat_id, "Telegram"),
+            (
+                "Telegram",
+                config.telegram_bot_token and config.telegram_chat_id,
+                "Telegram",
+            ),
         ]
         if include_audio:
             test_cases.append(("Audio", config.audio_path, "音频通知"))
