@@ -97,6 +97,15 @@ class NotifierConfig(BasicConfig):
     )
     """Telegram chat ID (user, group, or channel)."""
 
+    telegram_http_proxy: str = config_field(
+        "",
+        env="BTB_TELEGRAM_HTTP_PROXY",
+        runtime="telegram_http_proxy",
+        db="telegramHttpProxy",
+        cli="--notifier-config.telegram-http-proxy",
+    )
+    """HTTP proxy for Telegram API requests (e.g. http://127.0.0.1:8080)."""
+
     audio_path: str = config_field(
         "",
         env="BTB_AUDIO_PATH",

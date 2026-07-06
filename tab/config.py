@@ -160,6 +160,10 @@ def go_settings_tab(header_ui):
         ConfigDB.insert("telegramChatId", x)
         return gr.update(value=ConfigDB.get("telegramChatId"))
 
+    def inner_input_telegram_http_proxy(x):
+        ConfigDB.insert("telegramHttpProxy", x)
+        return gr.update(value=ConfigDB.get("telegramHttpProxy"))
+
     def inner_input_audio_path(x):
         if not x:
             ConfigDB.insert("audioPath", "")
@@ -644,6 +648,12 @@ def go_settings_tab(header_ui):
                         interactive=True,
                         info="用户/群组/频道的 ID，可通过 @userinfobot 获取",
                     )
+                    telegram_http_proxy_ui = gr.Textbox(
+                        value=ConfigDB.get("telegramHttpProxy") or "",
+                        label="Telegram HTTP 代理｜输入完成后，回车键保存",
+                        interactive=True,
+                        info="用于访问 Telegram API 的 HTTP 代理，例如: http://127.0.0.1:7890（留空则不使用代理）",
+                    )
                     gr.Markdown("#### 测试")
                     test_all_push_button = gr.Button(
                         "🧪 测试所有推送",
@@ -809,6 +819,11 @@ def go_settings_tab(header_ui):
         inputs=telegram_chat_id_ui,
         outputs=telegram_chat_id_ui,
     )
+    telegram_http_proxy_ui.submit(
+        fn=inner_input_telegram_http_proxy,
+        inputs=telegram_http_proxy_ui,
+        outputs=telegram_http_proxy_ui,
+    )
     audio_path_ui.upload(
         fn=inner_input_audio_path,
         inputs=audio_path_ui,
@@ -947,6 +962,7 @@ def go_settings_tab(header_ui):
             gr.update(value=ConfigDB.get("ntfyPassword") or ""),
             gr.update(value=ConfigDB.get("telegramBotToken") or ""),
             gr.update(value=ConfigDB.get("telegramChatId") or ""),
+            gr.update(value=ConfigDB.get("telegramHttpProxy") or ""),
             gr.update(value=buy_defaults.show_qrcode),
             gr.update(value=buy_defaults.auto_open_payment_url),
             gr.update(
@@ -993,6 +1009,7 @@ def go_settings_tab(header_ui):
         ntfy_password_ui,
         telegram_bot_token_ui,
         telegram_chat_id_ui,
+        telegram_http_proxy_ui,
         show_qrcode_ui,
         auto_open_payment_url_ui,
         proxy_assignment_strategy_ui,

@@ -277,6 +277,7 @@ class NotifierManager:
                     content=content,
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes,
+                    http_proxy=config.telegram_http_proxy,
                 )
                 manager.register_notifier("Telegram", notifier)
             except ImportError as e:
