@@ -205,12 +205,6 @@ def _response_errno(response: httpx.Response) -> int | None:
         return None
 
 
-def _is_create_success_response(response: httpx.Response) -> bool:
-    if response.status_code != 200:
-        return False
-    return _response_errno(response) == 0
-
-
 class _SourcePoolJA3H2Client(AbstractH2Client):
     def __init__(
         self,
@@ -695,16 +689,13 @@ class _CreateV2FanoutJA3H2Client(_SourcePoolJA3H2Client):
                     last_exc = outcome.exc
                     continue
 
-                if _is_create_success_response(outcome.response):
-                    wait_for_futures = False
-                    return outcome.response
-
                 status_code = outcome.response.status_code
                 if status_code == 200:
                     errno = _response_errno(outcome.response)
-                    if errno != 900001 and first_other is None:
-                        first_other = outcome.response
-                    elif errno == 900001 and first_900001 is None:
+                    if errno != 900001:
+                        wait_for_futures = False
+                        return outcome.response
+                    if first_900001 is None:
                         first_900001 = outcome.response
                 if status_code == 429 and first_429 is None:
                     first_429 = outcome.response
@@ -713,12 +704,12 @@ class _CreateV2FanoutJA3H2Client(_SourcePoolJA3H2Client):
                 elif status_code not in {200, 412, 429} and first_other is None:
                     first_other = outcome.response
 
-            if first_other is not None:
-                return first_other
             if first_900001 is not None:
                 return first_900001
             if first_429 is not None:
                 return first_429
+            if first_other is not None:
+                return first_other
             if first_412 is not None:
                 return first_412
             raise self._to_httpx_error(method, url, last_exc)
@@ -886,14 +877,14 @@ class ProxyPoolCreateV2FanoutJA3H2Client(_CreateV2FanoutJA3H2Client):
                     last_exc = outcome.exc
                     continue
 
-                if _is_create_success_response(outcome.response):
-                    wait_for_futures = False
-                    return outcome.response
-
                 status_code = outcome.response.status_code
                 errno = _response_errno(outcome.response)
-                if status_code == 200 and errno == 900001 and first_900001 is None:
-                    first_900001 = outcome.response
+                if status_code == 200:
+                    if errno != 900001:
+                        wait_for_futures = False
+                        return outcome.response
+                    if first_900001 is None:
+                        first_900001 = outcome.response
                 elif status_code == 429 and first_429 is None:
                     first_429 = outcome.response
                 elif status_code == 412 and first_412 is None:
@@ -901,12 +892,12 @@ class ProxyPoolCreateV2FanoutJA3H2Client(_CreateV2FanoutJA3H2Client):
                 elif status_code not in {412, 429} and first_other is None:
                     first_other = outcome.response
 
-            if first_other is not None:
-                return first_other
             if first_900001 is not None:
                 return first_900001
             if first_429 is not None:
                 return first_429
+            if first_other is not None:
+                return first_other
             if first_412 is not None:
                 return first_412
             raise self._to_httpx_error(method, url, last_exc)

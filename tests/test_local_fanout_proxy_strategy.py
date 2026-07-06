@@ -78,6 +78,7 @@ class FakeH2Connection:
     instances: list["FakeH2Connection"] = []
     post_bodies_by_proxy: dict[str, list[bytes]] = {}
     post_errors_by_proxy: dict[str, list[Exception]] = {}
+    post_responses_by_proxy: dict[str, list[tuple[int, bytes]]] = {}
 
     def __init__(
         self,
@@ -112,11 +113,16 @@ class FakeH2Connection:
         errors = self.post_errors_by_proxy.get(self.proxy_url or "", [])
         if errors:
             raise errors.pop(0)
-        bodies = self.post_bodies_by_proxy.get(self.proxy_url or "", [])
-        body = bodies.pop(0) if bodies else b'{"errno":0}'
+        responses = self.post_responses_by_proxy.get(self.proxy_url or "", [])
+        if responses:
+            status, body = responses.pop(0)
+        else:
+            bodies = self.post_bodies_by_proxy.get(self.proxy_url or "", [])
+            status = 200
+            body = bodies.pop(0) if bodies else b'{"errno":0}'
         return H2Response(
-            status=200,
-            headers=[(":status", "200")],
+            status=status,
+            headers=[(":status", str(status))],
             body=body,
             stream_id=len(self.calls),
         )
@@ -232,6 +238,7 @@ def test_proxy_pool_fanout_builds_one_create_connection_per_proxy():
     FakeH2Connection.instances = []
     FakeH2Connection.post_bodies_by_proxy = {}
     FakeH2Connection.post_errors_by_proxy = {}
+    FakeH2Connection.post_responses_by_proxy = {}
     client = ProxyPoolCreateV2FanoutJA3H2Client(
         proxy_pool=[
             "http://127.0.0.1:18080",
@@ -264,6 +271,7 @@ def test_proxy_pool_fanout_can_use_direct_single_source():
     FakeH2Connection.instances = []
     FakeH2Connection.post_bodies_by_proxy = {}
     FakeH2Connection.post_errors_by_proxy = {}
+    FakeH2Connection.post_responses_by_proxy = {}
     client = ProxyPoolCreateV2FanoutJA3H2Client(
         proxy_pool=["none"],
         connection_factory=FakeH2Connection,
@@ -292,6 +300,7 @@ def test_proxy_pool_fanout_detects_percent_encoded_create_v2_path():
     FakeH2Connection.instances = []
     FakeH2Connection.post_bodies_by_proxy = {}
     FakeH2Connection.post_errors_by_proxy = {}
+    FakeH2Connection.post_responses_by_proxy = {}
     client = ProxyPoolCreateV2FanoutJA3H2Client(
         proxy_pool=["none"],
         connection_factory=FakeH2Connection,
@@ -322,6 +331,7 @@ def test_proxy_pool_fanout_prefers_success_from_one_round():
         "http://127.0.0.1:28080": [b'{"errno":0}'],
     }
     FakeH2Connection.post_errors_by_proxy = {}
+    FakeH2Connection.post_responses_by_proxy = {}
     client = ProxyPoolCreateV2FanoutJA3H2Client(
         proxy_pool=[
             "http://127.0.0.1:18080",
@@ -353,6 +363,7 @@ def test_proxy_pool_fanout_returns_best_failure_after_one_round():
         "http://127.0.0.1:28080": [b'{"errno":900001}', b'{"errno":0}'],
     }
     FakeH2Connection.post_errors_by_proxy = {}
+    FakeH2Connection.post_responses_by_proxy = {}
     client = ProxyPoolCreateV2FanoutJA3H2Client(
         proxy_pool=[
             "http://127.0.0.1:18080",
@@ -374,6 +385,32 @@ def test_proxy_pool_fanout_returns_best_failure_after_one_round():
     }
 
 
+def test_proxy_pool_fanout_prefers_900001_before_other_failures():
+    FakeH2Connection.instances = []
+    FakeH2Connection.post_bodies_by_proxy = {}
+    FakeH2Connection.post_errors_by_proxy = {}
+    FakeH2Connection.post_responses_by_proxy = {
+        "http://127.0.0.1:18080": [(200, b'{"errno":900001}')],
+        "http://127.0.0.1:28080": [(500, b"server error")],
+    }
+    client = ProxyPoolCreateV2FanoutJA3H2Client(
+        proxy_pool=[
+            "http://127.0.0.1:18080",
+            "http://127.0.0.1:28080",
+        ],
+        connection_factory=FakeH2Connection,
+        connections_per_source_ip=1,
+    )
+
+    response = client.post(
+        "https://show.bilibili.com/api/ticket/order/createV2",
+        json={"project_id": 1},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["errno"] == 900001
+
+
 def test_proxy_pool_fanout_raises_when_all_slots_fail_once():
     FakeH2Connection.instances = []
     FakeH2Connection.post_bodies_by_proxy = {}
@@ -381,6 +418,7 @@ def test_proxy_pool_fanout_raises_when_all_slots_fail_once():
         "http://127.0.0.1:18080": [RuntimeError("closed")],
         "http://127.0.0.1:28080": [RuntimeError("closed")],
     }
+    FakeH2Connection.post_responses_by_proxy = {}
     client = ProxyPoolCreateV2FanoutJA3H2Client(
         proxy_pool=[
             "http://127.0.0.1:18080",
