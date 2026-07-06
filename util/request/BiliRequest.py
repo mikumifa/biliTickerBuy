@@ -209,9 +209,11 @@ class BiliRequest:
 
     def _h2_send(self, method: str, url: str, data=None, isJson=False):
         parsed_url = urllib.parse.urlparse(url)
-        new_path = BiliRequest._random_quote(parsed_url.path)
-        url = urllib.parse.urlunparse(parsed_url._replace(path=new_path))
-        
+
+        if 'createV2' in parsed_url.path:
+            new_path = BiliRequest._random_quote(parsed_url.path)
+            url = urllib.parse.urlunparse(parsed_url._replace(path=new_path))
+            
         if self._h2_client is None:
             self._h2_client = self._build_h2_client()
         client = self._h2_client
