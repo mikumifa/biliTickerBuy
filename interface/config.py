@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
+
 from .common import (
     BUYER_REQUIRED_FIELDS,
     COOKIE_REQUIRED_FIELDS,
@@ -28,6 +30,7 @@ class RuntimeOptions:
     create_retry_limit: int = 20
     create_request_batch_size: int = 3
     create_request_proxy_strategy: str = "standard"
+    h2_connections_per_source_ip: int = H2CLIENT_CONNECTIONS_PER_SOURCE_IP
     time_start: str = ""
     audio_path: str = ""
     pushplusToken: str = ""
@@ -297,6 +300,7 @@ def build_runtime_options(
     create_retry_limit: int = 20,
     create_request_batch_size: int = 3,
     create_request_proxy_strategy: str = "standard",
+    h2_connections_per_source_ip: int = H2CLIENT_CONNECTIONS_PER_SOURCE_IP,
     time_start: str = "",
     audio_path: str = "",
     pushplusToken: str = "",
@@ -336,6 +340,10 @@ def build_runtime_options(
         create_request_proxy_strategy=str(
             create_request_proxy_strategy or "standard"
         ).lower(),
+        h2_connections_per_source_ip=normalize_positive_int(
+            h2_connections_per_source_ip,
+            default=H2CLIENT_CONNECTIONS_PER_SOURCE_IP,
+        ),
         time_start=normalize_time_start(time_start),
         audio_path=audio_path,
         pushplusToken=pushplusToken,

@@ -215,7 +215,6 @@ def go_start_tab():
                 minimum=1,
                 info="默认抢票请求间隔（单位：毫秒）",
             )
-
     @runtime_state_writer(GO_UPLOADED_FILES_STATE_KEY, kind="path_list")
     def upload(filepath):
         try:
@@ -393,12 +392,7 @@ def go_start_tab():
             return gr.update(visible=True)
 
         if proxy_assignment_strategy == "local_fanout":
-            fanout_proxy_pool = ",".join(
-                proxy for proxy in https_proxy_list if proxy.lower() != "none"
-            )
-            if not fanout_proxy_pool:
-                gr.Warning("代理池并发策略需要至少配置一个代理。")
-                return gr.update(visible=False)
+            fanout_proxy_pool = ",".join(https_proxy_list)
             for filename in files:
                 launch_task(
                     filename,

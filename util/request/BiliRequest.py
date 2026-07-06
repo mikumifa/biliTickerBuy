@@ -118,11 +118,7 @@ class BiliRequest:
     def replace_proxy_pool(self, proxy_string: str) -> None:
         self.proxy_manager.replace_proxy_list(proxy_string)
         if "proxy_pool" in self._h2_client_options:
-            self._h2_client_options["proxy_pool"] = [
-                proxy
-                for proxy in self.proxy_manager.proxy_list
-                if proxy.lower() != "none"
-            ]
+            self._h2_client_options["proxy_pool"] = list(self.proxy_manager.proxy_list)
         self.proxy_manager.apply_to_session(self.session)
         self._invalidate_h2_client()
 

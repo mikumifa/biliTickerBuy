@@ -29,6 +29,7 @@ from util.proxy.ProxyManager import ProxyManager
 from util.notifer.RandomMessages import get_random_fail_message
 from util import time_service
 from util.ErrorCodes import ErrorCodes
+from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
 from task.buy_helpers import (
     BASE_URL as base_url,
     build_payment_result,
@@ -399,13 +400,21 @@ def buy_stream(config: BuyConfig):
     if config.create_request_proxy_strategy == LOCAL_FANOUT_PROXY_STRATEGY:
         from util.h2client.ja_h2_client import ProxyPoolCreateV2FanoutJA3H2Client
 
-        proxy_pool = [
-            proxy
-            for proxy in ProxyManager.parse_proxy_list(config.https_proxys)
-            if proxy.lower() != "none"
-        ]
+        proxy_pool = ProxyManager.parse_proxy_list(config.https_proxys)
+        if not proxy_pool:
+            proxy_pool = ["none"]
+        try:
+            h2_connections_per_source_ip = max(
+                1,
+                int(config.h2_connections_per_source_ip),
+            )
+        except (TypeError, ValueError):
+            h2_connections_per_source_ip = H2CLIENT_CONNECTIONS_PER_SOURCE_IP
         h2_client_type = ProxyPoolCreateV2FanoutJA3H2Client
-        h2_client_options = {"proxy_pool": proxy_pool}
+        h2_client_options = {
+            "proxy_pool": proxy_pool,
+            "connections_per_source_ip": h2_connections_per_source_ip,
+        }
     _request = BiliRequest(
         cookies=cookies,
         proxy=config.https_proxys,

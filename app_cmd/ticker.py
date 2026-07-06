@@ -75,12 +75,14 @@ def ticker_cmd(args: TickerCliArgs):
         go_refresh_token, go_panel_update = refresh_task_panel()
         log_refresh_token, log_panel_update = refresh_log_panel()
         go_start_updates = load_go_start_configs()
+        if not isinstance(go_start_updates, (list, tuple)):
+            go_start_updates = [go_start_updates]
         return (
             go_refresh_token,
             go_panel_update,
             log_refresh_token,
             log_panel_update,
-            go_start_updates,
+            *go_start_updates,
         )
 
     with gr.Blocks(

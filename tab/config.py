@@ -19,6 +19,7 @@ from util.Constant import (
     DEFAULT_RATE_LIMIT_DELAY_MS,
     DEFAULT_REQUEST_INTERVAL,
 )
+from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
 
 
 def go_settings_tab(header_ui):
@@ -298,6 +299,13 @@ def go_settings_tab(header_ui):
         ConfigDB.insert(key, parsed)
         return gr.update(value=ConfigDB.get_as_int(key, default))
 
+    def update_h2_connections_per_source_ip(value):
+        return _update_positive_int_config(
+            "h2ConnectionsPerSourceIp",
+            value,
+            H2CLIENT_CONNECTIONS_PER_SOURCE_IP,
+        )
+
     def update_proxy_max_consecutive_failures(value):
         return _update_positive_int_config(
             "proxyMaxConsecutiveFailures",
@@ -478,7 +486,7 @@ def go_settings_tab(header_ui):
                         <div class="mt-2 text-sm leading-7 text-slate-700">
                           <p><strong>均匀分配模式：</strong>程序会尽量把代理均匀分配给所有抢票任务。适合代理数量较多的情况。但是如果你配置的代理数目不够多，同一个代理在运行过程中可能会被多个程序使用。</p>
                           <p><strong>队列模式：</strong>程序会将代理作为队列资源分配给抢票任务，尽量保证同一时间内每个正在运行的任务使用不同的代理。如果抢票任务数为 n，代理数量为 m：当 n &lt;= m 时，每个抢票任务都会分配到不同的代理；当 n &gt; m 时，最多同时运行 m 个抢票任务，未分配到代理的任务会进入等待队列，等前面的任务结束后再继续执行。这种模式适合希望同一时间内每个任务尽量使用不同 IP，并避免多个任务共用同一个代理的场景。</p>
-                          <p><strong>代理池并发：</strong>每个任务都会拿到完整代理池，并在关键 create 请求上通过多个代理同时尝试，谁先返回有效结果就优先使用。适合单个热门票档冲刺，但要求至少配置一个真实代理，不会使用直连。</p>
+                          <p><strong>代理池并发：</strong>每个任务都会拿到完整出口池，并在关键 create 请求上通过多个出口同时尝试，谁先返回有效结果就优先使用。未配置代理且允许直连时，会使用直连作为单一出口，并按同代理并行数量建立多条 H2 连接。</p>
                         </div>
                         """
                     )
@@ -506,6 +514,13 @@ def go_settings_tab(header_ui):
                         minimum=0,
                         step=1,
                         info="填 0 表示等于代理数量。",
+                    )
+                    h2_connections_per_source_ip_ui = gr.Number(
+                        label="抢票并行数",
+                        value=buy_defaults.h2_connections_per_source_ip,
+                        minimum=1,
+                        step=1,
+                        info="同代理并行数量。代理池并发模式下，每个代理或直连出口会同时建立的 H2 连接数。",
                     )
 
             with gr.Tab("音乐"):
@@ -869,6 +884,10 @@ def go_settings_tab(header_ui):
         update_request_interval,
     )
     _bind_number_commit(
+        h2_connections_per_source_ip_ui,
+        update_h2_connections_per_source_ip,
+    )
+    _bind_number_commit(
         create_retry_limit_ui,
         update_create_retry_limit,
     )
@@ -935,6 +954,7 @@ def go_settings_tab(header_ui):
             gr.update(visible=not hide_header),
             gr.update(value=buy_defaults.use_local_token),
             gr.update(value=int(buy_defaults.interval or DEFAULT_REQUEST_INTERVAL)),
+            gr.update(value=buy_defaults.h2_connections_per_source_ip),
             gr.update(value=buy_defaults.create_retry_limit),
             gr.update(value=buy_defaults.create_request_batch_size),
             gr.update(value=buy_defaults.proxy_max_consecutive_failures),
@@ -972,6 +992,7 @@ def go_settings_tab(header_ui):
         header_ui,
         use_local_token_ui,
         request_interval_ui,
+        h2_connections_per_source_ip_ui,
         create_retry_limit_ui,
         create_request_batch_size_ui,
         proxy_max_consecutive_failures_ui,
