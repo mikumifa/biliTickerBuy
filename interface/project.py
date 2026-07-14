@@ -7,62 +7,223 @@ from typing import Any
 from .common import _extract_project_id, _format_sale_status, _make_request
 
 NEW_PROJECT_DETAIL_URL = "https://mall.bilibili.com/mall-search-items/items_detail/info"
+NEW_PROJECT_DETAIL_PAGE_URL = (
+    "https://mall.bilibili.com/neul-next/ticket-renovation/detail.html"
+)
 OLD_PROJECT_DETAIL_URL = "https://show.bilibili.com/api/ticket/project/getV2"
+
+
+def _first_value(payload: dict[str, Any], *keys: str, default: Any = None) -> Any:
+    for key in keys:
+        value = payload.get(key)
+        if value not in (None, ""):
+            return value
+    return default
+
+
+def _coerce_int(value: Any, *, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_epoch_seconds(value: Any) -> int:
+    timestamp = _coerce_int(value)
+    return timestamp // 1000 if timestamp > 10**11 else timestamp
+
+
+def _normalize_new_ticket(
+    ticket: dict[str, Any],
+    *,
+    project_id: int,
+    screen_id: Any,
+    screen_name: str,
+) -> dict[str, Any]:
+    normalized = copy.deepcopy(ticket)
+    sale_flag = _first_value(ticket, "sale_flag", "saleFlag")
+    sale_flag_number = _first_value(ticket, "sale_flag_number", "saleFlagNumber")
+    if isinstance(sale_flag, dict):
+        sale_flag_number = _first_value(
+            sale_flag,
+            "number",
+            "sale_flag_number",
+            "saleFlagNumber",
+            default=sale_flag_number,
+        )
+
+    normalized["id"] = _first_value(ticket, "id", "sku_id", "skuId")
+    normalized["desc"] = _first_value(
+        ticket,
+        "desc",
+        "ticket_desc",
+        "ticketDesc",
+        "sku_desc",
+        "skuDesc",
+        "sku_name",
+        "skuName",
+        "name",
+        default="",
+    )
+    normalized["price"] = _coerce_int(
+        _first_value(ticket, "price", "ticket_price", "ticketPrice"),
+    )
+    normalized["sale_start"] = _first_value(
+        ticket,
+        "sale_start",
+        "saleStart",
+        default="",
+    )
+    normalized["project_id"] = _coerce_int(
+        _first_value(ticket, "project_id", "projectId", default=project_id),
+        default=project_id,
+    )
+    normalized["screen_id"] = _first_value(
+        ticket,
+        "screen_id",
+        "screenId",
+        default=screen_id,
+    )
+    normalized["screen_name"] = _first_value(
+        ticket,
+        "screen_name",
+        "screenName",
+        default=screen_name,
+    )
+    if sale_flag is not None:
+        normalized["sale_flag"] = sale_flag
+    if sale_flag_number is not None:
+        normalized["sale_flag_number"] = sale_flag_number
+    if "clickable" not in normalized and "canClick" in ticket:
+        normalized["clickable"] = bool(ticket["canClick"])
+    return normalized
+
+
+def _normalize_new_screen(
+    screen: dict[str, Any],
+    *,
+    project_id: int,
+) -> dict[str, Any]:
+    normalized = copy.deepcopy(screen)
+    screen_id = _first_value(screen, "id", "screen_id", "screenId")
+    screen_name = str(
+        _first_value(
+            screen,
+            "name",
+            "screen_name",
+            "screenName",
+            "start_time_str",
+            "startTimeStr",
+            "dateStr",
+            default="",
+        )
+    )
+    raw_tickets = _first_value(screen, "ticket_list", "ticketList", default=[])
+    if not isinstance(raw_tickets, list):
+        raw_tickets = []
+
+    normalized["id"] = screen_id
+    normalized["name"] = screen_name
+    normalized["project_id"] = _coerce_int(
+        _first_value(screen, "project_id", "projectId", default=project_id),
+        default=project_id,
+    )
+    normalized["express_fee"] = _coerce_int(
+        _first_value(screen, "express_fee", "expressFee"),
+    )
+    normalized["start_time"] = _normalize_epoch_seconds(
+        _first_value(screen, "start_time", "startTime"),
+    )
+    normalized["start_time_str"] = _first_value(
+        screen,
+        "start_time_str",
+        "startTimeStr",
+        "dateStr",
+        default="",
+    )
+    normalized["ticket_list"] = [
+        _normalize_new_ticket(
+            ticket,
+            project_id=project_id,
+            screen_id=screen_id,
+            screen_name=screen_name,
+        )
+        for ticket in raw_tickets
+        if isinstance(ticket, dict)
+    ]
+    return normalized
+
+
+def _normalize_sales_dates(raw_dates: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw_dates, list):
+        return []
+
+    dates: list[dict[str, Any]] = []
+    for item in raw_dates:
+        if isinstance(item, dict):
+            normalized = copy.deepcopy(item)
+            date = _first_value(item, "date", "dateStr")
+            if date not in (None, ""):
+                normalized["date"] = str(date)
+            dates.append(normalized)
+        elif item not in (None, ""):
+            dates.append({"date": str(item)})
+    return dates
 
 
 def _normalize_new_project_payload(
     new_payload: dict[str, Any], project_id: int
 ) -> dict[str, Any]:
-    normalized_project_id = int(
-        new_payload.get("projectId") or new_payload.get("itemsId") or project_id
+    normalized_project_id = _coerce_int(
+        _first_value(new_payload, "projectId", "itemsId", default=project_id),
+        default=project_id,
     )
-    raw_screens = new_payload.get("screenList")
+    raw_screens = _first_value(new_payload, "screenList", "screen_list")
     if not isinstance(raw_screens, list) or not raw_screens:
         raise RuntimeError("new project response missing screenList")
 
-    screens = copy.deepcopy(raw_screens)
+    screens = [
+        _normalize_new_screen(screen, project_id=normalized_project_id)
+        for screen in raw_screens
+        if isinstance(screen, dict)
+    ]
     screen_start_times = [
-        int(screen.get("start_time", 0))
+        _normalize_epoch_seconds(screen.get("start_time"))
         for screen in screens
-        if isinstance(screen, dict) and str(screen.get("start_time", 0)).isdigit()
+        if _normalize_epoch_seconds(screen.get("start_time")) > 0
     ]
     venue_info = copy.deepcopy(new_payload.get("skuVenueInfo") or {})
     if not isinstance(venue_info, dict):
         venue_info = {}
-    venue_info.setdefault("name", "")
-    venue_info.setdefault("address_detail", "")
-    sales_dates = new_payload.get("salesDates")
-    end_time = int(
-        new_payload.get("endTime")
-        or (max(screen_start_times) if screen_start_times else 0)
+    venue_info["name"] = _first_value(
+        venue_info,
+        "name",
+        "venue_name",
+        "venueName",
+        default="",
     )
-
-    for screen in screens:
-        if not isinstance(screen, dict):
-            continue
-        screen.setdefault("project_id", normalized_project_id)
-        screen.setdefault("express_fee", 0)
-        for ticket in screen.get("ticket_list", []):
-            if not isinstance(ticket, dict):
-                continue
-            ticket.setdefault("project_id", normalized_project_id)
-            ticket.setdefault("screen_name", screen.get("name", ""))
-            sale_flag = ticket.get("sale_flag") or {}
-            if isinstance(sale_flag, dict):
-                ticket.setdefault("sale_flag_number", sale_flag.get("number"))
+    venue_info["address_detail"] = _first_value(
+        venue_info,
+        "address_detail",
+        "addressDetail",
+        default="",
+    )
+    end_time = _normalize_epoch_seconds(
+        _first_value(new_payload, "endTime", "end_time")
+    ) or (max(screen_start_times) if screen_start_times else 0)
 
     return {
         "id": normalized_project_id,
-        "name": new_payload.get("projectName", ""),
-        "hotProject": bool(new_payload.get("hotProject", False)),
+        "name": _first_value(new_payload, "projectName", "project_name", default=""),
+        "hotProject": bool(
+            _first_value(new_payload, "hotProject", "hot_project", default=False)
+        ),
         "has_eticket": not any(
-            int(screen.get("express_fee", 0) or 0) > 0
-            for screen in screens
-            if isinstance(screen, dict)
+            _coerce_int(screen.get("express_fee")) > 0 for screen in screens
         ),
         "screen_list": screens,
-        "sales_dates": copy.deepcopy(
-            sales_dates if isinstance(sales_dates, list) else []
+        "sales_dates": _normalize_sales_dates(
+            _first_value(new_payload, "salesDates", "sales_dates")
         ),
         "venue_info": venue_info,
         "start_time": min(screen_start_times) if screen_start_times else 0,
@@ -81,9 +242,9 @@ def _fetch_project_payload_new(*, request: Any, project_id: int) -> dict[str, An
         request_headers.update(
             {
                 "origin": "https://mall.bilibili.com",
-                "referer": (
-                    "https://mall.bilibili.com/neul-next/ticket-renovation/detail.html"
-                    "?id={0}&from=pc_ticketlist&noTitleBar=1".format(project_id)
+                "referer": "{0}?bilibiliappTest=&id={1}".format(
+                    NEW_PROJECT_DETAIL_PAGE_URL,
+                    project_id,
                 ),
             }
         )

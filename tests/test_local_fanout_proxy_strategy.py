@@ -211,6 +211,44 @@ def test_h2_client_constructor_uses_abstract_client_interface():
     assert client.closed is True
 
 
+def test_h2_send_forwards_current_headers_and_resets_stale_values():
+    FakeH2Client.instances = []
+    request = BiliRequest(cookies=[], h2_client_type=FakeH2Client)
+    request.headers.update(
+        {
+            "origin": "https://mall.bilibili.com",
+            "referer": (
+                "https://mall.bilibili.com/neul-next/ticket-renovation/detail.html"
+                "?id=1003217"
+            ),
+            "x-ticket-renovation-test": "1",
+        }
+    )
+
+    request._h2_send(
+        "post",
+        "https://mall.bilibili.com/mall-search-items/items_detail/info",
+        data={"itemsId": 1003217, "itemsDetailPageType": 3},
+        isJson=True,
+    )
+
+    client = FakeH2Client.instances[0]
+    assert client.headers["origin"] == "https://mall.bilibili.com"
+    assert client.headers["referer"].endswith("?id=1003217")
+    assert client.headers["content-type"] == "application/json"
+    assert client.headers["x-ticket-renovation-test"] == "1"
+
+    request.headers.pop("origin")
+    request.headers.pop("referer")
+    request.headers.pop("x-ticket-renovation-test")
+    request._h2_send("get", "https://show.bilibili.com/api/ticket/project/getV2")
+
+    assert "origin" not in client.headers
+    assert "referer" not in client.headers
+    assert "x-ticket-renovation-test" not in client.headers
+    assert "content-type" not in client.headers
+
+
 def test_replace_proxy_pool_updates_h2_client_options():
     FakeH2Client.instances = []
     request = BiliRequest(
@@ -306,9 +344,7 @@ def test_proxy_pool_fanout_detects_percent_encoded_create_v2_path():
         connection_factory=FakeH2Connection,
         connections_per_source_ip=2,
     )
-    encoded_create_url = (
-        "https://show.bilibili.com/api/%74icket/%6frder/crea%74eV%32"
-    )
+    encoded_create_url = "https://show.bilibili.com/api/%74icket/%6frder/crea%74eV%32"
 
     response = client.post(
         encoded_create_url,
