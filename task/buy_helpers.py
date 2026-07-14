@@ -38,18 +38,33 @@ def get_order_detail_url(order_id: int | str) -> str:
     return f"{BASE_URL}/platform/orderDetail.html?order_id={order_id}"
 
 
+def build_order_detail_payment_result(order_id: int | str) -> dict[str, Any]:
+    order_detail_url = get_order_detail_url(order_id)
+    return {
+        "order_id": order_id,
+        "order_detail_url": order_detail_url,
+        "payment_code_url": None,
+        "payment_qr_url": order_detail_url,
+    }
+
+
 def build_payment_result(
     _request: BiliRequest,
     order_id: int | str,
 ) -> dict[str, Any]:
-    order_detail_url = get_order_detail_url(order_id)
-    payment_code_url = get_qrcode_url(_request, order_id)
-    return {
-        "order_id": order_id,
-        "order_detail_url": order_detail_url,
-        "payment_code_url": payment_code_url,
-        "payment_qr_url": order_detail_url,
-    }
+    payment_result = build_order_detail_payment_result(order_id)
+    payment_result["payment_code_url"] = get_qrcode_url(_request, order_id)
+    return payment_result
+
+
+def build_payment_result_with_fallback(
+    _request: BiliRequest,
+    order_id: int | str,
+) -> tuple[dict[str, Any], Exception | None]:
+    try:
+        return build_payment_result(_request, order_id), None
+    except Exception as exc:
+        return build_order_detail_payment_result(order_id), exc
 
 
 def format_countdown(seconds: float) -> str:

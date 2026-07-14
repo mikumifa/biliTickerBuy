@@ -32,13 +32,12 @@ from util.ErrorCodes import ErrorCodes
 from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
 from task.buy_helpers import (
     BASE_URL as base_url,
-    build_payment_result,
+    build_payment_result_with_fallback,
     build_token_payload as _build_token_payload,
     create_order_terminal_rule as _create_order_terminal_rule,
     extract_order_id as _extract_order_id,
     format_retry_reason as _format_retry_reason,
     format_status_result as _format_status_result,
-    get_order_detail_url,
     handle_proxy_failure as _handle_proxy_failure,
     is_create_success as _is_create_success,
     prepare_create_request as _prepare_create_request,
@@ -765,18 +764,14 @@ def buy_stream(config: BuyConfig):
                     errno, terminal_ret, terminal_rule = terminal_result
                     order_id = _extract_order_id(terminal_ret)
                     if terminal_rule.expose_payment_url and order_id is not None:
-                        payment_result = {
-                            "order_id": order_id,
-                            "order_detail_url": get_order_detail_url(order_id),
-                            "payment_code_url": None,
-                            "payment_qr_url": get_order_detail_url(order_id),
-                        }
-                        try:
-                            payment_result = build_payment_result(_request, order_id)
-                        except Exception as exc:
+                        payment_result, payment_error = (
+                            build_payment_result_with_fallback(_request, order_id)
+                        )
+                        if payment_error is not None:
                             yield emit(
                                 "status",
-                                f"获取支付二维码链接失败，将继续返回订单详情页: {exc}",
+                                "订单已创建，但未获取到支付二维码；该订单可能无需付款，"
+                                f"将继续返回订单详情页: {payment_error}",
                                 BuyStreamUpdate(
                                     order_id=payment_result["order_id"],
                                     order_detail_url=payment_result["order_detail_url"],
@@ -839,7 +834,21 @@ def buy_stream(config: BuyConfig):
                     ),
                 )
                 order_id = request_result["data"]["orderId"]  # type: ignore
-                payment_result = build_payment_result(_request, order_id)
+                payment_result, payment_error = build_payment_result_with_fallback(
+                    _request, order_id
+                )
+                if payment_error is not None:
+                    yield emit(
+                        "status",
+                        "订单已创建，但未获取到支付二维码；该订单可能无需付款，"
+                        f"将继续返回订单详情页: {payment_error}",
+                        BuyStreamUpdate(
+                            order_id=payment_result["order_id"],
+                            order_detail_url=payment_result["order_detail_url"],
+                            payment_qr_url=payment_result["payment_qr_url"],
+                            status="succeeded",
+                        ),
+                    )
                 for payment_event in emit_payment_details(
                     payment_result,
                     status="succeeded",
