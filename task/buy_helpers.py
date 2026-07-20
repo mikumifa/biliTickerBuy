@@ -6,6 +6,8 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from loguru import logger
+
 from cptoken import CTokenRuntimeState, sim_ctoken_state
 
 from util import time_service
@@ -36,18 +38,33 @@ def get_order_detail_url(order_id: int | str) -> str:
     return f"{BASE_URL}/platform/orderDetail.html?order_id={order_id}"
 
 
+def build_order_detail_payment_result(order_id: int | str) -> dict[str, Any]:
+    order_detail_url = get_order_detail_url(order_id)
+    return {
+        "order_id": order_id,
+        "order_detail_url": order_detail_url,
+        "payment_code_url": None,
+        "payment_qr_url": order_detail_url,
+    }
+
+
 def build_payment_result(
     _request: BiliRequest,
     order_id: int | str,
 ) -> dict[str, Any]:
-    order_detail_url = get_order_detail_url(order_id)
-    payment_code_url = get_qrcode_url(_request, order_id)
-    return {
-        "order_id": order_id,
-        "order_detail_url": order_detail_url,
-        "payment_code_url": payment_code_url,
-        "payment_qr_url": order_detail_url,
-    }
+    payment_result = build_order_detail_payment_result(order_id)
+    payment_result["payment_code_url"] = get_qrcode_url(_request, order_id)
+    return payment_result
+
+
+def build_payment_result_with_fallback(
+    _request: BiliRequest,
+    order_id: int | str,
+) -> tuple[dict[str, Any], Exception | None]:
+    try:
+        return build_payment_result(_request, order_id), None
+    except Exception as exc:
+        return build_order_detail_payment_result(order_id), exc
 
 
 def format_countdown(seconds: float) -> str:
@@ -72,8 +89,65 @@ def next_countdown_report_at(countdown_seconds: int) -> int:
     return -1
 
 
-def wait_until_start(time_start: str, warmup=None):
+def _page_gate_result_fields(result: Any) -> tuple[bool, str]:
+    """Keep the countdown code independent from the page-check implementation."""
+
+    if isinstance(result, bool):
+        return result, "购票页校验：检测到「立即购票」。" if result else "购票页校验：尚未检测到「立即购票」。"
+    ready = bool(getattr(result, "ready", False))
+    message = getattr(result, "message", None)
+    if not isinstance(message, str) or not message:
+        message = "购票页校验：检测到「立即购票」。" if ready else "购票页校验：尚未检测到「立即购票」。"
+    return ready, message
+
+
+def _wait_for_page_gate(
+    page_status_check: Callable[[], Any],
+    *,
+    timeout_seconds: float,
+    poll_interval_seconds: float,
+):
+    """Poll after the scheduled start until the page is purchasable or times out."""
+
+    deadline = time.perf_counter() + max(1.0, timeout_seconds)
+    while True:
+        try:
+            ready, message = _page_gate_result_fields(page_status_check())
+        except Exception as exc:
+            ready, message = False, f"购票页校验请求失败，继续等待：{exc}"
+        yield {"message": message}
+        if ready:
+            return
+        remaining = deadline - time.perf_counter()
+        if remaining <= 0:
+            yield {
+                "message": "购票页校验超时，未检测到「立即购票」，本次抢票已终止。",
+                "page_gate_timeout": True,
+            }
+            return
+        time.sleep(min(poll_interval_seconds, remaining))
+
+
+def wait_until_start(
+    time_start: str,
+    warmup=None,
+    *,
+    page_status_check: Callable[[], Any] | None = None,
+    page_check_before_seconds: float = 0,
+    page_timeout_seconds: float = 60,
+    page_poll_interval_seconds: float = 0.5,
+):
+    page_check_before_seconds = max(0.0, float(page_check_before_seconds))
+    page_timeout_seconds = max(1.0, float(page_timeout_seconds))
+    page_poll_interval_seconds = max(0.1, float(page_poll_interval_seconds))
     if not time_start:
+        if page_status_check is not None:
+            yield {"message": "0) 未设置开始时间，正在等待购票页出现「立即购票」。"}
+            yield from _wait_for_page_gate(
+                page_status_check,
+                timeout_seconds=page_timeout_seconds,
+                poll_interval_seconds=page_poll_interval_seconds,
+            )
         return
 
     timeoffset = time_service.get_timeoffset()
@@ -94,6 +168,7 @@ def wait_until_start(time_start: str, warmup=None):
                 f"RTT {bili_check.delay * 1000:.1f}ms"
             )
         }
+        yield {"message": "倒计时默认使用会员购 Date 时间源。"}
 
     for fmt in (
         "%Y-%m-%dT%H:%M:%S",
@@ -113,14 +188,48 @@ def wait_until_start(time_start: str, warmup=None):
 
     yield {"message": f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"}
 
-    time_difference = target_time.timestamp() - time_service.now()
+    if hasattr(time_service, "countdown_now"):
+        countdown_now = time_service.countdown_now
+    else:
+        countdown_now = time_service.now
+    if hasattr(time_service, "countdown_time_source"):
+        countdown_source = time_service.countdown_time_source
+    else:
+
+        def countdown_source():
+            return getattr(time_service, "time_source", "unknown")
+
+    yield {"message": f"倒计时时间源: {countdown_source()}"}
+    time_difference = target_time.timestamp() - countdown_now()
     end_time = time.perf_counter() + time_difference
     next_report_at = float("inf")
     warmed = False
+    page_ready = False
+    page_next_check_at = 0.0
     last_countdown_seconds: int | None = None
     while True:
         remaining = end_time - time.perf_counter()
         if remaining <= 0:
+            if page_status_check is not None:
+                try:
+                    page_ready, page_message = _page_gate_result_fields(
+                        page_status_check()
+                    )
+                except Exception as exc:
+                    page_ready, page_message = (
+                        False,
+                        f"购票页校验请求失败，继续等待：{exc}",
+                    )
+                yield {"message": page_message}
+                if not page_ready:
+                    yield {
+                        "message": "抢票时间已到，仍未检测到「立即购票」，继续刷新购票页。"
+                    }
+                    yield from _wait_for_page_gate(
+                        page_status_check,
+                        timeout_seconds=page_timeout_seconds,
+                        poll_interval_seconds=page_poll_interval_seconds,
+                    )
             return
         countdown_seconds = max(0, math.ceil(remaining))
         countdown_text = format_countdown(remaining)
@@ -133,12 +242,36 @@ def wait_until_start(time_start: str, warmup=None):
             }
         if not warmed and warmup is not None and remaining <= WARMUP_AT_SECONDS:
             warmed = True
-            for warm_message in warmup() or []:
+            try:
+                warm_messages = warmup() or []
+            except Exception as exc:
+                logger.warning(f"预热/复检失败（忽略）：{exc}")
+                warm_messages = [f"预热/复检失败（忽略）：{exc}"]
+            for warm_message in warm_messages:
                 yield {
                     "message": warm_message,
                     "countdown": countdown_text,
                     "countdown_seconds": countdown_seconds,
                 }
+            continue
+        if (
+            page_status_check is not None
+            and not page_ready
+            and remaining <= page_check_before_seconds
+            and time.perf_counter() >= page_next_check_at
+        ):
+            page_next_check_at = time.perf_counter() + page_poll_interval_seconds
+            try:
+                page_ready, page_message = _page_gate_result_fields(
+                    page_status_check()
+                )
+            except Exception as exc:
+                page_message = f"购票页校验请求失败，继续等待：{exc}"
+            yield {
+                "message": page_message,
+                "countdown": countdown_text,
+                "countdown_seconds": countdown_seconds,
+            }
             continue
         if countdown_seconds <= next_report_at:
             if countdown_seconds > 10:

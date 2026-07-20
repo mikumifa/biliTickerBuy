@@ -13,6 +13,7 @@ from app_cmd.config.ConfigBasic import (
 )
 from app_cmd.config.NotifierConfig import NotifierConfig
 from util.Constant import DEFAULT_RATE_LIMIT_DELAY_MS
+from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
 
 
 @dataclass(slots=True)
@@ -149,6 +150,16 @@ class BuyConfig(BasicConfig):
     )
     """Internal create-order request transport strategy."""
 
+    h2_connections_per_source_ip: int = config_field(
+        H2CLIENT_CONNECTIONS_PER_SOURCE_IP,
+        env="BTB_H2_CONNECTIONS_PER_SOURCE_IP",
+        runtime="h2_connections_per_source_ip",
+        db="h2ConnectionsPerSourceIp",
+        cli="--h2-connections-per-source-ip",
+        cast=int,
+    )
+    """H2 connection count per proxy/source IP for local fanout create requests."""
+
     rate_limit_delay_ms: int = config_field(
         DEFAULT_RATE_LIMIT_DELAY_MS,
         env="BTB_RATE_LIMIT_DELAY_MS",
@@ -158,6 +169,45 @@ class BuyConfig(BasicConfig):
         cast=int,
     )
     """Delay after receiving HTTP 429, in milliseconds."""
+
+    wait_for_buy_button: bool = config_field(
+        False,
+        env="BTB_WAIT_FOR_BUY_BUTTON",
+        runtime="wait_for_buy_button",
+        db="waitForBuyButton",
+        cast=str_to_bool,
+        cli_true="--wait-for-buy-button",
+    )
+    """Wait for the mobile page's immediate-buy button before ordering."""
+
+    buy_page_url: str = config_field(
+        "",
+        env="BTB_BUY_PAGE_URL",
+        runtime="buy_page_url",
+        db="buyPageUrl",
+        cli="--buy-page-url",
+    )
+    """Ticket detail URL used by the immediate-buy page gate."""
+
+    buy_page_timeout_seconds: int = config_field(
+        60,
+        env="BTB_BUY_PAGE_TIMEOUT_SECONDS",
+        runtime="buy_page_timeout_seconds",
+        db="buyPageTimeoutSeconds",
+        cli="--buy-page-timeout-seconds",
+        cast=int,
+    )
+    """Maximum post-start wait time for the immediate-buy button."""
+
+    buy_page_check_before_seconds: int = config_field(
+        5,
+        env="BTB_BUY_PAGE_CHECK_BEFORE_SECONDS",
+        runtime="buy_page_check_before_seconds",
+        db="buyPageCheckBeforeSeconds",
+        cli="--buy-page-check-before-seconds",
+        cast=int,
+    )
+    """Seconds before ticket start to begin polling the mobile ticket page."""
 
     refresh_interval_min_count: int = config_field(
         10,
@@ -270,6 +320,7 @@ class BuyConfig(BasicConfig):
         tickets_info: str = "",
         time_start: str = "",
         interval: int | None = None,
+        h2_connections_per_source_ip: int | None = None,
         https_proxys: str | None = None,
         show_qrcode: bool | None = None,
     ) -> "BuyConfig":
@@ -284,6 +335,9 @@ class BuyConfig(BasicConfig):
 
         if interval is not None:
             overrides["interval"] = interval
+
+        if h2_connections_per_source_ip is not None:
+            overrides["h2_connections_per_source_ip"] = h2_connections_per_source_ip
 
         if https_proxys is not None:
             overrides["https_proxys"] = https_proxys

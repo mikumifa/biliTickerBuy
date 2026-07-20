@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
+
 from .common import (
     BUYER_REQUIRED_FIELDS,
     COOKIE_REQUIRED_FIELDS,
@@ -28,12 +30,16 @@ class RuntimeOptions:
     create_retry_limit: int = 20
     create_request_batch_size: int = 3
     create_request_proxy_strategy: str = "standard"
+    h2_connections_per_source_ip: int = H2CLIENT_CONNECTIONS_PER_SOURCE_IP
     time_start: str = ""
     audio_path: str = ""
     pushplusToken: str = ""
     serverchanKey: str = ""
     barkToken: str = ""
     meowNickname: str = ""
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    telegram_http_proxy: str = ""
     https_proxys: str = "none"
     proxy_api_url: str = ""
     proxy_api_protocol: str = "http"
@@ -52,6 +58,10 @@ class RuntimeOptions:
     auto_open_payment_url: bool = True
     log_level: str = "standard"
     log_retention_days: int = 7
+    wait_for_buy_button: bool = False
+    buy_page_url: str = ""
+    buy_page_timeout_seconds: int = 60
+    buy_page_check_before_seconds: int = 5
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "RuntimeOptions":
@@ -297,12 +307,16 @@ def build_runtime_options(
     create_retry_limit: int = 20,
     create_request_batch_size: int = 3,
     create_request_proxy_strategy: str = "standard",
+    h2_connections_per_source_ip: int = H2CLIENT_CONNECTIONS_PER_SOURCE_IP,
     time_start: str = "",
     audio_path: str = "",
     pushplusToken: str = "",
     serverchanKey: str = "",
     barkToken: str = "",
     meowNickname: str = "",
+    telegram_bot_token: str = "",
+    telegram_chat_id: str = "",
+    telegram_http_proxy: str = "",
     https_proxys: str = "none",
     proxy_api_url: str = "",
     proxy_api_protocol: str = "http",
@@ -321,6 +335,10 @@ def build_runtime_options(
     auto_open_payment_url: bool = True,
     log_level: str = "standard",
     log_retention_days: int = 7,
+    wait_for_buy_button: bool = False,
+    buy_page_url: str = "",
+    buy_page_timeout_seconds: int = 60,
+    buy_page_check_before_seconds: int = 5,
 ) -> RuntimeOptions:
     return RuntimeOptions(
         interval=normalize_interval(interval),
@@ -336,12 +354,19 @@ def build_runtime_options(
         create_request_proxy_strategy=str(
             create_request_proxy_strategy or "standard"
         ).lower(),
+        h2_connections_per_source_ip=normalize_positive_int(
+            h2_connections_per_source_ip,
+            default=H2CLIENT_CONNECTIONS_PER_SOURCE_IP,
+        ),
         time_start=normalize_time_start(time_start),
         audio_path=audio_path,
         pushplusToken=pushplusToken,
         serverchanKey=serverchanKey,
         barkToken=barkToken,
         meowNickname=meowNickname,
+        telegram_bot_token=telegram_bot_token,
+        telegram_chat_id=telegram_chat_id,
+        telegram_http_proxy=telegram_http_proxy,
         https_proxys=https_proxys,
         proxy_api_url=proxy_api_url,
         proxy_api_protocol=proxy_api_protocol,
@@ -372,6 +397,14 @@ def build_runtime_options(
         auto_open_payment_url=auto_open_payment_url,
         log_level=str(log_level or "standard").lower(),
         log_retention_days=normalize_positive_int(log_retention_days, default=7),
+        wait_for_buy_button=bool(wait_for_buy_button),
+        buy_page_url=str(buy_page_url or "").strip(),
+        buy_page_timeout_seconds=normalize_positive_int(
+            buy_page_timeout_seconds, default=60
+        ),
+        buy_page_check_before_seconds=normalize_non_negative_interval(
+            buy_page_check_before_seconds, default=5
+        ),
     )
 
 

@@ -40,20 +40,35 @@ SlotChooser = Callable[[Sequence["ConnectionSlot"]], "ConnectionSlot"]
 FallbackClientFactory = Callable[..., Any]
 
 
-def _normalize_proxy_list(proxy: str | None) -> list[str]:
-    if not proxy:
-        return []
-    values: list[str] = []
+def _normalize_fanout_sources(
+    proxy_pool: Sequence[str | None] | None,
+    proxy: str | None,
+) -> list[str | None]:
+    raw_values: list[str | None]
+    if proxy_pool is not None:
+        raw_values = list(proxy_pool)
+    elif proxy:
+        raw_values = [item.strip() for item in str(proxy).split(",")]
+    else:
+        raw_values = []
+
+    values: list[str | None] = []
     seen: set[str] = set()
-    for raw in str(proxy).split(","):
-        item = raw.strip()
+    for raw in raw_values:
+        if raw is None:
+            item = ""
+        else:
+            item = str(raw).strip()
         if not item or item.lower() in {"none", "direct"}:
-            continue
-        key = item.lower()
+            key = "direct"
+            value = None
+        else:
+            key = item.lower()
+            value = item
         if key in seen:
             continue
         seen.add(key)
-        values.append(item)
+        values.append(value)
     return values
 
 
@@ -67,6 +82,12 @@ class SourceAddress:
     @property
     def display(self) -> str:
         return self.proxy_url or self.ip
+
+    @property
+    def bind_ip(self) -> str | None:
+        if self.interface_alias == "direct":
+            return None
+        return self.ip
 
 
 @dataclass
@@ -182,12 +203,6 @@ def _response_errno(response: httpx.Response) -> int | None:
         return int(raw_errno)
     except (TypeError, ValueError):
         return None
-
-
-def _is_create_success_response(response: httpx.Response) -> bool:
-    if response.status_code != 200:
-        return False
-    return _response_errno(response) == 0
 
 
 class _SourcePoolJA3H2Client(AbstractH2Client):
@@ -431,7 +446,7 @@ class _SourcePoolJA3H2Client(AbstractH2Client):
     ) -> H2Connection:
         return self._connection_factory(
             host,
-            source.ip,
+            source.bind_ip,
             port=port,
             sni=host,
             family=source.family,
@@ -666,6 +681,7 @@ class _CreateV2FanoutJA3H2Client(_SourcePoolJA3H2Client):
         first_900001: httpx.Response | None = None
         first_other: httpx.Response | None = None
         last_exc: Exception | None = None
+        wait_for_futures = True
         try:
             for future in as_completed(futures):
                 outcome = future.result()
@@ -676,9 +692,10 @@ class _CreateV2FanoutJA3H2Client(_SourcePoolJA3H2Client):
                 status_code = outcome.response.status_code
                 if status_code == 200:
                     errno = _response_errno(outcome.response)
-                    if errno != 900001 and first_other is None:
-                        first_other = outcome.response
-                    elif errno == 900001 and first_900001 is None:
+                    if errno != 900001:
+                        wait_for_futures = False
+                        return outcome.response
+                    if first_900001 is None:
                         first_900001 = outcome.response
                 if status_code == 429 and first_429 is None:
                     first_429 = outcome.response
@@ -687,23 +704,28 @@ class _CreateV2FanoutJA3H2Client(_SourcePoolJA3H2Client):
                 elif status_code not in {200, 412, 429} and first_other is None:
                     first_other = outcome.response
 
-            if first_other is not None:
-                return first_other
             if first_900001 is not None:
                 return first_900001
             if first_429 is not None:
                 return first_429
+            if first_other is not None:
+                return first_other
             if first_412 is not None:
                 return first_412
             raise self._to_httpx_error(method, url, last_exc)
         finally:
-            executor.shutdown(wait=True, cancel_futures=False)
+            executor.shutdown(
+                wait=wait_for_futures,
+                cancel_futures=not wait_for_futures,
+            )
 
     def _should_fanout_create_v2(self, url: str) -> bool:
         parsed = urllib.parse.urlsplit(url)
+        decoded_path = urllib.parse.unquote(parsed.path)
         return (
-            parsed.hostname or ""
-        ).lower() == self._healthcheck_host.lower() and "createV2" in parsed.path
+            (parsed.hostname or "").lower() == self._healthcheck_host.lower()
+            and "createv2" in decoded_path.lower()
+        )
 
     def _send_fanout_request(
         self,
@@ -764,13 +786,13 @@ class ProxyPoolCreateV2FanoutJA3H2Client(_CreateV2FanoutJA3H2Client):
     def __init__(
         self,
         *,
-        proxy_pool: Sequence[str] | None = None,
+        proxy_pool: Sequence[str | None] | None = None,
         proxy: str | None = None,
         **kwargs: Any,
     ) -> None:
-        proxies = list(proxy_pool or _normalize_proxy_list(proxy))
+        proxies = _normalize_fanout_sources(proxy_pool, proxy)
         if not proxies:
-            raise httpx.ConnectError("proxy pool fanout requires at least one proxy")
+            proxies = [None]
         self._proxy_pool = proxies
         super().__init__(
             proxy=proxy,
@@ -781,9 +803,9 @@ class ProxyPoolCreateV2FanoutJA3H2Client(_CreateV2FanoutJA3H2Client):
     def _proxy_sources(self) -> list[SourceAddress]:
         return [
             SourceAddress(
-                ip=f"proxy-{index + 1}",
+                ip="direct" if proxy is None else f"proxy-{index + 1}",
                 family="auto",
-                interface_alias="proxy",
+                interface_alias="direct" if proxy is None else "proxy",
                 proxy_url=proxy,
             )
             for index, proxy in enumerate(self._proxy_pool)
@@ -813,70 +835,74 @@ class ProxyPoolCreateV2FanoutJA3H2Client(_CreateV2FanoutJA3H2Client):
             content=content,
         )
 
+        pool = list(self._ensure_pool(host, port))
+        if not pool:
+            raise self._to_httpx_error(method, url, None)
+
+        executor = ThreadPoolExecutor(
+            max_workers=len(pool),
+            thread_name_prefix="btb-proxy-createv2-fanout",
+        )
+        futures = [
+            executor.submit(
+                self._send_fanout_request,
+                slot,
+                method,
+                url,
+                request_headers,
+                content,
+                request,
+            )
+            for slot in pool
+        ]
+        for future in futures:
+            future.add_done_callback(
+                lambda done, host=host, port=port: self._handle_fanout_done(
+                    host,
+                    port,
+                    done,
+                )
+            )
+
         first_429: httpx.Response | None = None
         first_412: httpx.Response | None = None
         first_900001: httpx.Response | None = None
         first_other: httpx.Response | None = None
         last_exc: Exception | None = None
+        wait_for_futures = True
+        try:
+            for future in as_completed(futures):
+                outcome = future.result()
+                if outcome.response is None:
+                    last_exc = outcome.exc
+                    continue
 
-        while True:
-            pool = list(self._ensure_pool(host, port))
-            if not pool:
-                if first_other is not None:
-                    return first_other
-                if first_900001 is not None:
-                    return first_900001
-                if first_429 is not None:
-                    return first_429
-                if first_412 is not None:
-                    return first_412
-                raise self._to_httpx_error(method, url, last_exc)
-
-            executor = ThreadPoolExecutor(
-                max_workers=len(pool),
-                thread_name_prefix="btb-proxy-createv2-fanout",
-            )
-            futures = [
-                executor.submit(
-                    self._send_fanout_request,
-                    slot,
-                    method,
-                    url,
-                    request_headers,
-                    content,
-                    request,
-                )
-                for slot in pool
-            ]
-            for future in futures:
-                future.add_done_callback(
-                    lambda done, host=host, port=port: self._handle_fanout_done(
-                        host,
-                        port,
-                        done,
-                    )
-                )
-
-            try:
-                for future in as_completed(futures):
-                    outcome = future.result()
-                    if outcome.response is None:
-                        last_exc = outcome.exc
-                        continue
-
-                    if _is_create_success_response(outcome.response):
-                        executor.shutdown(wait=False, cancel_futures=False)
+                status_code = outcome.response.status_code
+                errno = _response_errno(outcome.response)
+                if status_code == 200:
+                    if errno != 900001:
+                        wait_for_futures = False
                         return outcome.response
-
-                    status_code = outcome.response.status_code
-                    errno = _response_errno(outcome.response)
-                    if status_code == 200 and errno == 900001 and first_900001 is None:
+                    if first_900001 is None:
                         first_900001 = outcome.response
-                    elif status_code == 429 and first_429 is None:
-                        first_429 = outcome.response
-                    elif status_code == 412 and first_412 is None:
-                        first_412 = outcome.response
-                    elif status_code not in {412, 429} and first_other is None:
-                        first_other = outcome.response
-            finally:
-                executor.shutdown(wait=True, cancel_futures=False)
+                elif status_code == 429 and first_429 is None:
+                    first_429 = outcome.response
+                elif status_code == 412 and first_412 is None:
+                    first_412 = outcome.response
+                elif status_code not in {412, 429} and first_other is None:
+                    first_other = outcome.response
+
+            if first_900001 is not None:
+                return first_900001
+            if first_429 is not None:
+                return first_429
+            if first_other is not None:
+                return first_other
+            if first_412 is not None:
+                return first_412
+            raise self._to_httpx_error(method, url, last_exc)
+        finally:
+            executor.shutdown(
+                wait=wait_for_futures,
+                cancel_futures=not wait_for_futures,
+            )

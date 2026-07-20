@@ -308,13 +308,6 @@ def on_submit_ticket_id(num):
     global is_hot_project
     global ticket_context_account_uid
 
-    def _raise_login_error(exc: Exception) -> None:
-        message = str(exc).strip()
-        if "当前未登录" in message or "请先登录" in message or "请重新登陆" in message:
-            raise gr.Error(
-                "当前未登录或登录状态已失效，请先在“账号登录”页重新登录。"
-            ) from exc
-
     try:
         _reset_ticket_context()
         _, num, extracted_id_message = _resolve_project_input(num)
@@ -393,6 +386,15 @@ def on_submit_ticket_id(num):
                     {"project_id": current_project_id, "ticket": ticket}
                 )
 
+        ticket_context_account_uid = _get_active_account_uid()
+        buyer_value = []
+        addr_value = []
+        buyer_str_list: list[str] = []
+        addr_str_list: list[str] = []
+        account_data_hint = ""
+
+        # 票务详情是公开数据；账号失效时仍应保留已加载的票档和日期，
+        # 让用户能确认活动信息，而不是把所有下拉框一并清空。
         try:
             buyer_json = util.main_request.get(
                 url=f"https://show.bilibili.com/api/ticket/buyer/list?is_default&projectId={project_id}"
@@ -400,19 +402,18 @@ def on_submit_ticket_id(num):
             addr_json = util.main_request.get(
                 url="https://show.bilibili.com/api/ticket/addr/list"
             ).json()
+            buyer_value = buyer_json["data"]["list"]
+            addr_value = addr_json["data"]["addr_list"]
+            buyer_str_list = [
+                f"{item['name']}-{item['personal_id']}" for item in buyer_value
+            ]
+            addr_str_list = [
+                f"{item['addr']}-{item['name']}-{item['phone']}" for item in addr_value
+            ]
         except Exception as exc:
-            _raise_login_error(exc)
-            raise
-
-        buyer_value = buyer_json["data"]["list"]
-        ticket_context_account_uid = _get_active_account_uid()
-        buyer_str_list = [
-            f"{item['name']}-{item['personal_id']}" for item in buyer_value
-        ]
-        addr_value = addr_json["data"]["addr_list"]
-        addr_str_list = [
-            f"{item['addr']}-{item['name']}-{item['phone']}" for item in addr_value
-        ]
+            logger.warning(f"获取购票人或收货地址失败: {exc}")
+            account_data_hint = "票档和日期已获取；请先在“账号登录”页重新登录，以加载实名购票人和收货地址。"
+            gr.Warning(account_data_hint)
 
         yield [
             gr.update(choices=ticket_str_list, value=None),
@@ -427,7 +428,9 @@ def on_submit_ticket_id(num):
                         ("票务 ID", str(num)),
                         ("展会名称", project_name),
                     ],
-                    hint=extracted_id_message or "请继续选择票档、购票人和地址。",
+                    hint=account_data_hint
+                    or extracted_id_message
+                    or "请继续选择票档、购票人和地址。",
                 ),
                 visible=True,
             ),
@@ -1119,6 +1122,12 @@ def setting_tab(account_change_state=None):
                 global project_id
                 global project_name
 
+                if project_id <= 0 or not _normalize_date_string(_date):
+                    return [
+                        gr.update(choices=[], value=None),
+                        gr.update(value="", visible=False),
+                    ]
+
                 try:
                     screens = _fetch_screens_by_date_with_fallback(
                         util.main_request, project_id, _date
@@ -1127,7 +1136,6 @@ def setting_tab(account_change_state=None):
                     if not screens:
                         gr.Warning("该日期暂无票务信息。")
                         return [
-                            gr.update(choices=sales_dates, value=_date, visible=True),
                             gr.update(choices=[], value=None),
                             gr.update(value="", visible=False),
                         ]
@@ -1157,7 +1165,6 @@ def setting_tab(account_change_state=None):
                             )
 
                     return [
-                        gr.update(choices=sales_dates, value=_date, visible=True),
                         gr.update(choices=ticket_str_list, value=None),
                         gr.update(
                             value=_render_ticket_info_html(
@@ -1176,12 +1183,11 @@ def setting_tab(account_change_state=None):
                     logger.exception(exc)
                     return [
                         gr.update(),
-                        gr.update(),
                         gr.update(value="", visible=False),
                     ]
 
             date_ui.change(
                 fn=on_submit_data,
                 inputs=date_ui,
-                outputs=[date_ui, ticket_info_ui, info_ui],
+                outputs=[ticket_info_ui, info_ui],
             )

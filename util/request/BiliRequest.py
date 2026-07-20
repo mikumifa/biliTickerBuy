@@ -17,6 +17,8 @@ from util.request.BrowerState import (
 from util.request.CookieManager import CookieManager
 from util.request.exceptions import BiliConnectionError, BiliRateLimitError
 from util.proxy.ProxyManager import ProxyManager
+import urllib.parse
+import random
 
 
 class BiliRequest:
@@ -116,11 +118,7 @@ class BiliRequest:
     def replace_proxy_pool(self, proxy_string: str) -> None:
         self.proxy_manager.replace_proxy_list(proxy_string)
         if "proxy_pool" in self._h2_client_options:
-            self._h2_client_options["proxy_pool"] = [
-                proxy
-                for proxy in self.proxy_manager.proxy_list
-                if proxy.lower() != "none"
-            ]
+            self._h2_client_options["proxy_pool"] = list(self.proxy_manager.proxy_list)
         self.proxy_manager.apply_to_session(self.session)
         self._invalidate_h2_client()
 
@@ -178,14 +176,34 @@ class BiliRequest:
             proxy=proxy,
             timeout=httpx.Timeout(**H2_TIMEOUT),
             limits=httpx.Limits(**H2_LIMITS),
-            headers={
-                "accept": "*/*",
-                "accept-encoding": "gzip, deflate, br, zstd",
-                "connection": "keep-alive",
-                "user-agent": self.headers.get("user-agent", ""),
-            },
+            headers=self._build_h2_headers(method="get", is_json=False),
             **self._h2_client_options,
         )
+
+    def _build_h2_headers(self, *, method: str, is_json: bool) -> dict[str, str]:
+        headers = {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            **self.headers,
+        }
+        if method.lower() == "post":
+            headers["content-type"] = (
+                "application/json" if is_json else "application/x-www-form-urlencoded"
+            )
+        else:
+            headers.pop("content-type", None)
+        return headers
+
+    def _refresh_h2_headers(
+        self,
+        client: AbstractH2Client,
+        *,
+        method: str,
+        is_json: bool,
+    ) -> None:
+        client.headers.clear()
+        client.headers.update(self._build_h2_headers(method=method, is_json=is_json))
 
     def prewarm_h2_connection(self, url: str) -> None:
         import httpx
@@ -193,7 +211,7 @@ class BiliRequest:
         if self._h2_client is None:
             self._h2_client = self._build_h2_client()
         client = self._h2_client
-        client.headers["user-agent"] = self.headers.get("user-agent", "")
+        self._refresh_h2_headers(client, method="head", is_json=False)
         for cookie in self.cookieManager.get_cookies(force=True) or []:
             name = cookie.get("name")
             value = cookie.get("value")
@@ -204,11 +222,21 @@ class BiliRequest:
         except httpx.HTTPError:
             pass
 
-    def _h2_send(self, method: str, url, data=None, isJson=False):
+    @staticmethod
+    def _random_quote(path: str) -> str:
+        return "".join(random.choice([c, f"%{ord(c):02x}"]) for c in path)
+
+    def _h2_send(self, method: str, url: str, data=None, isJson=False):
+        parsed_url = urllib.parse.urlparse(url)
+
+        if "createV2" in parsed_url.path:
+            new_path = BiliRequest._random_quote(parsed_url.path)
+            url = urllib.parse.urlunparse(parsed_url._replace(path=new_path))
+
         if self._h2_client is None:
             self._h2_client = self._build_h2_client()
         client = self._h2_client
-        client.headers["user-agent"] = self.headers.get("user-agent", "")
+        self._refresh_h2_headers(client, method=method, is_json=isJson)
         for cookie in self.cookieManager.get_cookies(force=True) or []:
             name = cookie.get("name")
             value = cookie.get("value")

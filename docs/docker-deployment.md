@@ -138,6 +138,7 @@ docker compose down
 | `BTB_PUSHPLUSTOKEN`  | PushPlus 通知 token      | 空                                                         |
 | `BTB_BARKTOKEN`      | Bark 通知 token          | 空                                                         |
 | `BTB_NTFY_URL`       | ntfy 推送地址            | 空                                                         |
+| `BTB_NTP_SERVERS`     | NTP 服务器列表            | 空，为空时默认依次使用 `ntp.aliyun.com,ntp.tencent.com,cn.ntp.org.cn,time.cloudflare.com` |
 
 ## 更新镜像
 

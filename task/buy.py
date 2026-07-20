@@ -29,20 +29,25 @@ from util.proxy.ProxyManager import ProxyManager
 from util.notifer.RandomMessages import get_random_fail_message
 from util import time_service
 from util.ErrorCodes import ErrorCodes
+from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
 from task.buy_helpers import (
     BASE_URL as base_url,
-    build_payment_result,
+    build_payment_result_with_fallback,
     build_token_payload as _build_token_payload,
     create_order_terminal_rule as _create_order_terminal_rule,
     extract_order_id as _extract_order_id,
     format_retry_reason as _format_retry_reason,
     format_status_result as _format_status_result,
-    get_order_detail_url,
     handle_proxy_failure as _handle_proxy_failure,
     is_create_success as _is_create_success,
     prepare_create_request as _prepare_create_request,
     summarize_non_json_response as _summarize_non_json_response,
     wait_until_start as _wait_until_start,
+)
+from task.page_gate import (
+    check_ticket_page_availability,
+    mobile_ticket_page_url,
+    normalize_mobile_ticket_page_url,
 )
 from task.buy_types import (
     BuyStreamEvent,
@@ -466,13 +471,21 @@ def buy_stream(config: BuyConfig):
     if config.create_request_proxy_strategy == LOCAL_FANOUT_PROXY_STRATEGY:
         from util.h2client.ja_h2_client import ProxyPoolCreateV2FanoutJA3H2Client
 
-        proxy_pool = [
-            proxy
-            for proxy in ProxyManager.parse_proxy_list(config.https_proxys)
-            if proxy.lower() != "none"
-        ]
+        proxy_pool = ProxyManager.parse_proxy_list(config.https_proxys)
+        if not proxy_pool:
+            proxy_pool = ["none"]
+        try:
+            h2_connections_per_source_ip = max(
+                1,
+                int(config.h2_connections_per_source_ip),
+            )
+        except (TypeError, ValueError):
+            h2_connections_per_source_ip = H2CLIENT_CONNECTIONS_PER_SOURCE_IP
         h2_client_type = ProxyPoolCreateV2FanoutJA3H2Client
-        h2_client_options = {"proxy_pool": proxy_pool}
+        h2_client_options = {
+            "proxy_pool": proxy_pool,
+            "connections_per_source_ip": h2_connections_per_source_ip,
+        }
     _request = BiliRequest(
         cookies=cookies,
         proxy=config.https_proxys,
@@ -490,6 +503,31 @@ def buy_stream(config: BuyConfig):
     effective_retry_limit = max(1, int(config.create_retry_limit))
     effective_batch_size = max(1, int(config.create_request_batch_size))
     rate_limit_delay_ms = max(0, int(config.rate_limit_delay_ms))
+    wait_for_buy_button = bool(config.wait_for_buy_button)
+    page_status_check = None
+    page_check_before_seconds = max(0, int(config.buy_page_check_before_seconds))
+    page_timeout_seconds = max(1, int(config.buy_page_timeout_seconds))
+    if wait_for_buy_button:
+        configured_page_url = str(config.buy_page_url or "").strip()
+        try:
+            buy_page_url = (
+                normalize_mobile_ticket_page_url(configured_page_url)
+                if configured_page_url
+                else mobile_ticket_page_url(tickets_info["project_id"])
+            )
+        except ValueError as exc:
+            buy_page_url = configured_page_url
+            logger.warning("购票页链接无效，将在校验阶段等待至超时：{}", exc)
+
+        def page_status_check():
+            return check_ticket_page_availability(_request, buy_page_url)
+
+        logger.info(
+            "已开启立即购票校验：移动端链接={}，提前{}秒开始，超时{}秒",
+            buy_page_url,
+            page_check_before_seconds,
+            page_timeout_seconds,
+        )
 
     def emit_reprepare(reason: str):
         message = _format_reprepare_reason(reason)
@@ -555,10 +593,20 @@ def buy_stream(config: BuyConfig):
     for wait_state in _wait_until_start(
         config.time_start,
         warmup=refresh_hot_and_warm,
+        page_status_check=page_status_check,
+        page_check_before_seconds=page_check_before_seconds,
+        page_timeout_seconds=page_timeout_seconds,
     ):
         wait_message = wait_state.get("message")
         countdown_value = wait_state.get("countdown")
         countdown_seconds = wait_state.get("countdown_seconds")
+        if wait_state.get("page_gate_timeout"):
+            yield emit(
+                "error",
+                wait_message,
+                BuyStreamUpdate(status="failed", stage="购票页校验超时"),
+            )
+            return
         stage_value = None
         if isinstance(wait_message, str) and wait_message.startswith("0)"):
             stage_value = "等待开票"
@@ -827,18 +875,14 @@ def buy_stream(config: BuyConfig):
                     errno, terminal_ret, terminal_rule = terminal_result
                     order_id = _extract_order_id(terminal_ret)
                     if terminal_rule.expose_payment_url and order_id is not None:
-                        payment_result = {
-                            "order_id": order_id,
-                            "order_detail_url": get_order_detail_url(order_id),
-                            "payment_code_url": None,
-                            "payment_qr_url": get_order_detail_url(order_id),
-                        }
-                        try:
-                            payment_result = build_payment_result(_request, order_id)
-                        except Exception as exc:
+                        payment_result, payment_error = (
+                            build_payment_result_with_fallback(_request, order_id)
+                        )
+                        if payment_error is not None:
                             yield emit(
                                 "status",
-                                f"获取支付二维码链接失败，将继续返回订单详情页: {exc}",
+                                "订单已创建，但未获取到支付二维码；该订单可能无需付款，"
+                                f"将继续返回订单详情页: {payment_error}",
                                 BuyStreamUpdate(
                                     order_id=payment_result["order_id"],
                                     order_detail_url=payment_result["order_detail_url"],
@@ -901,7 +945,21 @@ def buy_stream(config: BuyConfig):
                     ),
                 )
                 order_id = request_result["data"]["orderId"]  # type: ignore
-                payment_result = build_payment_result(_request, order_id)
+                payment_result, payment_error = build_payment_result_with_fallback(
+                    _request, order_id
+                )
+                if payment_error is not None:
+                    yield emit(
+                        "status",
+                        "订单已创建，但未获取到支付二维码；该订单可能无需付款，"
+                        f"将继续返回订单详情页: {payment_error}",
+                        BuyStreamUpdate(
+                            order_id=payment_result["order_id"],
+                            order_detail_url=payment_result["order_detail_url"],
+                            payment_qr_url=payment_result["payment_qr_url"],
+                            status="succeeded",
+                        ),
+                    )
                 for payment_event in emit_payment_details(
                     payment_result,
                     status="succeeded",

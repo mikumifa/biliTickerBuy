@@ -13,6 +13,7 @@ DEFAULT_NTP_SERVERS = (
     "ntp.aliyun.com",
     "ntp.tencent.com",
     "cn.ntp.org.cn",
+    "time.cloudflare.com",
 )
 
 
@@ -50,10 +51,10 @@ class BiliTimeCheck:
 
 
 class TimeUtil:
-    # NTP服务器默认为ntp.aliyun.com, 可根据实际情况修改
+    # NTP服务器默认来自DEFAULT_NTP_SERVERS, 可根据实际情况修改
     def __init__(
         self,
-        _ntp_server="ntp.aliyun.com",
+        _ntp_server = None,
         *,
         ntp_servers: list[str] | tuple[str, ...] | None = None,
         bili_time_url: str = "https://show.bilibili.com/api/ticket/project/listV2",
@@ -63,7 +64,7 @@ class TimeUtil:
             if ntp_servers is not None
             else (
                 DEFAULT_NTP_SERVERS
-                if _ntp_server == "ntp.aliyun.com"
+                if _ntp_server is None
                 else (_ntp_server,)
             )
         )
@@ -241,6 +242,17 @@ class TimeUtil:
     def now(self) -> float:
         """Return calibrated reference wall time in seconds."""
         return time.time() - self.timeoffset
+
+    def countdown_now(self) -> float:
+        """Return the default wall time used for ticket countdowns."""
+        if self.last_bili_check is not None:
+            return time.time() - self.last_bili_check.offset_center
+        return self.now()
+
+    def countdown_time_source(self) -> str:
+        if self.last_bili_check is not None:
+            return "bili-date"
+        return self.time_source
 
     def current_time_ms(self) -> int:
         """Return calibrated reference wall time in milliseconds."""
