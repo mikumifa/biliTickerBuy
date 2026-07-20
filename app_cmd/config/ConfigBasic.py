@@ -239,6 +239,54 @@ class BasicConfig:
 
         return cls(**kwargs)
 
+    @classmethod
+    def _field_cli_flags(cls, f) -> list[str]:
+        """收集某字段对应的所有 CLI flag（普通 cli / bool 的 cli_true / cli_false）。"""
+        flags: list[str] = []
+        for key in ("cli", "cli_true", "cli_false"):
+            flag = f.metadata.get(key)
+            if flag:
+                flags.append(flag)
+        return flags
+
+    def merge_env(self, explicit_cli_flags: set[str]):
+        """
+        在 tyro 解析出的实例基础上，用环境变量回填“用户未显式传”的字段。
+
+        优先级：CLI 参数 > 环境变量(BTB_*) > 默认值。
+
+        - explicit_cli_flags: 本次命令行里被用户显式传入的 flag 集合。
+          某字段对应的任一 flag 在其中，则视为 CLI 显式指定，保留解析结果。
+        - 仅当字段带 env 元数据、未被 CLI 显式指定、且对应环境变量确实存在时，
+          才用 from_env 归一化后的值覆盖；否则保留原值（含硬默认）。
+        - 递归处理嵌套 config。
+        """
+        env_source = type(self).from_env()
+        payload: dict[str, Any] = {}
+
+        for f in fields(self):
+            if not f.init:
+                continue
+
+            current = copy.deepcopy(getattr(self, f.name))
+
+            if self._is_nested_config_field(f):
+                if isinstance(current, BasicConfig):
+                    current = current.merge_env(explicit_cli_flags)
+                payload[f.name] = current
+                continue
+
+            env_key = f.metadata.get("env")
+            flags = self._field_cli_flags(f)
+            explicit = any(flag in explicit_cli_flags for flag in flags)
+
+            if env_key and not explicit and os.environ.get(env_key) not in (None, ""):
+                payload[f.name] = copy.deepcopy(getattr(env_source, f.name))
+            else:
+                payload[f.name] = current
+
+        return type(self)(**payload)
+
     def with_overrides(self, **changes):
         payload = {
             f.name: copy.deepcopy(getattr(self, f.name)) for f in fields(self) if f.init
