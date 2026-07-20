@@ -1,7 +1,7 @@
 import requests
 
 from util.Constant import MEOW_API_BASE
-from util.notifer.Notifier import NotifierBase
+from util.notifer.Notifier import NotifierBase, DEFAULT_HTTP_TIMEOUT
 
 
 class MeoWNotifier(NotifierBase):
@@ -12,8 +12,9 @@ class MeoWNotifier(NotifierBase):
         content,
         interval_seconds=10,
         duration_minutes=10,
+        timeout=DEFAULT_HTTP_TIMEOUT,
     ):
-        super().__init__(title, content, interval_seconds, duration_minutes)
+        super().__init__(title, content, interval_seconds, duration_minutes, timeout)
         self.nickname = str(nickname or "").strip().strip("/")
 
     def send_message(self, title, message):
@@ -23,7 +24,7 @@ class MeoWNotifier(NotifierBase):
         response = requests.post(
             f"{MEOW_API_BASE}/{self.nickname}",
             json={"title": title, "msg": message},
-            timeout=10,
+            timeout=self.timeout,
         )
         response.raise_for_status()
 

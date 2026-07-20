@@ -219,6 +219,49 @@ def go_settings_tab(header_ui):
         ConfigDB.insert("notifyProxyExhausted", value)
         return gr.update(value=ConfigDB.get("notifyProxyExhausted"))
 
+    def _get_config_float(key: str, default: float) -> float:
+        raw = ConfigDB.get(key)
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return default
+
+    def inner_input_notify_connect_timeout(x):
+        default = buy_defaults.notifier_config.notify_connect_timeout
+        try:
+            parsed = max(1.0, float(x))
+        except (TypeError, ValueError):
+            parsed = default
+        ConfigDB.insert("notifyConnectTimeout", parsed)
+        return gr.update(value=_get_config_float("notifyConnectTimeout", default))
+
+    def inner_input_notify_read_timeout(x):
+        default = buy_defaults.notifier_config.notify_read_timeout
+        try:
+            parsed = max(1.0, float(x))
+        except (TypeError, ValueError):
+            parsed = default
+        ConfigDB.insert("notifyReadTimeout", parsed)
+        return gr.update(value=_get_config_float("notifyReadTimeout", default))
+
+    def inner_input_notify_retries(x):
+        default = buy_defaults.notifier_config.notify_retries
+        try:
+            parsed = max(1, int(x))
+        except (TypeError, ValueError):
+            parsed = default
+        ConfigDB.insert("notifyRetries", parsed)
+        return gr.update(value=ConfigDB.get_as_int("notifyRetries", default))
+
+    def inner_input_notify_backoff(x):
+        default = buy_defaults.notifier_config.notify_backoff
+        try:
+            parsed = max(0.0, float(x))
+        except (TypeError, ValueError):
+            parsed = default
+        ConfigDB.insert("notifyBackoff", parsed)
+        return gr.update(value=_get_config_float("notifyBackoff", default))
+
     def update_show_qrcode(value):
         ConfigDB.insert("showQrcode", value)
         return gr.update(value=ConfigDB.get("showQrcode"))
@@ -621,6 +664,35 @@ def go_settings_tab(header_ui):
                         label="测试结果",
                         interactive=False,
                     )
+                    gr.Markdown("#### 高级：发送超时与重试")
+                    notify_connect_timeout_ui = gr.Number(
+                        label="连接超时（秒）",
+                        value=buy_defaults.notifier_config.notify_connect_timeout,
+                        minimum=1,
+                        step=1,
+                        info="每个推送渠道 HTTP 连接超时。默认 5 秒。",
+                    )
+                    notify_read_timeout_ui = gr.Number(
+                        label="读取超时（秒）",
+                        value=buy_defaults.notifier_config.notify_read_timeout,
+                        minimum=1,
+                        step=1,
+                        info="每个推送渠道 HTTP 读取超时。默认 10 秒。",
+                    )
+                    notify_retries_ui = gr.Number(
+                        label="发送重试次数",
+                        value=buy_defaults.notifier_config.notify_retries,
+                        minimum=1,
+                        step=1,
+                        info="抢票成功后同步发送通知的最大尝试次数（含首次）。默认 3。",
+                    )
+                    notify_backoff_ui = gr.Number(
+                        label="重试退避基数（秒）",
+                        value=buy_defaults.notifier_config.notify_backoff,
+                        minimum=0,
+                        step=0.5,
+                        info="重试之间的指数退避起始秒数（0.5→1→2）。默认 0.5。",
+                    )
                     gr.Markdown("#### 测试")
                     test_all_push_button = gr.Button(
                         "🧪 测试所有推送",
@@ -780,6 +852,22 @@ def go_settings_tab(header_ui):
         fn=inner_input_audio_path,
         inputs=audio_path_ui,
         outputs=audio_path_ui,
+    )
+    _bind_number_commit(
+        notify_connect_timeout_ui,
+        inner_input_notify_connect_timeout,
+    )
+    _bind_number_commit(
+        notify_read_timeout_ui,
+        inner_input_notify_read_timeout,
+    )
+    _bind_number_commit(
+        notify_retries_ui,
+        inner_input_notify_retries,
+    )
+    _bind_number_commit(
+        notify_backoff_ui,
+        inner_input_notify_backoff,
     )
     show_random_message_ui.change(
         fn=update_hide_random_message,

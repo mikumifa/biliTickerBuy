@@ -4,7 +4,7 @@ import time
 
 import loguru
 import requests
-from util.notifer.Notifier import NotifierBase
+from util.notifer.Notifier import NotifierBase, DEFAULT_HTTP_TIMEOUT
 
 # 维护所有运行中的通知线程
 _active_notification_threads = {}  # type: ignore
@@ -84,7 +84,14 @@ class RepeatedNotifier(threading.Thread):
         loguru.logger.info(f"重复通知线程结束，共发送了{count}条通知")
 
 
-def send_message(server_url, content, title=None, username=None, password=None):
+def send_message(
+    server_url,
+    content,
+    title=None,
+    username=None,
+    password=None,
+    timeout=DEFAULT_HTTP_TIMEOUT,
+):
     """
     使用ntfy发送通知
 
@@ -94,6 +101,7 @@ def send_message(server_url, content, title=None, username=None, password=None):
         title: 通知标题，如果为中文将自动编码为ASCII
         username: ntfy用户名，如果为None则不添加认证
         password: ntfy密码，如果为None则不添加认证
+        timeout: (连接超时, 读取超时)，默认 DEFAULT_HTTP_TIMEOUT
     """
     try:
         # 方法1: 不指定Content-Type，让服务器自动判断
@@ -119,8 +127,12 @@ def send_message(server_url, content, title=None, username=None, password=None):
 
         # 发送纯文本内容
         response = requests.post(
-            server_url, headers=headers, data=content.encode("utf-8")
+            server_url,
+            headers=headers,
+            data=content.encode("utf-8"),
+            timeout=timeout,
         )
+        response.raise_for_status()
         loguru.logger.info(f"Ntfy消息发送成功，状态码: {response.status_code}")
         return response
     except Exception as e:
@@ -258,15 +270,23 @@ class NtfyNotifier(NotifierBase):
         content="",
         interval_seconds=15,
         duration_minutes=5,
+        timeout=DEFAULT_HTTP_TIMEOUT,
     ):
-        super().__init__(title, content, interval_seconds, duration_minutes)
+        super().__init__(title, content, interval_seconds, duration_minutes, timeout)
         self.url = url
         self.username = username
         self.password = password
 
     def send_message(self, title, message):
         """使用send_message函数发送单次通知"""
-        send_message(self.url, message, title, self.username, self.password)
+        send_message(
+            self.url,
+            message,
+            title,
+            self.username,
+            self.password,
+            timeout=self.timeout,
+        )
 
     def run(self):
         """重写run方法，实现Ntfy特有的重复通知逻辑"""

@@ -205,6 +205,73 @@ def _format_reprepare_reason(reason: str) -> str:
     return f"重新准备订单，原因：{reason}"
 
 
+def _resolve_notify_retry_params(notifier_config) -> tuple[int, float]:
+    """从 NotifierConfig 解析 (retries, backoff)，非法/缺失回退到 (3, 0.5)。"""
+    try:
+        retries = int(getattr(notifier_config, "notify_retries", 3))
+    except (TypeError, ValueError):
+        retries = 3
+    retries = max(1, retries)
+
+    try:
+        backoff = float(getattr(notifier_config, "notify_backoff", 0.5))
+    except (TypeError, ValueError):
+        backoff = 0.5
+    if backoff < 0:
+        backoff = 0.5
+
+    return retries, backoff
+
+
+def _precheck_notifiers(notifier_config) -> None:
+    """进入等待/倒计时前，对已配置通知渠道做一次轻量探测并打日志。
+
+    仅对已配置的渠道创建实例并尝试发送一条预检消息（同步、带 timeout+重试），
+    结果（成功/失败/耗时）打进日志。任何失败只告警，不抛出、不阻断抢票流程。
+    """
+    try:
+        manager = NotifierManager.create_from_config(
+            config=notifier_config,
+            title="抢票预检",
+            content="biliTickerBuy 通知链路预检，收到说明推送渠道可用。",
+            include_audio=False,
+        )
+    except Exception as exc:
+        logger.warning(f"通知渠道预检初始化失败（不影响抢票）: {exc}")
+        return
+
+    names = manager.list_notifiers()
+    if not names:
+        logger.info("通知渠道预检：未配置任何推送渠道，跳过")
+        return
+
+    # 预检仍固定 retries=1 轻探（不阻断抢票），但退避沿用配置值。
+    _, backoff = _resolve_notify_retry_params(notifier_config)
+
+    logger.info(f"通知渠道预检开始，已配置渠道: {names}")
+    for name, notifer in manager.notifier_dict.items():
+        start = time.time()
+        try:
+            ok = notifer.send_once_sync(
+                "抢票预检",
+                "biliTickerBuy 通知链路预检，收到说明推送渠道可用。",
+                retries=1,
+                backoff=backoff,
+            )
+            elapsed = time.time() - start
+            if ok:
+                logger.info(f"通知渠道预检成功: {name}（耗时 {elapsed:.2f}s）")
+            else:
+                logger.warning(
+                    f"通知渠道预检失败: {name}（耗时 {elapsed:.2f}s，仅告警不阻断抢票）"
+                )
+        except Exception as exc:
+            elapsed = time.time() - start
+            logger.warning(
+                f"通知渠道预检异常: {name} - {exc}（耗时 {elapsed:.2f}s，仅告警不阻断抢票）"
+            )
+
+
 def buy_stream(config: BuyConfig):
     state = BuyStreamState()
 
@@ -480,6 +547,10 @@ def buy_stream(config: BuyConfig):
             proxy_pool=_request.proxy_pool_status(),
         ),
     )
+
+    # 进入等待/倒计时前，对已配置的通知渠道做一次轻量预检并打日志。
+    # 失败只告警不阻断抢票（避免通知配置问题耽误抢票）。
+    _precheck_notifiers(config.notifier_config)
 
     for wait_state in _wait_until_start(
         config.time_start,
@@ -858,8 +929,22 @@ def buy_stream(config: BuyConfig):
                     qr_gen.make(fit=True)
                     qr_gen_image = qr_gen.make_image()
                     qr_gen_image.show()  # type: ignore
-                # 让 Server酱/Bark/PushPlus 等渠道的 HTTP 请求有时间发完，否则会被掐断。
+                # 让 Server酱/Bark/PushPlus 等渠道的 daemon 线程有时间持续重发。
                 notifierManager.join_all(timeout=15)
+                # 关键：退出前做一次同步阻塞发送（带 timeout+重试），确认送达再退出。
+                # 不依赖 daemon 线程——UI 模式 os._exit(0) 会硬杀 daemon 线程，导致丢失。
+                # 本调用发生在生成器 yield 完成、buy_cmd 退出（含 os._exit）之前。
+                notify_retries, notify_backoff = _resolve_notify_retry_params(
+                    config.notifier_config
+                )
+                results = notifierManager.send_all_sync(
+                    title="抢票成功",
+                    content=f"bilibili会员购，请尽快前往订单中心付款: {detail}",
+                    retries=notify_retries,
+                    backoff=notify_backoff,
+                )
+                if results and not any(results.values()):
+                    logger.error("所有通知渠道同步发送均失败，请检查推送配置或网络。")
                 break
         except (HTTPError, RequestException) as e:
             logger.exception(e)

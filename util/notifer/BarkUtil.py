@@ -2,12 +2,20 @@ import json
 import requests
 
 from urllib.parse import urlparse
-from util.notifer.Notifier import NotifierBase
+from util.notifer.Notifier import NotifierBase, DEFAULT_HTTP_TIMEOUT
 
 
 class BarkNotifier(NotifierBase):
-    def __init__(self, token, title, content, interval_seconds=10, duration_minutes=10):
-        super().__init__(title, content, interval_seconds, duration_minutes)
+    def __init__(
+        self,
+        token,
+        title,
+        content,
+        interval_seconds=10,
+        duration_minutes=10,
+        timeout=DEFAULT_HTTP_TIMEOUT,
+    ):
+        super().__init__(title, content, interval_seconds, duration_minutes, timeout)
         self.token = token
 
     def send_message(self, title, message):
@@ -28,4 +36,7 @@ class BarkNotifier(NotifierBase):
         else:
             url = f"https://api.day.app/{self.token}/{title}/{message}"
 
-        requests.post(url, headers=headers, data=json.dumps(data))
+        response = requests.post(
+            url, headers=headers, data=json.dumps(data), timeout=self.timeout
+        )
+        response.raise_for_status()

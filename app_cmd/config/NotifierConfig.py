@@ -98,6 +98,46 @@ class NotifierConfig(BasicConfig):
     )
     """Send a notification when all proxies enter cooldown."""
 
+    notify_connect_timeout: float = config_field(
+        5.0,
+        env="BTB_NOTIFY_CONNECT_TIMEOUT",
+        runtime="notify_connect_timeout",
+        db="notifyConnectTimeout",
+        cli="--notifier-config.notify-connect-timeout",
+        cast=float,
+    )
+    """HTTP connect timeout for each push channel, in seconds."""
+
+    notify_read_timeout: float = config_field(
+        10.0,
+        env="BTB_NOTIFY_READ_TIMEOUT",
+        runtime="notify_read_timeout",
+        db="notifyReadTimeout",
+        cli="--notifier-config.notify-read-timeout",
+        cast=float,
+    )
+    """HTTP read timeout for each push channel, in seconds."""
+
+    notify_retries: int = config_field(
+        3,
+        env="BTB_NOTIFY_RETRIES",
+        runtime="notify_retries",
+        db="notifyRetries",
+        cli="--notifier-config.notify-retries",
+        cast=int,
+    )
+    """Maximum attempts per channel for synchronous send-on-exit."""
+
+    notify_backoff: float = config_field(
+        0.5,
+        env="BTB_NOTIFY_BACKOFF",
+        runtime="notify_backoff",
+        db="notifyBackoff",
+        cli="--notifier-config.notify-backoff",
+        cast=float,
+    )
+    """Initial exponential backoff between retries, in seconds."""
+
     @classmethod
     def from_runtime_options(cls, runtime_options) -> "NotifierConfig":
         data = (

@@ -5,6 +5,29 @@ import time
 
 from app_cmd.config.NotifierConfig import NotifierConfig
 
+# 全渠道统一的 (连接超时, 读取超时)，避免无 timeout 的 POST 无限阻塞
+DEFAULT_HTTP_TIMEOUT = (5, 10)
+
+
+def _resolve_timeout(config) -> tuple:
+    """从 NotifierConfig 组装 (连接超时, 读取超时) 元组；缺配置时回退到默认。
+
+    非法或缺失的字段（如无法转 float）逐项回退到 :data:`DEFAULT_HTTP_TIMEOUT`，
+    保证任意配置都不会得到 ``None``/非数值 timeout。
+    """
+    default_connect, default_read = DEFAULT_HTTP_TIMEOUT
+
+    def _coerce(value, fallback):
+        try:
+            resolved = float(value)
+        except (TypeError, ValueError):
+            return fallback
+        return resolved if resolved > 0 else fallback
+
+    connect = _coerce(getattr(config, "notify_connect_timeout", None), default_connect)
+    read = _coerce(getattr(config, "notify_read_timeout", None), default_read)
+    return (connect, read)
+
 
 class NotifierBase(ABC):
     """推送器基类。
@@ -23,6 +46,9 @@ class NotifierBase(ABC):
         若子类覆写为循环推送模式，它也可作为每次循环发送的间隔。
     duration_minutes : int
         允许持续推送的总时长，默认 10 分钟。
+    timeout : float | tuple
+        各渠道 HTTP 请求的 (连接超时, 读取超时)，默认 :data:`DEFAULT_HTTP_TIMEOUT`。
+        子类的 ``send_message`` 应在 ``requests.post`` 中使用 ``self.timeout``。
     """
 
     def __init__(
@@ -31,12 +57,14 @@ class NotifierBase(ABC):
         content: str,
         interval_seconds=10,
         duration_minutes=10,  # B站订单保存上限
+        timeout=DEFAULT_HTTP_TIMEOUT,
     ):
         super().__init__()
         self.title = title
         self.content = content
         self.interval_seconds = interval_seconds
         self.duration_minutes = duration_minutes
+        self.timeout = timeout if timeout is not None else DEFAULT_HTTP_TIMEOUT
         self.stop_event = threading.Event()
         self.thread = threading.Thread(target=self.run, daemon=True)
 
@@ -78,6 +106,41 @@ class NotifierBase(ABC):
     def send_message(self, title, message):
         """用于发送消息，子类必须实现此方法发送推送消息"""
         pass
+
+    def send_once_sync(self, title, message, retries: int = 3, backoff: float = 0.5):
+        """同步阻塞发送一次消息，失败（超时/连接错/非2xx）时按指数退避重试。
+
+        与 daemon 线程的 :py:meth:`run` 不同，本方法在当前线程内完成，可用于
+        进程退出前的"同步确认送达"，不依赖解释器等待 daemon 线程。
+
+        Args:
+            title: 推送标题。
+            message: 推送正文。
+            retries: 最多尝试次数（含首发），默认 3。
+            backoff: 首次重试的退避秒数，之后按 2 倍指数增长（0.5→1→2）。
+
+        Returns:
+            bool: 是否成功送达（穷尽重试仍失败返回 False）。
+        """
+        attempts = max(1, int(retries))
+        last_error = None
+        for attempt in range(1, attempts + 1):
+            try:
+                self.send_message(title, message)
+                loguru.logger.info(
+                    f"通知同步发送成功（第 {attempt}/{attempts} 次尝试）"
+                )
+                return True
+            except Exception as e:  # 超时/连接错/非2xx 均由 send_message 抛出
+                last_error = e
+                loguru.logger.warning(
+                    f"通知同步发送失败（第 {attempt}/{attempts} 次尝试）: {e}"
+                )
+                if attempt < attempts:
+                    wait = backoff * (2 ** (attempt - 1))
+                    time.sleep(wait)
+        loguru.logger.error(f"通知同步发送最终失败，已穷尽 {attempts} 次重试: {last_error}")
+        return False
 
 
 class NotifierManager:
@@ -121,6 +184,52 @@ class NotifierManager:
         for notifer in self.notifier_dict.values():
             notifer.thread.join(timeout=timeout)
 
+    def send_all_sync(
+        self,
+        title: str,
+        content: str,
+        timeout=None,
+        retries: int = 3,
+        backoff: float = 0.5,
+    ) -> dict[str, bool]:
+        """在当前线程内对所有已注册推送器做一次同步阻塞发送（带 timeout + 重试）。
+
+        用于抢票成功后、进程退出（含 UI 模式 ``os._exit``）之前的"同步确认送达"，
+        不依赖 daemon 线程 :py:meth:`join_all` 的 15 秒窗口。
+
+        Args:
+            title: 推送标题。
+            content: 推送正文。
+            timeout: 兼容参数（各渠道 send_message 已内置 timeout），当前未直接使用。
+            retries: 每个渠道的最多尝试次数。
+            backoff: 每个渠道首次重试的退避秒数（指数增长）。
+
+        Returns:
+            dict[str, bool]: 各渠道名称 -> 是否送达成功。
+        """
+        results: dict[str, bool] = {}
+        if not self.notifier_dict:
+            loguru.logger.info("同步发送通知：无已注册推送器，跳过")
+            return results
+
+        for name, notifer in self.notifier_dict.items():
+            try:
+                ok = notifer.send_once_sync(
+                    title, content, retries=retries, backoff=backoff
+                )
+            except Exception as e:
+                loguru.logger.error(f"推送器 {name} 同步发送异常: {e}")
+                ok = False
+            results[name] = ok
+
+        success = [n for n, ok in results.items() if ok]
+        failed = [n for n, ok in results.items() if not ok]
+        loguru.logger.info(
+            f"同步发送通知完成：成功 {len(success)}/{len(results)} "
+            f"（成功: {success or '无'}；失败: {failed or '无'}）"
+        )
+        return results
+
     def stop_all(self):
         for notifer in self.notifier_dict.values():
             notifer.stop()
@@ -154,6 +263,7 @@ class NotifierManager:
     ) -> "NotifierManager":
         """通过配置创建NotifierManager，统一的工厂方法"""
         manager = NotifierManager()
+        timeout = _resolve_timeout(config)
 
         # ServerChan Turbo
         if config.serverchan_key:
@@ -166,6 +276,7 @@ class NotifierManager:
                     content=content,
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes,
+                    timeout=timeout,
                 )
                 manager.register_notifier("ServerChanTurbo", notifier)
             except ImportError as e:
@@ -184,6 +295,7 @@ class NotifierManager:
                     content=content,
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes,
+                    timeout=timeout,
                 )
                 manager.register_notifier("ServerChan3", notifier)
             except ImportError as e:
@@ -202,6 +314,7 @@ class NotifierManager:
                     content=content,
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes,
+                    timeout=timeout,
                 )
                 manager.register_notifier("PushPlus", notifier)
             except ImportError as e:
@@ -220,6 +333,7 @@ class NotifierManager:
                     content=content,
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes,
+                    timeout=timeout,
                 )
                 manager.register_notifier("Bark", notifier)
             except ImportError as e:
@@ -240,6 +354,7 @@ class NotifierManager:
                     content=content,
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes,
+                    timeout=timeout,
                 )
                 manager.register_notifier("Ntfy", notifier)
             except ImportError as e:
@@ -258,6 +373,7 @@ class NotifierManager:
                     content=content,
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes,
+                    timeout=timeout,
                 )
                 manager.register_notifier("MeoW", notifier)
             except ImportError as e:
