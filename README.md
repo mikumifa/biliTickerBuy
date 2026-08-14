@@ -64,4 +64,4 @@ Skill版本：https://github.com/mikumifa/biliTickerSkill
 
 ## ⭐️ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://www.star-history.com/#mikumifa/biliTickerBuy&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=mikumifa/biliTickerBuy&type=Date)](https://star-history.dera.page/#mikumifa/biliTickerBuy&Date)
