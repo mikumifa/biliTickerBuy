@@ -469,6 +469,7 @@ def build_ticket_config_from_selection(
             purchase_context.get("is_hot_project", False),
         ),
         "sku_id": ticket["id"],
+        "sale_start": ticket.get("sale_start", ""),
         "order_type": 1,
         "pay_money": int(ticket["price"]) * len(selected_buyers),
         "buyer_info": selected_buyers,

@@ -143,8 +143,8 @@ def test_submit_ticket_id_keeps_dates_when_account_data_is_unavailable(monkeypat
     assert updates[0]["choices"]
     assert updates[1]["choices"] == []
     assert updates[2]["choices"] == []
-    assert updates[5]["choices"] == ["2026-07-16"]
-    assert updates[5]["value"] == "2026-07-16"
+    assert updates[5]["choices"] == ["全部日期", "2026-07-16"]
+    assert updates[5]["value"] == "全部日期"
     assert warnings == [
         "票档和日期已获取；请先在“账号登录”页重新登录，以加载实名购票人和收货地址。"
     ]
