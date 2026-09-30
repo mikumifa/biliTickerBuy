@@ -26,7 +26,7 @@ def problems_tab():
                     <div style="background: var(--bg-surface); padding: 10px; border-radius: 12px; box-shadow: var(--shadow-subtle); color: var(--text-primary);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
                     </div>
-                    <div>
+                    <div style="text-align: left">
                         <div style="font-weight: 600; color: var(--text-primary);">项目地址</div>
                         <div style="font-size: 12px; color: var(--text-secondary);">mikumifa/biliTickerBuy</div>
                     </div>
@@ -36,7 +36,7 @@ def problems_tab():
                     <div style="background: var(--bg-surface); padding: 10px; border-radius: 12px; box-shadow: var(--shadow-subtle); color: var(--text-primary);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                     </div>
-                    <div>
+                    <div style="text-align: left">
                         <div style="font-weight: 600; color: var(--text-primary);">讨论区 (Discussions)</div>
                         <div style="font-size: 12px; color: var(--text-secondary);">分享经验、交流心得</div>
                     </div>
@@ -46,7 +46,7 @@ def problems_tab():
                     <div style="background: var(--bg-surface); padding: 10px; border-radius: 12px; box-shadow: var(--shadow-subtle); color: var(--text-primary);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                     </div>
-                    <div>
+                    <div style="text-align: left">
                         <div style="font-weight: 600; color: var(--text-primary);">问题反馈 (Issues)</div>
                         <div style="font-size: 12px; color: var(--text-secondary);">漏洞反馈与需求建议</div>
                     </div>
@@ -56,7 +56,7 @@ def problems_tab():
                     <div style="background: var(--bg-surface); padding: 10px; border-radius: 12px; box-shadow: var(--shadow-subtle); color: var(--text-primary);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                     </div>
-                    <div>
+                    <div style="text-align: left">
                         <div style="font-weight: 600; color: var(--text-primary);">文档说明 (Wiki)</div>
                         <div style="font-size: 12px; color: var(--text-secondary);">查看抢票说明书</div>
                     </div>

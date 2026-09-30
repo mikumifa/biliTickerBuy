@@ -214,7 +214,6 @@ select,
 
 /* ---------- Basic Components ---------- */
 
-.gradio-container .block,
 .gradio-container .panel,
 .gradio-container .gr-box,
 .gradio-container .gr-panel,
@@ -222,7 +221,8 @@ select,
 .gradio-container .gr-group,
 .gradio-container .gr-block,
 .gradio-container .gradio-html,
-.gradio-container .gradio-markdown {
+.gradio-container .gradio-markdown 
+{
   border-radius: var(--radius-lg) !important;
 }
 
@@ -340,6 +340,11 @@ select,
   border-radius: var(--radius-xl);
   padding: 6px;
   box-shadow: var(--shadow-subtle);
+}
+
+.gradio-container .tab-wrapper {
+  height: auto !important;
+  
 }
 
 .gradio-container button[role="tab"],
@@ -544,6 +549,16 @@ select,
 
 /* ---------- Hero ---------- */
 
+.html-container:has(.btb-hero),
+div:has(> .btb-hero),
+.gradio-html:has(.btb-hero) {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 .btb-hero {
   position: relative;
   border: 1px solid var(--border-default);
@@ -651,6 +666,11 @@ select,
 }
 
 /* ---------- Cards ---------- */
+
+.html-container:has(.btb-card),
+.gradio-html:has(.btb-card) {
+  padding: 0 !important;
+}
 
 .btb-card {
   position: relative;
@@ -987,6 +1007,16 @@ select,
 }
 
 /* ---------- Update Status ---------- */
+
+.html-container:has(.btb-update-status),
+div:has(> .btb-update-status),
+.gradio-html:has(.btb-update-status) {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
 
 .btb-update-status {
   display: flex;
@@ -1595,13 +1625,6 @@ select,
   .btb-top-tabs [role="tabpanel"] {
     margin-left: 0 !important;
     margin-right: 0 !important;
-  }
-
-  .btb-top-tabs,
-  .btb-top-tabs > div,
-  .btb-top-tabs [role="tabpanel"] {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
   }
 
   .gradio-container

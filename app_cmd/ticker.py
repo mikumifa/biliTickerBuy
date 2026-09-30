@@ -64,7 +64,7 @@ def ticker_cmd(args: TickerCliArgs):
             <span class="btb-hero__notice-mark">!</span>
             <span>
                 此项目完全开源免费。开源地址：
-                <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank">https://github.com/mikumifa/biliTickerBuy</a>。
+                <a href="https://github.com/mikumifa/biliTickerBuy" target="_blank" style="padding: 0px;">https://github.com/mikumifa/biliTickerBuy</a>。
                 请勿用于盈利，否则后果自负。
             </span>
         </div>
@@ -89,9 +89,16 @@ def ticker_cmd(args: TickerCliArgs):
         title="biliTickerBuy",
     ) as demo:
         launch_head = """
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.1.1/index.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.1.1/500.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.1.1/600.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.1.1/700.css">
+
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5.1.1/600.css">
+
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.1.1/index.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.1.1/500.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.1.1/700.css">
         <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
         <script>
         (function(){
@@ -243,6 +250,10 @@ def ticker_cmd(args: TickerCliArgs):
         target = candidate if os.path.isdir(candidate) else os.path.dirname(candidate)
         if target and os.path.exists(target) and target not in allowed_paths:
             allowed_paths.append(target)
+
+    if hasattr(demo, "_queue") and demo._queue is not None:
+        demo._queue.sleep_when_free = 0.05
+        demo._queue.progress_update_sleep_when_free = 0.1
 
     demo.launch(
         share=args.share or is_docker,
