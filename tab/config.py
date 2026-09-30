@@ -751,339 +751,6 @@ def go_settings_tab(header_ui):
                         interactive=True,
                         info="用于访问 Telegram API 的 HTTP 代理，例如: http://127.0.0.1:7890（留空则不使用代理）",
                     )
-                    gr.Markdown("#### 测试")
-                    test_all_push_button = gr.Button(
-                        "🧪 测试所有推送",
-                        elem_classes="!rounded-xl !border !border-slate-300 !bg-white !text-slate-900 !shadow-sm hover:!bg-slate-100 !transition",
-                    )
-                    test_push_result = gr.Textbox(
-                        label="推送测试结果",
-                        interactive=False,
-                    )
-
-            with gr.Tab("杂项"):
-                with gr.Column(elem_classes="btb-card btb-layout-card"):
-                    gr.Markdown("### 杂项配置")
-                    gr.Markdown("## 支付")
-                    show_qrcode_ui = gr.Checkbox(
-                        label="抢票成功后显示付款二维码",
-                        value=buy_defaults.show_qrcode,
-                        info="默认开启。关闭后，抢票成功时不再弹出付款二维码。",
-                    )
-                    auto_open_payment_url_ui = gr.Checkbox(
-                        label="抢票成功后自动打开支付链接",
-                        value=buy_defaults.auto_open_payment_url,
-                        info="默认关闭。开启后，成功获取支付链接时会尝试用系统默认浏览器打开。",
-                    )
-                    gr.Markdown("## 日志")
-                    log_level_ui = gr.Dropdown(
-                        label="日志级别",
-                        choices=[
-                            ("简洁", "simple"),
-                            ("标准", "standard"),
-                            ("调试", "debug"),
-                        ],
-                        value=buy_defaults.log_level,
-                        interactive=True,
-                        allow_custom_value=False,
-                        filterable=False,
-                    )
-                    auto_cleanup_logs_ui = gr.Checkbox(
-                        label="启动时自动清理日志",
-                        value=ConfigDB.get_as_bool("autoCleanupLogs", True),
-                        info="默认开启。会清理 btb_logs 和 btb_runs 中过旧或过多的内容。",
-                    )
-                    log_retention_days_ui = gr.Number(
-                        label="日志保留天数",
-                        value=ConfigDB.get_as_int(
-                            "logRetentionDays", DEFAULT_LOG_RETENTION_DAYS
-                        ),
-                        minimum=1,
-                        step=1,
-                    )
-                    max_log_files_ui = gr.Number(
-                        label="最多保留日志文件数",
-                        value=ConfigDB.get_as_int("maxLogFiles", DEFAULT_MAX_LOG_FILES),
-                        minimum=1,
-                        step=1,
-                    )
-                    max_run_dirs_ui = gr.Number(
-                        label="最多保留运行目录数",
-                        value=ConfigDB.get_as_int("maxRunDirs", DEFAULT_MAX_RUN_DIRS),
-                        minimum=1,
-                        step=1,
-                    )
-                    gr.Markdown("## 其他")
-                    auto_fill_time_ui = gr.Checkbox(
-                        label="默认自动填写抢票时间",
-                        value=ConfigDB.get_as_bool("autoFillTime", True),
-                        info="开启后，上传抢票配置文件时会自动按票档起售时间回填抢票时间。",
-                    )
-                    show_random_message_ui = gr.Checkbox(
-                        label="关闭群友语录",
-                        value=not buy_defaults.show_random_message,
-                        info="关闭后，抢票失败时将不再显示有趣的语录",
-                    )
-                    hide_header_ui = gr.Checkbox(
-                        label="隐藏顶部大 Header",
-                        value=hide_header_default,
-                        info="默认显示。开启后将隐藏顶部包含项目地址和图标的区域。",
-                    )
-                    use_local_token_ui = gr.Checkbox(
-                        label="使用本地 token",
-                        value=buy_defaults.use_local_token,
-                        info="默认关闭。开启后，非 hotproject 直接使用本地生成 token。",
-                    )
-                    gr.Markdown("## 开售页面校验")
-                    wait_for_buy_button_ui = gr.Checkbox(
-                        label="等待立即购票后再抢票",
-                        value=buy_defaults.wait_for_buy_button,
-                        info="开启后，在开售前检查移动端购票页；开售时未出现“立即购票/立即购买”不会发送下单请求。",
-                    )
-                    buy_page_url_ui = gr.Textbox(
-                        label="抢票链接",
-                        value=buy_defaults.buy_page_url,
-                        placeholder="支持 PC 或移动端活动详情链接；保存时会自动转换为移动端链接。",
-                        info="留空时会根据上传的抢票配置自动生成对应活动的移动端链接。",
-                    )
-                    with gr.Row():
-                        buy_page_check_before_seconds_ui = gr.Number(
-                            label="抢票前开始同步购票页状态（秒）",
-                            value=buy_defaults.buy_page_check_before_seconds,
-                            minimum=0,
-                            step=1,
-                        )
-                        buy_page_timeout_seconds_ui = gr.Number(
-                            label="等待立即购票超时时间（秒）",
-                            value=buy_defaults.buy_page_timeout_seconds,
-                            minimum=1,
-                            step=1,
-                            info="超过此时间仍未出现立即购票，当前抢票程序会终止。",
-                        )
-                    proxy_api_result_ui = gr.Textbox(
-                        label="代理 API 结果",
-                        interactive=False,
-                        visible=False,
-                    )
-                    gr.Markdown(
-                        """
-                        <div class="mt-3 text-sm leading-7 text-slate-700">
-                          <p><strong>怎么填写：</strong>推荐每行填写一个代理地址，也支持逗号分隔。留空表示只使用直连。</p>
-                          <p><strong>支持格式：</strong><code>http://IP:端口</code>、<code>https://IP:端口</code>、<code>socks5://IP:端口</code>。</p>
-                          <p><strong>带账号密码的 HTTP 代理示例：</strong><code>http://proxyuser:proxypass@xx.xx.xx.xx:8080</code></p>
-                          <p><strong>程序什么时候会用代理：</strong>当抢票流程检测到风控时，会按你填写的顺序切换到下一个代理；当前请求不会在请求层立刻自动重试，下一次抢票重试才会使用新代理。</p>
-                          <p><strong>代理失效怎么处理：</strong>同一代理在短时间内连续失败会被暂时冷却；如果所有代理都不可用，程序会按递增时间休息后再试。</p>
-                          <p><strong>代理 API：</strong>保存 API 地址后，程序会在代理全部不可用时自动按并发数请求新代理；请求会自动带上 <code>format=json</code>、<code>count</code> 和所选 <code>protocol</code>。</p>
-                          <p><strong>建议先测试再开抢：</strong>保存后点击上方“测试代理连通性”，确认代理能正常访问哔哩哔哩接口。</p>
-                          <p><strong>自建代理：</strong>如果你没有现成代理，可以自己在 Ubuntu / Debian 服务器上搭建 Squid HTTP 代理。</p>
-                          <p><strong>完整搭建说明：</strong><a href="https://github.com/mikumifa/biliTickerBuy/blob/main/docs/proxy-self-hosting.md" target="_blank" rel="noopener noreferrer">GitHub 查看自建代理指南</a></p>
-                        </div>
-                        """
-                    )
-                    gr.Markdown("## 代理策略")
-                    proxy_max_consecutive_failures_ui = gr.Number(
-                        label="单代理最大连续失败次数",
-                        value=buy_defaults.proxy_max_consecutive_failures,
-                        minimum=1,
-                        step=1,
-                        info="同一代理在短时间内连续失败多少次后进入冷却。",
-                    )
-                    proxy_cooldown_seconds_ui = gr.Number(
-                        label="代理冷却时间（秒）",
-                        value=buy_defaults.proxy_cooldown_seconds,
-                        minimum=1,
-                        step=1,
-                        info="代理进入冷却后，多久恢复可用。",
-                    )
-                    proxy_backoff_max_seconds_ui = gr.Number(
-                        label="风控后休眠上限（秒）",
-                        value=buy_defaults.proxy_backoff_max_seconds,
-                        minimum=1,
-                        step=1,
-                        info="当所有代理都暂时不可用时，程序退避休眠的最大时长。",
-                    )
-                    notify_proxy_exhausted_ui = gr.Checkbox(
-                        label="无可用代理时发送提醒",
-                        value=buy_defaults.notifier_config.notify_proxy_exhausted,
-                        info="默认关闭。开启后，当所有代理都进入冷却且程序需要休息时，会通过已配置的推送渠道提醒你补充代理。",
-                    )
-                    gr.Markdown("## 并发")
-                    gr.Markdown(
-                        """
-                        <div class="mt-2 text-sm leading-7 text-slate-700">
-                          <p><strong>均匀分配模式：</strong>程序会尽量把代理均匀分配给所有抢票任务。适合代理数量较多的情况。但是如果你配置的代理数目不够多，同一个代理在运行过程中可能会被多个程序使用。</p>
-                          <p><strong>队列模式：</strong>程序会将代理作为队列资源分配给抢票任务，尽量保证同一时间内每个正在运行的任务使用不同的代理。如果抢票任务数为 n，代理数量为 m：当 n &lt;= m 时，每个抢票任务都会分配到不同的代理；当 n &gt; m 时，最多同时运行 m 个抢票任务，未分配到代理的任务会进入等待队列，等前面的任务结束后再继续执行。这种模式适合希望同一时间内每个任务尽量使用不同 IP，并避免多个任务共用同一个代理的场景。</p>
-                          <p><strong>代理池并发：</strong>每个任务都会拿到完整代理池，并在关键 create 请求上通过多个代理同时尝试，谁先返回有效结果就优先使用。适合单个热门票档冲刺，但要求至少配置一个真实代理，不会使用直连。</p>
-                        </div>
-                        """
-                    )
-                    proxy_assignment_strategy_ui = gr.Dropdown(
-                        label="任务代理分配策略",
-                        choices=[
-                            ("均匀分配", "balanced"),
-                            ("队列模式", "queue"),
-                            ("代理池并发", "local_fanout"),
-                        ],
-                        value=proxy_assignment_strategy_default,
-                        interactive=True,
-                        allow_custom_value=False,
-                        filterable=False,
-                    )
-
-                    proxy_include_direct_ui = gr.Checkbox(
-                        label="允许使用直连（none）",
-                        value=ConfigDB.get_as_bool("proxyIncludeDirect", True),
-                        info="开启后，任务代理分配会把直连作为一个可用出口；关闭后，所有任务只使用已配置代理。",
-                    )
-                    queue_concurrency_limit_ui = gr.Number(
-                        label="队列并发上限（仅队列模式）",
-                        value=ConfigDB.get_as_int("queueConcurrencyLimit", 0),
-                        minimum=0,
-                        step=1,
-                        info="填 0 表示等于代理数量。",
-                    )
-                    h2_connections_per_source_ip_ui = gr.Number(
-                        label="抢票并行数",
-                        value=buy_defaults.h2_connections_per_source_ip,
-                        minimum=1,
-                        step=1,
-                        info="同代理并行数量。代理池并发模式下，每个代理或直连出口会同时建立的 H2 连接数。",
-                    )
-
-            with gr.Tab("音乐"):
-                with gr.Column(elem_classes="btb-card btb-layout-card"):
-                    gr.Markdown("### 配置抢票成功后播放音乐")
-                    gr.Markdown(
-                        "推荐上传 WAV。若上传 MP3、FLAC、M4A、OGG 等格式，请先在系统中安装 "
-                        "`ffmpeg/ffprobe`；如果安装时报错，也可以先前往 "
-                        "https://cloudconvert.com/wav-converter 转成 WAV 后再上传。"
-                    )
-                    audio_path_ui = gr.Audio(
-                        label="上传提示声音",
-                        type="filepath",
-                        loop=True,
-                        value=ConfigDB.get("audioPath") or None,
-                    )
-                    test_audio_button = gr.Button(
-                        "测试终端播放",
-                        elem_classes="btb-soft-button",
-                    )
-                    test_audio_result = gr.Textbox(
-                        label="音乐测试结果",
-                        interactive=False,
-                    )
-
-            with gr.Tab("推送"):
-                with gr.Column(elem_classes="btb-card btb-layout-card"):
-                    gr.Markdown("### 配置抢票推送消息")
-                    gr.Markdown(
-                        """
-                        🗨️ **抢票成功提醒**
-
-                        > 你需要去对应的网站获取 key 或 token，然后填入下面的输入框  
-                        > [Server酱<sup>Turbo</sup>](https://sct.ftqq.com/sendkey) | [pushplus](https://www.pushplus.plus/uc.html) | [Server酱<sup>3</sup>](https://sc3.ft07.com/sendkey) | [ntfy](https://ntfy.sh/) | [Bark](https://bark.day.app/) | MeoW | [Telegram](https://t.me/BotFather)
-                        > 留空以不启用提醒功能
-
-                        ### 🔍 推送服务对比
-
-                        | 服务     | 优点                               | 缺点                            |
-                        |----------|------------------------------------|---------------------------------|
-                        | Server酱<sup>Turbo</sup> | 简单易用，微信推送              | 微信推送很难看到 |
-                        | pushplus | 简单易用，微信推送| 微信推送很难看到               |
-                        | Server酱<sup>3</sup> | APP推送，有中文文档              | 配置复杂 |
-                        | ntfy     | APP推送, 功能强大, 支持长期响铃 | 配置复杂，需要手动搭建或注册公网地址 |
-                        | Bark     | iOS通知推送，配置简单，无视静音和勿扰模式，支持APP跳转 | 仅支持iOS设备 |
-                        | MeoW     | HMS系统级通知推送，配置简单，无需后台常驻 | 仅支持鸿蒙设备 |
-                        | Telegram | 全平台支持，API 免费，消息可靠 | 需要科学上网 |
-
-                        ✅ 推荐：初次使用建议选择 **pushplus** 或 **Server酱ᵀᵘʳᵇᵒ**，配置最简单
-                        🍎 iOS用户推荐使用 **Bark**，通知效果最佳
-                        ⭕ 鸿蒙用户推荐使用 **MeoW**，HMS系统级推送
-                        🤖 海外用户/全平台推荐使用 **Telegram**，API 免费且稳定
-                        🛠️ 追求高度自由/有自建服务器/需要在抢票成功时通过手机播放铃声时，建议用 **ntfy** 或 **Server酱³**
-                        """
-                    )
-                    gr.Markdown("#### Server酱")
-                    serverchan_ui = gr.Textbox(
-                        value=ConfigDB.get("serverchanKey") or "",
-                        label="Server酱ᵀᵘʳᵇᵒ的SendKey｜输入完成后，回车键保存",
-                        interactive=True,
-                        info="https://sct.ftqq.com/",
-                    )
-                    serverchan3_ui = gr.Textbox(
-                        value=ConfigDB.get("serverchan3ApiUrl") or "",
-                        label="Server酱³的API URL｜输入完成后，回车键保存",
-                        interactive=True,
-                        info="https://sc3.ft07.com/",
-                    )
-                    gr.Markdown("#### PushPlus")
-                    pushplus_ui = gr.Textbox(
-                        value=ConfigDB.get("pushplusToken") or "",
-                        label="PushPlus的Token｜输入完成后，回车键保存",
-                        interactive=True,
-                        info="https://www.pushplus.plus/",
-                    )
-                    gr.Markdown("#### Bark")
-                    bark_ui = gr.Textbox(
-                        value=ConfigDB.get("barkToken") or "",
-                        label="Bark的Token｜输入完成后，回车键保存",
-                        interactive=True,
-                        info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)；自托管服务请输入完整推送地址，例如: https://bark.example.app/jmGYK*****',
-                    )
-                    gr.Markdown("#### Meow")
-                    meow_ui = gr.Textbox(
-                        value=ConfigDB.get("meowNickname") or "",
-                        label="MeoW昵称｜输入完成后，回车键保存",
-                        interactive=True,
-                        info="https://www.chuckfang.com/MeoW/api_doc.html",
-                    )
-                    gr.Markdown("#### Ntfy")
-                    ntfy_ui = gr.Textbox(
-                        value=ConfigDB.get("ntfyUrl") or "",
-                        label="Ntfy服务器URL｜输入完成后，回车键保存",
-                        interactive=True,
-                        info="例如: https://ntfy.sh/your-topic",
-                    )
-                    with gr.Row(elem_classes="btb-inline-actions !justify-end"):
-                        ntfy_username_ui = gr.Textbox(
-                            value=ConfigDB.get("ntfyUsername") or "",
-                            label="Ntfy用户名",
-                            interactive=True,
-                            info="如果你的Ntfy服务器需要认证",
-                        )
-                        ntfy_password_ui = gr.Textbox(
-                            value=ConfigDB.get("ntfyPassword") or "",
-                            label="Ntfy密码",
-                            interactive=True,
-                            type="password",
-                        )
-                    test_ntfy_button = gr.Button(
-                        "测试Ntfy连接",
-                        elem_classes="btb-soft-button",
-                    )
-                    test_ntfy_result = gr.Textbox(
-                        label="测试结果",
-                        interactive=False,
-                    )
-                    gr.Markdown("#### Telegram")
-                    telegram_bot_token_ui = gr.Textbox(
-                        value=ConfigDB.get("telegramBotToken") or "",
-                        label="Telegram Bot Token｜输入完成后，回车键保存",
-                        interactive=True,
-                        info="通过 @BotFather 创建 Bot 获取，格式如: 123456:ABC-DEF1234gh",
-                    )
-                    telegram_chat_id_ui = gr.Textbox(
-                        value=ConfigDB.get("telegramChatId") or "",
-                        label="Telegram Chat ID｜输入完成后，回车键保存",
-                        interactive=True,
-                        info="用户/群组/频道的 ID，可通过 @userinfobot 获取",
-                    )
-                    telegram_http_proxy_ui = gr.Textbox(
-                        value=ConfigDB.get("telegramHttpProxy") or "",
-                        label="Telegram HTTP 代理｜输入完成后，回车键保存",
-                        interactive=True,
-                        info="用于访问 Telegram API 的 HTTP 代理，例如: http://127.0.0.1:7890（留空则不使用代理）",
-                    )
                     gr.Markdown("#### 高级：发送超时与重试")
                     notify_connect_timeout_ui = gr.Number(
                         label="连接超时（秒）",
@@ -1222,6 +889,32 @@ def go_settings_tab(header_ui):
                         step=1,
                         info="请求返回 HTTP 429 后，等待多久再继续后续流程。默认 100ms。",
                     )
+                    gr.Markdown("## 开售页面校验")
+                    wait_for_buy_button_ui = gr.Checkbox(
+                        label="等待立即购票后再抢票",
+                        value=buy_defaults.wait_for_buy_button,
+                        info="开启后，在开售前检查移动端购票页；开售时未出现“立即购票/立即购买”不会发送下单请求。",
+                    )
+                    buy_page_url_ui = gr.Textbox(
+                        label="抢票链接",
+                        value=buy_defaults.buy_page_url,
+                        placeholder="支持 PC 或移动端活动详情链接；保存时会自动转换为移动端链接。",
+                        info="留空时会根据上传的抢票配置自动生成对应活动的移动端链接。",
+                    )
+                    with gr.Row():
+                        buy_page_check_before_seconds_ui = gr.Number(
+                            label="抢票前开始同步购票页状态（秒）",
+                            value=buy_defaults.buy_page_check_before_seconds,
+                            minimum=0,
+                            step=1,
+                        )
+                        buy_page_timeout_seconds_ui = gr.Number(
+                            label="等待立即购票超时时间（秒）",
+                            value=buy_defaults.buy_page_timeout_seconds,
+                            minimum=1,
+                            step=1,
+                            info="超过此时间仍未出现立即购票，当前抢票程序会终止。",
+                        )
 
     save_proxy_btn.click(
         fn=input_https_proxy, inputs=https_proxy_ui, outputs=https_proxy_ui
