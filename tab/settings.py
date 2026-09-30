@@ -17,7 +17,7 @@ import util
 from loguru import logger
 
 from interface.common import _format_sale_status
-from interface.project import fetch_project_payload
+from interface.project import fetch_project_payload, _merge_link_goods
 from util import ConfigDB
 from util import GLOBAL_COOKIE_PATH
 from util import TEMP_PATH
@@ -171,6 +171,34 @@ def _merge_screens(base_screens: list[dict], extra_screens: list[dict]) -> list[
         merged.append(screen)
 
     return merged
+
+
+def _fetch_date_screens_with_link_goods(request, project_id, date_str):
+    if date_str == "全部日期":
+        payload = fetch_project_payload(request=request, project_id=project_id)
+        screens = payload.get("screen_list", [])
+        for day in _iter_project_dates(payload["start_time"], payload["end_time"]):
+            try:
+                screens = _merge_screens(
+                    screens,
+                    _fetch_screens_by_date_with_fallback(request, project_id, day),
+                )
+            except Exception as exc:
+                logger.warning(f"获取 {day} 普通票失败，保留其余票档: {exc}")
+    else:
+        screens = _fetch_screens_by_date_with_fallback(request, project_id, date_str)
+    screens = _merge_link_goods(
+        request=request,
+        screen_list=screens,
+        project_id=project_id,
+    )
+    return [
+        screen
+        for screen in screens
+        if date_str == "全部日期"
+        or not screen.get("link_id")
+        or _screen_matches_date(screen, date_str)
+    ]
 
 
 def filename_filter(filename):
@@ -343,21 +371,11 @@ def on_submit_ticket_id(num):
 
         data["screen_list"] = _merge_screens(data["screen_list"], daily_screens)
 
-        try:
-            good_list = util.main_request.get(
-                url=f"https://show.bilibili.com/api/ticket/linkgoods/list?project_id={project_id}&page_type=0"
-            ).json()
-            ids = [item["id"] for item in good_list["data"]["list"]]
-            for item_id in ids:
-                good_detail = util.main_request.get(
-                    url=f"https://show.bilibili.com/api/ticket/linkgoods/detail?link_id={item_id}"
-                ).json()
-                for item in good_detail["data"]["specs_list"]:
-                    item["project_id"] = good_detail["data"]["item_id"]
-                    item["link_id"] = item_id
-                data["screen_list"] += good_detail["data"]["specs_list"]
-        except Exception as exc:
-            logger.warning(f"获取周边商品信息失败: {exc}")
+        data["screen_list"] = _merge_link_goods(
+            request=util.main_request,
+            screen_list=data["screen_list"],
+            project_id=project_id,
+        )
 
         for screen in data["screen_list"]:
             if "name" not in screen:
@@ -434,7 +452,9 @@ def on_submit_ticket_id(num):
                 ),
                 visible=True,
             ),
-            gr.update(choices=sales_dates, visible=True, value=sales_dates[0])
+            gr.update(
+                choices=["全部日期", *sales_dates], visible=True, value="全部日期"
+            )
             if sales_dates_show
             else gr.update(choices=[], visible=False, value=None),
         ]
@@ -1122,14 +1142,16 @@ def setting_tab(account_change_state=None):
                 global project_id
                 global project_name
 
-                if project_id <= 0 or not _normalize_date_string(_date):
+                if project_id <= 0 or (
+                    _date != "全部日期" and not _normalize_date_string(_date)
+                ):
                     return [
                         gr.update(choices=[], value=None),
                         gr.update(value="", visible=False),
                     ]
 
                 try:
-                    screens = _fetch_screens_by_date_with_fallback(
+                    screens = _fetch_date_screens_with_link_goods(
                         util.main_request, project_id, _date
                     )
 
@@ -1153,6 +1175,8 @@ def setting_tab(account_change_state=None):
                             ticket["screen"] = screen_name
                             ticket["screen_id"] = screen_id
                             ticket["is_hot_project"] = is_hot_project
+                            if "link_id" in screen:
+                                ticket["link_id"] = screen["link_id"]
                             ticket_str_list.append(
                                 _format_ticket_option(
                                     screen_name,
@@ -1161,7 +1185,10 @@ def setting_tab(account_change_state=None):
                                 )
                             )
                             ticket_value.append(
-                                {"project_id": project_id, "ticket": ticket}
+                                {
+                                    "project_id": screen.get("project_id", project_id),
+                                    "ticket": ticket,
+                                }
                             )
 
                     return [

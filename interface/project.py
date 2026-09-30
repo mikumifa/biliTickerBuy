@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+from datetime import datetime, timedelta, timezone
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +13,33 @@ NEW_PROJECT_DETAIL_PAGE_URL = (
     "https://mall.bilibili.com/neul-next/ticket-renovation/detail.html"
 )
 OLD_PROJECT_DETAIL_URL = "https://show.bilibili.com/api/ticket/project/getV2"
+
+
+def _normalize_link_sale_start(ticket, screen):
+    """Link-goods uses Java Date strings; screen timestamps are Beijing time."""
+    value = ticket.get("sale_start")
+    if isinstance(value, str) and " CST " in value:
+        # Parse explicitly: CST here means China, not US Central time. Avoid
+        # strptime's locale-dependent English month/day names on Windows.
+        parts = value.split()
+        months = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
+        try:
+            return datetime(
+                int(parts[5]),
+                months.index(parts[1]) + 1,
+                int(parts[2]),
+                *map(int, parts[3].split(":")),
+            ).strftime("%Y-%m-%d %H:%M:%S")
+        except (ValueError, IndexError, TypeError):
+            pass
+    if value not in (None, ""):
+        return value
+    timestamp = _normalize_epoch_seconds(screen.get("sale_start"))
+    if timestamp > 0:
+        return datetime.fromtimestamp(timestamp, timezone(timedelta(hours=8))).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+    return ""
 
 
 def _first_value(payload: dict[str, Any], *keys: str, default: Any = None) -> Any:
@@ -356,8 +385,17 @@ def _merge_link_goods(
                 "?project_id={0}&page_type=0".format(project_id)
             )
         ).json()
-        good_ids = [item["id"] for item in good_list.get("data", {}).get("list", [])]
-        for good_id in good_ids:
+        if good_list.get("errno", good_list.get("code", 0)) != 0:
+            raise RuntimeError(good_list.get("msg") or "内场票列表获取失败")
+        goods = good_list.get("data", {}).get("list", [])
+    except Exception as exc:
+        logging.getLogger(__name__).warning("获取内场票列表失败: %s", exc)
+        return merged
+    for good in goods:
+        good_id = good.get("id")
+        if not good_id:
+            continue
+        try:
             detail = request.get(
                 url=(
                     "https://show.bilibili.com/api/ticket/linkgoods/detail"
@@ -365,14 +403,21 @@ def _merge_link_goods(
                 )
             ).json()
             good_data = detail.get("data") or {}
+            if detail.get("errno", detail.get("code", 0)) != 0:
+                raise RuntimeError(detail.get("msg") or "内场票详情获取失败")
             item_id = good_data.get("item_id")
-            for item in good_data.get("specs_list", []):
+            if not item_id:
+                raise RuntimeError("内场票详情缺少子项目 ID")
+            for item in good_data.get("specs_list") or []:
                 enriched = copy.deepcopy(item)
                 enriched["project_id"] = item_id
                 enriched["link_id"] = good_id
+                for ticket in enriched.get("ticket_list", []):
+                    ticket["sale_start"] = _normalize_link_sale_start(ticket, item)
                 merged.append(enriched)
-    except Exception:
-        return merged
+        except Exception as exc:
+            # A broken/removed merchandise entry must not hide later guests.
+            logging.getLogger(__name__).warning("获取内场票 %s 失败: %s", good_id, exc)
     return merged
 
 
@@ -395,11 +440,23 @@ def _fetch_ticket_options(
         ).json()
         screens = date_payload.get("data", {}).get("screen_list", [])
     else:
-        screens = _merge_link_goods(
-            request=request,
-            screen_list=project_payload.get("screen_list", []),
-            project_id=project_id,
-        )
+        screens = project_payload.get("screen_list", [])
+    screens = _merge_link_goods(
+        request=request,
+        screen_list=screens,
+        project_id=project_id,
+    )
+    if selected_date:
+        screens = [
+            screen
+            for screen in screens
+            if not screen.get("link_id")
+            or datetime.fromtimestamp(
+                _normalize_epoch_seconds(screen.get("start_time")),
+                timezone(timedelta(hours=8)),
+            ).strftime("%Y-%m-%d")
+            == selected_date
+        ]
 
     options: list[dict[str, Any]] = []
     for screen in screens:
