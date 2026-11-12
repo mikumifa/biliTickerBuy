@@ -3,6 +3,19 @@ from dataclasses import dataclass
 from app_cmd.config.ConfigBasic import BasicConfig, config_field, str_to_bool
 
 
+def _clamp_bark_volume(value) -> int:
+    """Bark critical volume, range 0-10. Default 10 when invalid/missing.
+
+    Bark server defaults to 5 when the field is omitted; we default to 10
+    so success notifications stay loud unless the user lowers it.
+    """
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        return 10
+    return max(0, min(10, parsed))
+
+
 @dataclass(slots=True)
 class NotifierConfig(BasicConfig):
     """Notification channels used after success or proxy exhaustion."""
@@ -42,6 +55,16 @@ class NotifierConfig(BasicConfig):
         cli="--notifier-config.bark-token",
     )
     """Bark token or self-hosted Bark push path."""
+
+    bark_volume: int = config_field(
+        10,
+        env="BTB_BARK_VOLUME",
+        runtime="barkVolume",
+        db="barkVolume",
+        cli="--notifier-config.bark-volume",
+        cast=_clamp_bark_volume,
+    )
+    """Bark critical-alert volume, range 0-10. Bark server defaults to 5 if omitted."""
 
     ntfy_url: str = config_field(
         "",
