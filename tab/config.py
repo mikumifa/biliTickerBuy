@@ -146,6 +146,15 @@ def go_settings_tab(header_ui):
         ConfigDB.insert("barkToken", x)
         return gr.update(value=ConfigDB.get("barkToken"))
 
+    def inner_input_bark_volume(x):
+        default = getattr(buy_defaults.notifier_config, "bark_volume", 10)
+        try:
+            parsed = max(0, min(10, int(float(x))))
+        except (TypeError, ValueError):
+            parsed = default
+        ConfigDB.insert("barkVolume", parsed)
+        return gr.update(value=ConfigDB.get_as_int("barkVolume", default))
+
     def inner_input_meow(x):
         ConfigDB.insert("meowNickname", x)
         return gr.update(value=ConfigDB.get("meowNickname"))
@@ -697,6 +706,17 @@ def go_settings_tab(header_ui):
                         interactive=True,
                         info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)；自托管服务请输入完整推送地址，例如: https://bark.example.app/jmGYK*****',
                     )
+                    bark_volume_ui = gr.Number(
+                        label="Bark重要警告音量｜输入完成后，回车键保存",
+                        value=ConfigDB.get_as_int(
+                            "barkVolume",
+                            getattr(buy_defaults.notifier_config, "bark_volume", 10),
+                        ),
+                        minimum=0,
+                        maximum=10,
+                        step=1,
+                        info="取值范围 0-10，默认 10；Bark服务端不传时默认为 5。",
+                    )
                     gr.Markdown("#### Meow")
                     meow_ui = gr.Textbox(
                         value=ConfigDB.get("meowNickname") or "",
@@ -949,6 +969,10 @@ def go_settings_tab(header_ui):
     )
     pushplus_ui.submit(fn=inner_input_pushplus, inputs=pushplus_ui, outputs=pushplus_ui)
     bark_ui.submit(fn=inner_input_bark, inputs=bark_ui, outputs=bark_ui)
+    _bind_number_commit(
+        bark_volume_ui,
+        inner_input_bark_volume,
+    )
     meow_ui.submit(fn=inner_input_meow, inputs=meow_ui, outputs=meow_ui)
     ntfy_ui.submit(fn=inner_input_ntfy, inputs=ntfy_ui, outputs=ntfy_ui)
     ntfy_username_ui.submit(
@@ -1155,6 +1179,12 @@ def go_settings_tab(header_ui):
             gr.update(value=ConfigDB.get("serverchan3ApiUrl") or ""),
             gr.update(value=ConfigDB.get("pushplusToken") or ""),
             gr.update(value=ConfigDB.get("barkToken") or ""),
+            gr.update(
+                value=ConfigDB.get_as_int(
+                    "barkVolume",
+                    getattr(buy_defaults.notifier_config, "bark_volume", 10),
+                )
+            ),
             gr.update(value=ConfigDB.get("meowNickname") or ""),
             gr.update(value=ConfigDB.get("ntfyUrl") or ""),
             gr.update(value=ConfigDB.get("ntfyUsername") or ""),
@@ -1207,6 +1237,7 @@ def go_settings_tab(header_ui):
         serverchan3_ui,
         pushplus_ui,
         bark_ui,
+        bark_volume_ui,
         meow_ui,
         ntfy_ui,
         ntfy_username_ui,

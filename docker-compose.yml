@@ -17,5 +17,6 @@ services:
       # - BTB_HTTPS_PROXYS=http://127.0.0.1:8080,socks5://127.0.0.1:1080
       # - BTB_PUSHPLUSTOKEN=your_pushplus_token
       # - BTB_BARKTOKEN=your_bark_token
+      # - BTB_BARK_VOLUME=10
       # - BTB_NTFY_URL=https://ntfy.sh/topic
     restart: unless-stopped
