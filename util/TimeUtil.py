@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import email.utils
+import os
 import statistics
 import time
 from dataclasses import dataclass
@@ -253,3 +254,12 @@ class TimeUtil:
     def current_time_ms(self) -> int:
         """Return calibrated reference wall time in milliseconds."""
         return current_time_ms(timeoffset=self.timeoffset)
+
+
+def create_time_service(*, use_local_time: bool = False) -> TimeUtil:
+    """Initialize a clock for one task after resolving its time source."""
+    servers = os.environ.get("BTB_NTP_SERVERS")
+    service = TimeUtil(ntp_servers=servers.split(",") if servers else None)
+    if not use_local_time and os.environ.get("BTB_SKIP_INITIAL_TIME_SYNC") != "1":
+        service.sync_time(check_bili=False)
+    return service

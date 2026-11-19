@@ -27,8 +27,8 @@ from util.proxy.ProxyBackoff import ProxyBackoff
 from util.proxy.ProxyApiProvider import fetch_proxy_api
 from util.proxy.ProxyManager import ProxyManager
 from util.notifer.RandomMessages import get_random_fail_message
-from util import time_service
 from util.ErrorCodes import ErrorCodes
+from util.TimeUtil import create_time_service
 from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
 from task.buy_helpers import (
     BASE_URL as base_url,
@@ -575,6 +575,10 @@ def buy_stream(config: BuyConfig):
 
     _request.set_100001_handler(_on_100001)
 
+    clock = create_time_service(use_local_time=config.use_local_time)
+    if config.use_local_time:
+        yield emit("status", "使用本机时间，跳过 NTP 校时")
+
     refresh_hot_and_warm()
 
     yield emit(
@@ -593,6 +597,9 @@ def buy_stream(config: BuyConfig):
     for wait_state in _wait_until_start(
         config.time_start,
         warmup=refresh_hot_and_warm,
+        clock=clock,
+        start_delay_ms=config.start_delay_ms,
+        check_bili=not config.use_local_time,
         page_status_check=page_status_check,
         page_check_before_seconds=page_check_before_seconds,
         page_timeout_seconds=page_timeout_seconds,
@@ -626,7 +633,7 @@ def buy_stream(config: BuyConfig):
     while isRunning:
         try:
             request_result: dict | None = None
-            ticket_collection_t = time_service.current_time_ms()
+            ticket_collection_t = clock.current_time_ms()
             ticket_state = init_ctoken_state(
                 browser_window_state=browser_window_state,
                 href_length=len(
@@ -711,6 +718,7 @@ def buy_stream(config: BuyConfig):
                     is_hot_project=is_hot_project,
                     request_result=request_result,
                     ticket_state=ticket_state,
+                    clock=clock,
                 )
                 while attempt <= batch_end:
                     if not isRunning:
