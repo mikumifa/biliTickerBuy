@@ -599,7 +599,6 @@ def buy_stream(config: BuyConfig):
         warmup=refresh_hot_and_warm,
         clock=clock,
         start_delay_ms=config.start_delay_ms,
-        check_bili=not config.use_local_time,
         page_status_check=page_status_check,
         page_check_before_seconds=page_check_before_seconds,
         page_timeout_seconds=page_timeout_seconds,

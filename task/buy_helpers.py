@@ -144,7 +144,6 @@ def wait_until_start(
     *,
     clock: TimeUtil | None = None,
     start_delay_ms: int = 0,
-    check_bili: bool = True,
     page_status_check: Callable[[], Any] | None = None,
     page_check_before_seconds: float = 0,
     page_timeout_seconds: float = 60,
@@ -178,19 +177,6 @@ def wait_until_start(
             f"（时间源: {getattr(clock, 'time_source', 'unknown')}）"
         )
     }
-    bili_check = (
-        clock.compute_bili_time_check(attempts=2, timeout=1.5) if check_bili else None
-    )
-    if bili_check is not None:
-        yield {
-            "message": (
-                "会员购Date校验: "
-                f"与当前时间源差异约{bili_check.offset_center - timeoffset:+.3f}秒，"
-                f"不确定度约±{bili_check.uncertainty_seconds:.3f}秒，"
-                f"RTT {bili_check.delay * 1000:.1f}ms"
-            )
-        }
-        yield {"message": "倒计时默认使用会员购 Date 时间源。"}
 
     for fmt in (
         "%Y-%m-%dT%H:%M:%S",
