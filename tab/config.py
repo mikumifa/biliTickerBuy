@@ -146,6 +146,15 @@ def go_settings_tab(header_ui):
         ConfigDB.insert("barkToken", x)
         return gr.update(value=ConfigDB.get("barkToken"))
 
+    def update_bark_test_level(level):
+        ConfigDB.insert("barkTestLevel", level)
+
+    def update_bark_precheck_level(level):
+        ConfigDB.insert("barkPrecheckLevel", level)
+
+    def update_bark_success_level(level):
+        ConfigDB.insert("barkSuccessLevel", level)
+
     def inner_input_meow(x):
         ConfigDB.insert("meowNickname", x)
         return gr.update(value=ConfigDB.get("meowNickname"))
@@ -200,11 +209,13 @@ def go_settings_tab(header_ui):
             logger.exception(e)
             return f"❌ 终端音频通知: 测试播放失败 - {str(e)}"
 
-    def test_all_push():
+    def test_all_push(bark_test_level):
         try:
             from util.notifer.Notifier import NotifierManager
 
-            return NotifierManager.test_all_notifiers(include_audio=False)
+            return NotifierManager.test_all_notifiers(
+                include_audio=False, bark_level=bark_test_level
+            )
         except Exception as e:
             logger.exception(e)
             return f"错误: 测试过程中发生异常 - {str(e)}"
@@ -659,7 +670,7 @@ def go_settings_tab(header_ui):
                         | pushplus | 简单易用，微信推送| 微信推送很难看到               |
                         | Server酱<sup>3</sup> | APP推送，有中文文档              | 配置复杂 |
                         | ntfy     | APP推送, 功能强大, 支持长期响铃 | 配置复杂，需要手动搭建或注册公网地址 |
-                        | Bark     | iOS通知推送，配置简单，无视静音和勿扰模式，支持APP跳转 | 仅支持iOS设备 |
+                        | Bark     | iOS 通知推送，可配置通知等级，支持 APP 跳转 | 仅支持 iOS 设备 |
                         | MeoW     | HMS系统级通知推送，配置简单，无需后台常驻 | 仅支持鸿蒙设备 |
                         | Telegram | 全平台支持，API 免费，消息可靠 | 需要科学上网 |
 
@@ -697,6 +708,28 @@ def go_settings_tab(header_ui):
                         interactive=True,
                         info='iOS Bark App的"服务器"页面获取，例如: jmGYK*****(并非Device Token)；自托管服务请输入完整推送地址，例如: https://bark.example.app/jmGYK*****',
                     )
+                    bark_level_choices = [
+                        ("静默", "passive"),
+                        ("普通", "active"),
+                        ("时效性", "timeSensitive"),
+                        ("重要警告", "critical"),
+                    ]
+                    with gr.Row():
+                        bark_test_level_ui = gr.Dropdown(
+                            choices=bark_level_choices,
+                            label="手动测试通知等级",
+                            value=buy_defaults.notifier_config.bark_test_level,
+                        )
+                        bark_precheck_level_ui = gr.Dropdown(
+                            choices=bark_level_choices,
+                            label="抢票前测试通知等级",
+                            value=buy_defaults.notifier_config.bark_precheck_level,
+                        )
+                        bark_success_level_ui = gr.Dropdown(
+                            choices=bark_level_choices,
+                            label="抢票成功通知等级",
+                            value=buy_defaults.notifier_config.bark_success_level,
+                        )
                     gr.Markdown("#### Meow")
                     meow_ui = gr.Textbox(
                         value=ConfigDB.get("meowNickname") or "",
@@ -949,6 +982,12 @@ def go_settings_tab(header_ui):
     )
     pushplus_ui.submit(fn=inner_input_pushplus, inputs=pushplus_ui, outputs=pushplus_ui)
     bark_ui.submit(fn=inner_input_bark, inputs=bark_ui, outputs=bark_ui)
+    for component, save_level in (
+        (bark_test_level_ui, update_bark_test_level),
+        (bark_precheck_level_ui, update_bark_precheck_level),
+        (bark_success_level_ui, update_bark_success_level),
+    ):
+        component.input(fn=save_level, inputs=component)
     meow_ui.submit(fn=inner_input_meow, inputs=meow_ui, outputs=meow_ui)
     ntfy_ui.submit(fn=inner_input_ntfy, inputs=ntfy_ui, outputs=ntfy_ui)
     ntfy_username_ui.submit(
@@ -1139,7 +1178,7 @@ def go_settings_tab(header_ui):
     )
     test_all_push_button.click(
         fn=test_all_push,
-        inputs=[],
+        inputs=bark_test_level_ui,
         outputs=test_push_result,
     )
 
@@ -1155,6 +1194,9 @@ def go_settings_tab(header_ui):
             gr.update(value=ConfigDB.get("serverchan3ApiUrl") or ""),
             gr.update(value=ConfigDB.get("pushplusToken") or ""),
             gr.update(value=ConfigDB.get("barkToken") or ""),
+            gr.update(value=buy_defaults.notifier_config.bark_test_level),
+            gr.update(value=buy_defaults.notifier_config.bark_precheck_level),
+            gr.update(value=buy_defaults.notifier_config.bark_success_level),
             gr.update(value=ConfigDB.get("meowNickname") or ""),
             gr.update(value=ConfigDB.get("ntfyUrl") or ""),
             gr.update(value=ConfigDB.get("ntfyUsername") or ""),
@@ -1207,6 +1249,9 @@ def go_settings_tab(header_ui):
         serverchan3_ui,
         pushplus_ui,
         bark_ui,
+        bark_test_level_ui,
+        bark_precheck_level_ui,
+        bark_success_level_ui,
         meow_ui,
         ntfy_ui,
         ntfy_username_ui,

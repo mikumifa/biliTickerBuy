@@ -231,8 +231,8 @@ def _resolve_notify_retry_params(notifier_config) -> tuple[int, float]:
 def _precheck_notifiers(notifier_config) -> None:
     """进入等待/倒计时前，对已配置通知渠道做一次轻量探测并打日志。
 
-    仅对已配置的渠道创建实例并尝试发送一条预检消息（同步、带 timeout+重试），
-    结果（成功/失败/耗时）打进日志。任何失败只告警，不抛出、不阻断抢票流程。
+    对已配置的渠道同步发送一条预检消息并记录结果。
+    发送失败时记录告警，继续抢票流程。
     """
     try:
         manager = NotifierManager.create_from_config(
@@ -240,6 +240,7 @@ def _precheck_notifiers(notifier_config) -> None:
             title="抢票预检",
             content="biliTickerBuy 通知链路预检，收到说明推送渠道可用。",
             include_audio=False,
+            bark_level=notifier_config.bark_precheck_level,
         )
     except Exception as exc:
         logger.warning(f"通知渠道预检初始化失败（不影响抢票）: {exc}")
@@ -250,18 +251,16 @@ def _precheck_notifiers(notifier_config) -> None:
         logger.info("通知渠道预检：未配置任何推送渠道，跳过")
         return
 
-    # 预检仍固定 retries=1 轻探（不阻断抢票），但退避沿用配置值。
-    _, backoff = _resolve_notify_retry_params(notifier_config)
-
     logger.info(f"通知渠道预检开始，已配置渠道: {names}")
     for name, notifer in manager.notifier_dict.items():
+        if name == "Bark":
+            logger.info("Bark 预检通知等级 {}", notifier_config.bark_precheck_level)
         start = time.time()
         try:
             ok = notifer.send_once_sync(
                 "抢票预检",
                 "biliTickerBuy 通知链路预检，收到说明推送渠道可用。",
                 retries=1,
-                backoff=backoff,
             )
             elapsed = time.time() - start
             if ok:
@@ -932,6 +931,8 @@ def buy_stream(config: BuyConfig):
                     config=config.notifier_config,
                     title="抢票成功",
                     content=f"bilibili会员购，请尽快前往订单中心付款: {detail}",
+                    bark_level=config.notifier_config.bark_success_level,
+                    bark_notification_id=uuid.uuid4().hex,
                 )
 
                 notifierManager.start_all()
@@ -987,7 +988,7 @@ def buy_stream(config: BuyConfig):
                     qr_gen.make(fit=True)
                     qr_gen_image = qr_gen.make_image()
                     qr_gen_image.show()  # type: ignore
-                # 让 Server酱/Bark/PushPlus 等渠道的 daemon 线程有时间持续重发。
+                # 给后台推送留出发送窗口，Bark 会复用已确认的发送结果。
                 notifierManager.join_all(timeout=15)
                 # 关键：退出前做一次同步阻塞发送（带 timeout+重试），确认送达再退出。
                 # 不依赖 daemon 线程——UI 模式 os._exit(0) 会硬杀 daemon 线程，导致丢失。

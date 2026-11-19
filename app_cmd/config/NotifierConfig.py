@@ -1,6 +1,19 @@
 from dataclasses import dataclass
+from typing import Literal, cast, get_args
 
 from app_cmd.config.ConfigBasic import BasicConfig, config_field, str_to_bool
+
+
+BarkLevel = Literal["passive", "active", "timeSensitive", "critical"]
+DEFAULT_BARK_TEST_LEVEL: BarkLevel = "passive"
+DEFAULT_BARK_LEVEL: BarkLevel = "critical"
+
+
+def parse_bark_level(value: object) -> BarkLevel:
+    level = str(value).strip()
+    if level not in get_args(BarkLevel):
+        raise ValueError(f"无效的 Bark 通知等级: {level}")
+    return cast(BarkLevel, level)
 
 
 @dataclass(slots=True)
@@ -164,6 +177,36 @@ class NotifierConfig(BasicConfig):
         cast=float,
     )
     """Initial exponential backoff between retries, in seconds."""
+
+    bark_test_level: BarkLevel = config_field(
+        DEFAULT_BARK_TEST_LEVEL,
+        env="BTB_BARK_TEST_LEVEL",
+        runtime="bark_test_level",
+        db="barkTestLevel",
+        cli="--notifier-config.bark-test-level",
+        cast=parse_bark_level,
+    )
+    """Bark level for manual test notifications."""
+
+    bark_precheck_level: BarkLevel = config_field(
+        DEFAULT_BARK_TEST_LEVEL,
+        env="BTB_BARK_PRECHECK_LEVEL",
+        runtime="bark_precheck_level",
+        db="barkPrecheckLevel",
+        cli="--notifier-config.bark-precheck-level",
+        cast=parse_bark_level,
+    )
+    """Bark level for the pre-purchase notification check."""
+
+    bark_success_level: BarkLevel = config_field(
+        DEFAULT_BARK_LEVEL,
+        env="BTB_BARK_SUCCESS_LEVEL",
+        runtime="bark_success_level",
+        db="barkSuccessLevel",
+        cli="--notifier-config.bark-success-level",
+        cast=parse_bark_level,
+    )
+    """Bark level for successful orders."""
 
     @classmethod
     def from_runtime_options(cls, runtime_options) -> "NotifierConfig":
