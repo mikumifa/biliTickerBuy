@@ -185,22 +185,30 @@ def go_start_tab():
                     """,
                     label="选择抢票的时间",
                 )
-                gr.HTML(
-                    """
-                    <div class="btb-time-picker-card">
-                        <label class="btb-time-picker-card__label" for="datetime">
-                            抢票开始时间
-                        </label>
-                        <input
-                            type="datetime-local"
-                            id="datetime"
-                            name="datetime"
-                            step="1"
-                            class="btb-native-datetime-input"
-                        >
-                    </div>
-                    """
-                )
+                with gr.Row(elem_classes="btb-inline-actions !items-center"):
+                    gr.HTML(
+                        """
+                        <div class="btb-time-picker-card">
+                            <label class="btb-time-picker-card__label" for="datetime">
+                                抢票开始时间
+                            </label>
+                            <input
+                                type="datetime-local"
+                                id="datetime"
+                                name="datetime"
+                                step="1"
+                                class="btb-native-datetime-input"
+                            >
+                        </div>
+                        """,
+                        scale=0,
+                    )
+                    auto_fill_time_btn = gr.Button(
+                        "自动填写抢票时间",
+                        elem_classes="btb-soft-button",
+                        scale=0,
+                        min_width=220,
+                    )
                 with gr.Row():
                     start_delay_ms_ui = gr.Number(
                         label="开抢延迟（毫秒）",
@@ -208,20 +216,13 @@ def go_start_tab():
                         minimum=0,
                         precision=0,
                         step=1,
-                        info="仅用于本次启动。未设时间时，从可以开抢时起算。",
+                        info="填写抢票开始时间后生效。",
                     )
                     use_local_time_ui = gr.Checkbox(
                         label="使用本机时间",
                         value=False,
-                        info="本次启动跳过 NTP 校时。",
+                        info="跳过 NTP 校时。",
                     )
-            with gr.Row(elem_classes="!justify-end"):
-                auto_fill_time_btn = gr.Button(
-                    "自动填写抢票时间",
-                    elem_classes="btb-soft-button",
-                    scale=0,
-                    min_width=220,
-                )
 
         with gr.Row(elem_classes="btb-inline-actions !justify-end"):
             interval_ui = gr.Number(

@@ -127,14 +127,14 @@ def _wait_for_page_gate(
             ready, message = False, f"购票页校验请求失败，继续等待：{exc}"
         yield {"message": message}
         if ready:
-            return True
+            return
         remaining = deadline - time.perf_counter()
         if remaining <= 0:
             yield {
                 "message": "购票页校验超时，未检测到「立即购票」，本次抢票已终止。",
                 "page_gate_timeout": True,
             }
-            return False
+            return
         time.sleep(min(poll_interval_seconds, remaining))
 
 
@@ -152,20 +152,15 @@ def wait_until_start(
     page_check_before_seconds = max(0.0, float(page_check_before_seconds))
     page_timeout_seconds = max(1.0, float(page_timeout_seconds))
     page_poll_interval_seconds = max(0.1, float(page_poll_interval_seconds))
-    delay_seconds = max(0, start_delay_ms) / 1000
+    time_start = (time_start or "").strip()
     if not time_start:
         if page_status_check is not None:
             yield {"message": "0) 未设置开始时间，正在等待购票页出现「立即购票」。"}
-            ready = yield from _wait_for_page_gate(
+            yield from _wait_for_page_gate(
                 page_status_check,
                 timeout_seconds=page_timeout_seconds,
                 poll_interval_seconds=page_poll_interval_seconds,
             )
-            if not ready:
-                return
-        if delay_seconds:
-            yield {"message": f"0) 等待开抢延迟 {start_delay_ms} 毫秒"}
-            time.sleep(delay_seconds)
         return
 
     clock = time_service if clock is None else clock
@@ -185,7 +180,7 @@ def wait_until_start(
         "%Y-%m-%d %H:%M",
     ):
         try:
-            target_time = datetime.datetime.strptime(time_start.strip(), fmt).replace(
+            target_time = datetime.datetime.strptime(time_start, fmt).replace(
                 tzinfo=BEIJING_TZ
             )
             break
@@ -194,6 +189,7 @@ def wait_until_start(
     else:
         raise ValueError(f"无法解析抢票时间: {time_start!r}")
 
+    delay_seconds = max(0, start_delay_ms) / 1000
     yield {"message": f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"}
     if delay_seconds:
         yield {"message": f"开抢延迟 {start_delay_ms} 毫秒"}
