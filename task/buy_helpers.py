@@ -11,6 +11,7 @@ from loguru import logger
 from cptoken import CTokenRuntimeState, sim_ctoken_state
 
 from util import time_service
+from util.TimeUtil import TimeUtil
 from app_cmd.config.NotifierConfig import NotifierConfig
 from util.Constant import (
     BASE_URL,
@@ -141,6 +142,8 @@ def wait_until_start(
     time_start: str,
     warmup=None,
     *,
+    clock: TimeUtil | None = None,
+    start_delay_ms: int = 0,
     page_status_check: Callable[[], Any] | None = None,
     page_check_before_seconds: float = 0,
     page_timeout_seconds: float = 60,
@@ -149,6 +152,7 @@ def wait_until_start(
     page_check_before_seconds = max(0.0, float(page_check_before_seconds))
     page_timeout_seconds = max(1.0, float(page_timeout_seconds))
     page_poll_interval_seconds = max(0.1, float(page_poll_interval_seconds))
+    time_start = (time_start or "").strip()
     if not time_start:
         if page_status_check is not None:
             yield {"message": "0) 未设置开始时间，正在等待购票页出现「立即购票」。"}
@@ -159,25 +163,15 @@ def wait_until_start(
             )
         return
 
-    timeoffset = time_service.get_timeoffset()
+    clock = time_service if clock is None else clock
+    timeoffset = clock.get_timeoffset()
     yield {"message": "0) 等待开始时间"}
     yield {
         "message": (
             f"时间偏差已被设置为: {timeoffset}秒"
-            f"（时间源: {getattr(time_service, 'time_source', 'unknown')}）"
+            f"（时间源: {getattr(clock, 'time_source', 'unknown')}）"
         )
     }
-    bili_check = time_service.compute_bili_time_check(attempts=2, timeout=1.5)
-    if bili_check is not None:
-        yield {
-            "message": (
-                "会员购Date校验: "
-                f"与当前时间源差异约{bili_check.offset_center - timeoffset:+.3f}秒，"
-                f"不确定度约±{bili_check.uncertainty_seconds:.3f}秒，"
-                f"RTT {bili_check.delay * 1000:.1f}ms"
-            )
-        }
-        yield {"message": "倒计时默认使用会员购 Date 时间源。"}
 
     for fmt in (
         "%Y-%m-%dT%H:%M:%S",
@@ -186,7 +180,7 @@ def wait_until_start(
         "%Y-%m-%d %H:%M",
     ):
         try:
-            target_time = datetime.datetime.strptime(time_start.strip(), fmt).replace(
+            target_time = datetime.datetime.strptime(time_start, fmt).replace(
                 tzinfo=BEIJING_TZ
             )
             break
@@ -195,21 +189,24 @@ def wait_until_start(
     else:
         raise ValueError(f"无法解析抢票时间: {time_start!r}")
 
+    delay_seconds = max(0, start_delay_ms) / 1000
     yield {"message": f"计划抢票开始时间: {target_time.strftime('%Y-%m-%d %H:%M:%S')}"}
+    if delay_seconds:
+        yield {"message": f"开抢延迟 {start_delay_ms} 毫秒"}
 
-    if hasattr(time_service, "countdown_now"):
-        countdown_now = time_service.countdown_now
+    if hasattr(clock, "countdown_now"):
+        countdown_now = clock.countdown_now
     else:
-        countdown_now = time_service.now
-    if hasattr(time_service, "countdown_time_source"):
-        countdown_source = time_service.countdown_time_source
+        countdown_now = clock.now
+    if hasattr(clock, "countdown_time_source"):
+        countdown_source = clock.countdown_time_source
     else:
 
         def countdown_source():
-            return getattr(time_service, "time_source", "unknown")
+            return getattr(clock, "time_source", "unknown")
 
     yield {"message": f"倒计时时间源: {countdown_source()}"}
-    time_difference = target_time.timestamp() - countdown_now()
+    time_difference = target_time.timestamp() - countdown_now() + delay_seconds
     end_time = time.perf_counter() + time_difference
     next_report_at = float("inf")
     warmed = False
@@ -487,11 +484,13 @@ def prepare_create_request(
     is_hot_project: bool,
     request_result: dict | None,
     ticket_state: CTokenRuntimeState,
+    *,
+    clock: TimeUtil | None = None,
 ) -> tuple[str, dict]:
     payload = dict(tickets_info)
     payload["again"] = 1
     payload["token"] = order_token
-    now_ms = time_service.current_time_ms()
+    now_ms = (time_service if clock is None else clock).current_time_ms()
     payload["timestamp"] = now_ms
     payload["newRisk"] = True
     payload["requestSource"] = "neul-next"

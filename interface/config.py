@@ -4,12 +4,14 @@ import copy
 import json
 import math
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
+from app_cmd.config.ConfigBasic import str_to_bool
+from util.Constant import DEFAULT_START_DELAY_MS
 
 from .common import (
     BUYER_REQUIRED_FIELDS,
@@ -32,6 +34,8 @@ class RuntimeOptions:
     create_request_proxy_strategy: str = "standard"
     h2_connections_per_source_ip: int = H2CLIENT_CONNECTIONS_PER_SOURCE_IP
     time_start: str = ""
+    start_delay_ms: int = field(default=DEFAULT_START_DELAY_MS, kw_only=True)
+    use_local_time: bool = field(default=False, kw_only=True)
     audio_path: str = ""
     pushplusToken: str = ""
     serverchanKey: str = ""
@@ -321,6 +325,8 @@ def build_runtime_options(
     create_request_proxy_strategy: str = "standard",
     h2_connections_per_source_ip: int = H2CLIENT_CONNECTIONS_PER_SOURCE_IP,
     time_start: str = "",
+    start_delay_ms: int = DEFAULT_START_DELAY_MS,
+    use_local_time: bool = False,
     audio_path: str = "",
     pushplusToken: str = "",
     serverchanKey: str = "",
@@ -372,6 +378,10 @@ def build_runtime_options(
             default=H2CLIENT_CONNECTIONS_PER_SOURCE_IP,
         ),
         time_start=normalize_time_start(time_start),
+        start_delay_ms=normalize_non_negative_interval(
+            start_delay_ms, default=DEFAULT_START_DELAY_MS
+        ),
+        use_local_time=str_to_bool(use_local_time),
         audio_path=audio_path,
         pushplusToken=pushplusToken,
         serverchanKey=serverchanKey,

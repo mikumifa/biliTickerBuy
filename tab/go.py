@@ -23,15 +23,16 @@ from util import (
     LOG_DIR,
     runtime_state_reader,
     runtime_state_writer,
-    time_service,
 )
 from util.Constant import (
     BEIJING_TZ,
     DEFAULT_MAX_LOG_FILES,
     DEFAULT_MAX_RUN_DIRS,
     DEFAULT_REQUEST_INTERVAL,
+    DEFAULT_START_DELAY_MS,
     GO_UPLOADED_FILES_STATE_KEY,
 )
+from util.TimeUtil import create_time_service
 from util.proxy.ProxyManager import ProxyManager
 
 
@@ -175,7 +176,7 @@ def go_start_tab():
                     """
                     <div class="btb-card-head">
                         <div>
-                            <h4>选择抢票时间</h3>
+                            <h4>选择抢票时间</h4>
                             <p>
                                 这里的时间按<strong>北京时间（UTC+8）</strong>填写。
                             </p>
@@ -184,29 +185,44 @@ def go_start_tab():
                     """,
                     label="选择抢票的时间",
                 )
-                gr.HTML(
-                    """
-                    <div class="btb-time-picker-card">
-                        <label class="btb-time-picker-card__label" for="datetime">
-                            抢票开始时间
-                        </label>
-                        <input
-                            type="datetime-local"
-                            id="datetime"
-                            name="datetime"
-                            step="1"
-                            class="btb-native-datetime-input"
-                        >
-                    </div>
-                    """
-                )
-            with gr.Row(elem_classes="!justify-end"):
-                auto_fill_time_btn = gr.Button(
-                    "自动填写抢票时间",
-                    elem_classes="btb-soft-button",
-                    scale=0,
-                    min_width=220,
-                )
+                with gr.Row(elem_classes="btb-inline-actions !items-center"):
+                    gr.HTML(
+                        """
+                        <div class="btb-time-picker-card">
+                            <label class="btb-time-picker-card__label" for="datetime">
+                                抢票开始时间
+                            </label>
+                            <input
+                                type="datetime-local"
+                                id="datetime"
+                                name="datetime"
+                                step="1"
+                                class="btb-native-datetime-input"
+                            >
+                        </div>
+                        """,
+                        scale=0,
+                    )
+                    auto_fill_time_btn = gr.Button(
+                        "自动填写抢票时间",
+                        elem_classes="btb-soft-button",
+                        scale=0,
+                        min_width=220,
+                    )
+                with gr.Row():
+                    start_delay_ms_ui = gr.Number(
+                        label="开抢延迟（毫秒）",
+                        value=DEFAULT_START_DELAY_MS,
+                        minimum=0,
+                        precision=0,
+                        step=1,
+                        info="填写抢票开始时间后生效。",
+                    )
+                    use_local_time_ui = gr.Checkbox(
+                        label="使用本机时间",
+                        value=False,
+                        info="跳过 NTP 校时。",
+                    )
 
         with gr.Row(elem_classes="btb-inline-actions !justify-end"):
             interval_ui = gr.Number(
@@ -242,17 +258,12 @@ def go_start_tab():
                 f'<div class="btb-card-note">配置预览失败：{html.escape(str(e))}</div>'
             )
 
-    def auto_fill_time(files):
+    def auto_fill_time(files, start_delay_ms, use_local_time):
         if not files:
             gr.Warning("请先上传至少一个抢票配置文件。")
             return ""
 
         sale_start_items: list[tuple[str, datetime.datetime]] = []
-        adjusted_now = datetime.datetime.fromtimestamp(
-            time_service.now(),
-            tz=BEIJING_TZ,
-        )
-
         for filepath in files:
             with open(filepath, "r", encoding="utf-8") as file:
                 config = json.load(file)
@@ -266,8 +277,11 @@ def go_start_tab():
 
         latest_sale_start = max(sale_start for _, sale_start in sale_start_items)
         unique_sale_starts = sorted({sale_start for _, sale_start in sale_start_items})
-        if latest_sale_start <= adjusted_now:
-            gr.Warning("已经过起售时间，不需要填写抢票时间。\n")
+        clock = create_time_service(use_local_time=use_local_time)
+        delay_ms = DEFAULT_START_DELAY_MS if start_delay_ms is None else start_delay_ms
+        seconds_until_sale = latest_sale_start.timestamp() - clock.now()
+        if seconds_until_sale + delay_ms / 1000 <= 0:
+            gr.Warning("计划开抢时间已过，不需要填写抢票时间。\n")
             return ""
 
         autofill_value = latest_sale_start.strftime("%Y-%m-%dT%H:%M:%S")
@@ -309,10 +323,10 @@ def go_start_tab():
         )
         return proc
 
-    def start_go(files, time_start, interval):
+    def start_go(files, time_start, interval, start_delay_ms, use_local_time):
         if not files:
             gr.Warning("未提交抢票配置。")
-            return gr.update(visible=False)
+            return gr.update(visible=False), gr.skip(), gr.skip()
 
         try:
             interval = int(interval)
@@ -329,14 +343,17 @@ def go_start_tab():
         )
         if not https_proxy_list:
             gr.Warning("已关闭直连，请至少配置一个代理。")
-            return gr.update(visible=False)
+            return gr.update(visible=False), gr.skip(), gr.skip()
         assigned_proxies: list[list[str]] = []
         assigned_proxies_next_idx = 0
         # 从配置文件加载
         buy_config = BuyConfig.from_config_db(
             time_start=time_start,
             interval=interval,
+            start_delay_ms=start_delay_ms,
+            use_local_time=use_local_time,
         )
+        started = gr.update(visible=True), DEFAULT_START_DELAY_MS, False
         proxy_assignment_strategy = str(
             ConfigDB.get("proxyAssignmentStrategy") or "balanced"
         ).lower()
@@ -390,7 +407,7 @@ def go_start_tab():
                     daemon=True,
                 ).start()
             gr.Info("抢票任务已按队列模式启动。")
-            return gr.update(visible=True)
+            return started
 
         if proxy_assignment_strategy == "local_fanout":
             fanout_proxy_pool = ",".join(https_proxy_list)
@@ -403,7 +420,7 @@ def go_start_tab():
                     ),
                 )
             gr.Info("抢票任务已按代理池并发策略启动。")
-            return gr.update(visible=True)
+            return started
 
         for idx, filename in enumerate(files):
             if assigned_proxies == []:
@@ -417,7 +434,7 @@ def go_start_tab():
             )
             assigned_proxies_next_idx += 1
         gr.Info("抢票任务已启动，下面可以直接查看日志链接或停止任务。")
-        return gr.update(visible=True)
+        return started
 
     @runtime_state_writer(GO_UPLOADED_FILES_STATE_KEY, kind="path_list")
     def sync_uploaded_files(files):
@@ -434,10 +451,10 @@ def go_start_tab():
     upload_ui.upload(fn=upload, inputs=upload_ui, outputs=ticket_ui)
     upload_ui.change(fn=sync_uploaded_files, inputs=upload_ui, outputs=None)
 
-    def maybe_auto_fill_time(files):
+    def maybe_auto_fill_time(files, start_delay_ms, use_local_time):
         if not ConfigDB.get("autoFillTime"):
             return ""
-        return auto_fill_time(files)
+        return auto_fill_time(files, start_delay_ms, use_local_time)
 
     upload_ui.clear(
         fn=clear_uploaded_files,
@@ -470,7 +487,7 @@ def go_start_tab():
     _auto_fill_time_tmp = gr.Textbox(visible=False)
     auto_fill_time_btn.click(
         fn=auto_fill_time,
-        inputs=upload_ui,
+        inputs=[upload_ui, start_delay_ms_ui, use_local_time_ui],
         outputs=_auto_fill_time_tmp,
     ).then(
         fn=None,
@@ -488,7 +505,7 @@ def go_start_tab():
     )
     upload_ui.upload(
         fn=maybe_auto_fill_time,
-        inputs=upload_ui,
+        inputs=[upload_ui, start_delay_ms_ui, use_local_time_ui],
         outputs=_auto_fill_time_tmp,
     ).then(
         fn=None,
@@ -505,16 +522,24 @@ def go_start_tab():
         """,
     )
     go_btn.click(
-        fn=None,
-        inputs=None,
-        outputs=_time_tmp,
-        js='(x) => document.getElementById("datetime").value',
-    )
-
-    go_btn.click(
         fn=start_go,
-        inputs=[upload_ui, _time_tmp, interval_ui],
-        outputs=task_panel,
+        inputs=[
+            upload_ui,
+            _time_tmp,
+            interval_ui,
+            start_delay_ms_ui,
+            use_local_time_ui,
+        ],
+        outputs=[task_panel, start_delay_ms_ui, use_local_time_ui],
+        js="""
+        (files, timeStart, interval, startDelayMs, useLocalTime) => [
+            files,
+            document.getElementById("datetime")?.value ?? timeStart,
+            interval,
+            startDelayMs,
+            useLocalTime,
+        ]
+        """,
     ).then(
         fn=refresh_task_panel,
         inputs=None,
