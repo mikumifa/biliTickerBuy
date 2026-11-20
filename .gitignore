@@ -11,6 +11,8 @@ build
 *.log
 *.json
 !assets/fail_messages.json
+!.understand-anything/config.json
+!.understand-anything/knowledge-graph.json
 tmp/*
 tmp
 __pycache__/
