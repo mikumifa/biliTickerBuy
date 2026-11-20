@@ -36,6 +36,7 @@ class RuntimeOptions:
     pushplusToken: str = ""
     serverchanKey: str = ""
     barkToken: str = ""
+    barkVolume: int = 10
     meowNickname: str = ""
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -227,6 +228,17 @@ def normalize_positive_int(value: Any, *, default: int) -> int:
     return parsed
 
 
+def normalize_bark_volume(value: Any, *, default: int = 10) -> int:
+    """Bark critical volume, range 0-10. Invalid input falls back to default."""
+    if value in (None, ""):
+        return default
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        return default
+    return max(0, min(10, parsed))
+
+
 def load_ticket_config(path: str | Path) -> dict[str, Any]:
     return _load_config(path)
 
@@ -313,6 +325,7 @@ def build_runtime_options(
     pushplusToken: str = "",
     serverchanKey: str = "",
     barkToken: str = "",
+    barkVolume: int = 10,
     meowNickname: str = "",
     telegram_bot_token: str = "",
     telegram_chat_id: str = "",
@@ -363,6 +376,7 @@ def build_runtime_options(
         pushplusToken=pushplusToken,
         serverchanKey=serverchanKey,
         barkToken=barkToken,
+        barkVolume=normalize_bark_volume(barkVolume, default=10),
         meowNickname=meowNickname,
         telegram_bot_token=telegram_bot_token,
         telegram_chat_id=telegram_chat_id,

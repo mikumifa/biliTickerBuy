@@ -6,6 +6,7 @@ from util.notifer.Notifier import NotifierBase, DEFAULT_HTTP_TIMEOUT
 
 
 class BarkNotifier(NotifierBase):
+
     def __init__(
         self,
         token,
@@ -14,9 +15,20 @@ class BarkNotifier(NotifierBase):
         interval_seconds=10,
         duration_minutes=10,
         timeout=DEFAULT_HTTP_TIMEOUT,
+        volume=10,
     ):
         super().__init__(title, content, interval_seconds, duration_minutes, timeout)
         self.token = token
+        self.volume = self._normalize_volume(volume)
+
+    @staticmethod
+    def _normalize_volume(value) -> int:
+        """Bark critical volume, range 0-10. Invalid input falls back to 10."""
+        try:
+            parsed = int(float(value))
+        except (TypeError, ValueError):
+            return 10
+        return max(0, min(10, parsed))
 
     def send_message(self, title, message):
         headers = {"Content-Type": "application/json"}
@@ -26,7 +38,7 @@ class BarkNotifier(NotifierBase):
             "url": "https://mall.bilibili.com/neul/index.html?page=box_me&noTitleBar=1",  # 跳转会员购链接
             "sound": "telegraph",  # 警告铃声
             "level": "critical",  # 重要警告
-            "volume": "10",
+            "volume": self.volume,
         }
         if isinstance(self.token, str) and urlparse(self.token).scheme in {
             "http",
