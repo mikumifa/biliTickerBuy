@@ -8,7 +8,7 @@ from typing import Any, Callable
 import loguru
 from util.Storage.KVDatabase import KVDatabase
 from util.log.LogConfig import loguru_config
-from util.TimeUtil import TimeUtil
+from util.TimeUtil import create_time_service
 from util.ErrorCodes import ERRNO_DICT
 from util.request.BiliRequest import BiliRequest
 
@@ -85,17 +85,8 @@ def set_main_request(request):
     main_request = request
 
 
-if os.environ.get("BTB_NTP_SERVERS"):
-    ntp_servers = os.environ.get("BTB_NTP_SERVERS").split(",")
-    time_service = TimeUtil(ntp_servers=ntp_servers)
-else:
-    time_service = TimeUtil()
-
-
-if os.environ.get("BTB_SKIP_INITIAL_TIME_SYNC") == "1":
-    time_service.set_timeoffset("0")
-else:
-    time_service.sync_time(check_bili=False)
+# Task clocks are calibrated after their configuration has been resolved.
+time_service = create_time_service(use_local_time=True)
 
 
 @dataclass

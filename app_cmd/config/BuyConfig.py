@@ -12,7 +12,7 @@ from app_cmd.config.ConfigBasic import (
     str_to_bool,
 )
 from app_cmd.config.NotifierConfig import NotifierConfig
-from util.Constant import DEFAULT_RATE_LIMIT_DELAY_MS
+from util.Constant import DEFAULT_RATE_LIMIT_DELAY_MS, DEFAULT_START_DELAY_MS
 from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
 
 
@@ -290,6 +290,28 @@ class BuyConfig(BasicConfig):
     )
     """Retention period for generated log files, in days."""
 
+    start_delay_ms: int = config_field(
+        DEFAULT_START_DELAY_MS,
+        env="BTB_START_DELAY_MS",
+        runtime="start_delay_ms",
+        cli="--start-delay-ms",
+        cast=int,
+    )
+    """Additional delay before the first order attempt, in milliseconds."""
+
+    use_local_time: bool = config_field(
+        False,
+        env="BTB_USE_LOCAL_TIME",
+        runtime="use_local_time",
+        cast=str_to_bool,
+        cli_true="--use-local-time",
+        cli_false="--no-use-local-time",
+    )
+    """Use the system clock and skip NTP synchronization."""
+
+    def __post_init__(self) -> None:
+        self.start_delay_ms = max(0, self.start_delay_ms)
+
     @classmethod
     def from_runtime_options(
         cls,
@@ -323,6 +345,8 @@ class BuyConfig(BasicConfig):
         h2_connections_per_source_ip: int | None = None,
         https_proxys: str | None = None,
         show_qrcode: bool | None = None,
+        start_delay_ms: int | None = None,
+        use_local_time: bool = False,
     ) -> "BuyConfig":
         from util import ConfigDB
 
@@ -331,7 +355,11 @@ class BuyConfig(BasicConfig):
         overrides: dict[str, Any] = {
             "tickets_info": tickets_info,
             "time_start": time_start,
+            "use_local_time": use_local_time,
         }
+
+        if start_delay_ms is not None:
+            overrides["start_delay_ms"] = start_delay_ms
 
         if interval is not None:
             overrides["interval"] = interval

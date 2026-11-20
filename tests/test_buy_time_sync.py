@@ -36,9 +36,6 @@ class _FakeCountdownTimeService:
     def get_timeoffset(self):
         return 0.0
 
-    def compute_bili_time_check(self, attempts=2, timeout=1.5):
-        return None
-
     def countdown_time_source(self):
         return "fake"
 

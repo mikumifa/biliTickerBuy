@@ -99,13 +99,15 @@ def test_page_check_uses_mobile_page_state_when_html_is_a_client_shell():
     assert state_kwargs["json"] == {"itemsId": 1002606, "itemsDetailPageType": 3}
 
 
-def test_no_start_time_waits_for_the_button_before_returning(monkeypatch):
+def test_no_start_time_waits_for_the_button_without_start_delay(monkeypatch):
     responses = iter([False, True])
-    monkeypatch.setattr("task.buy_helpers.time.sleep", lambda _seconds: None)
+    sleeps: list[float] = []
+    monkeypatch.setattr("task.buy_helpers.time.sleep", sleeps.append)
 
     events = list(
         wait_until_start(
             "",
+            start_delay_ms=180,
             page_status_check=lambda: next(responses),
             page_timeout_seconds=10,
             page_poll_interval_seconds=0.1,
@@ -114,6 +116,7 @@ def test_no_start_time_waits_for_the_button_before_returning(monkeypatch):
 
     assert not any(event.get("page_gate_timeout") for event in events)
     assert any("检测到" in str(event.get("message")) for event in events)
+    assert sleeps == [0.1]
 
 
 def test_page_gate_timeout_prevents_the_buy_flow_from_continuing(monkeypatch):

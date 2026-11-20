@@ -341,6 +341,7 @@ class NotifierManager:
                     timeout=timeout,
                     level=bark_level,
                     notification_id=bark_notification_id,
+                    volume=getattr(config, "bark_volume", 10),
                 )
                 manager.register_notifier("Bark", notifier)
             except ImportError as e:

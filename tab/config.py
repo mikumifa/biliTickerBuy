@@ -155,6 +155,15 @@ def go_settings_tab(header_ui):
     def update_bark_success_level(level):
         ConfigDB.insert("barkSuccessLevel", level)
 
+    def inner_input_bark_volume(x):
+        default = getattr(buy_defaults.notifier_config, "bark_volume", 10)
+        try:
+            parsed = max(0, min(10, int(float(x))))
+        except (TypeError, ValueError):
+            parsed = default
+        ConfigDB.insert("barkVolume", parsed)
+        return gr.update(value=ConfigDB.get_as_int("barkVolume", default))
+
     def inner_input_meow(x):
         ConfigDB.insert("meowNickname", x)
         return gr.update(value=ConfigDB.get("meowNickname"))
@@ -730,6 +739,17 @@ def go_settings_tab(header_ui):
                             label="抢票成功通知等级",
                             value=buy_defaults.notifier_config.bark_success_level,
                         )
+                    bark_volume_ui = gr.Number(
+                        label="Bark重要警告音量｜输入完成后，回车键保存",
+                        value=ConfigDB.get_as_int(
+                            "barkVolume",
+                            getattr(buy_defaults.notifier_config, "bark_volume", 10),
+                        ),
+                        minimum=0,
+                        maximum=10,
+                        step=1,
+                        info="仅在「重要警告」时生效，取值为 0-10，默认 10。",
+                    )
                     gr.Markdown("#### Meow")
                     meow_ui = gr.Textbox(
                         value=ConfigDB.get("meowNickname") or "",
@@ -988,6 +1008,10 @@ def go_settings_tab(header_ui):
         (bark_success_level_ui, update_bark_success_level),
     ):
         component.input(fn=save_level, inputs=component)
+    _bind_number_commit(
+        bark_volume_ui,
+        inner_input_bark_volume,
+    )
     meow_ui.submit(fn=inner_input_meow, inputs=meow_ui, outputs=meow_ui)
     ntfy_ui.submit(fn=inner_input_ntfy, inputs=ntfy_ui, outputs=ntfy_ui)
     ntfy_username_ui.submit(
@@ -1197,6 +1221,12 @@ def go_settings_tab(header_ui):
             gr.update(value=buy_defaults.notifier_config.bark_test_level),
             gr.update(value=buy_defaults.notifier_config.bark_precheck_level),
             gr.update(value=buy_defaults.notifier_config.bark_success_level),
+            gr.update(
+                value=ConfigDB.get_as_int(
+                    "barkVolume",
+                    getattr(buy_defaults.notifier_config, "bark_volume", 10),
+                )
+            ),
             gr.update(value=ConfigDB.get("meowNickname") or ""),
             gr.update(value=ConfigDB.get("ntfyUrl") or ""),
             gr.update(value=ConfigDB.get("ntfyUsername") or ""),
@@ -1252,6 +1282,7 @@ def go_settings_tab(header_ui):
         bark_test_level_ui,
         bark_precheck_level_ui,
         bark_success_level_ui,
+        bark_volume_ui,
         meow_ui,
         ntfy_ui,
         ntfy_username_ui,
