@@ -3,7 +3,7 @@ import threading
 import loguru
 import time
 
-from app_cmd.config.NotifierConfig import NotifierConfig
+from app_cmd.config.NotifierConfig import BarkLevel, DEFAULT_BARK_LEVEL, NotifierConfig
 
 # 全渠道统一的 (连接超时, 读取超时)，避免无 timeout 的 POST 无限阻塞
 DEFAULT_HTTP_TIMEOUT = (5, 10)
@@ -262,6 +262,9 @@ class NotifierManager:
         interval_seconds: int = 10,
         duration_minutes: int = 10,
         include_audio: bool = True,
+        *,
+        bark_level: BarkLevel = DEFAULT_BARK_LEVEL,
+        bark_notification_id: str | None = None,
     ) -> "NotifierManager":
         """通过配置创建NotifierManager，统一的工厂方法"""
         manager = NotifierManager()
@@ -336,6 +339,8 @@ class NotifierManager:
                     interval_seconds=interval_seconds,
                     duration_minutes=duration_minutes,
                     timeout=timeout,
+                    level=bark_level,
+                    notification_id=bark_notification_id,
                     volume=getattr(config, "bark_volume", 10),
                 )
                 manager.register_notifier("Bark", notifier)
@@ -426,7 +431,9 @@ class NotifierManager:
         return manager
 
     @staticmethod
-    def test_all_notifiers(include_audio: bool = True) -> str:
+    def test_all_notifiers(
+        include_audio: bool = True, *, bark_level: BarkLevel | None = None
+    ) -> str:
         """测试所有已配置的推送渠道"""
         config = NotifierConfig.from_config_db()
         results = []
@@ -437,6 +444,7 @@ class NotifierManager:
             title="抢票提醒",
             content="测试推送",
             include_audio=include_audio,
+            bark_level=config.bark_test_level if bark_level is None else bark_level,
         )
 
         # 测试每个已配置的推送渠道

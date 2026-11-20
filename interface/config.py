@@ -9,6 +9,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from app_cmd.config.NotifierConfig import (
+    BarkLevel,
+    DEFAULT_BARK_LEVEL,
+    DEFAULT_BARK_TEST_LEVEL,
+)
 from util.h2client.constants import H2CLIENT_CONNECTIONS_PER_SOURCE_IP
 from app_cmd.config.ConfigBasic import str_to_bool
 from util.Constant import DEFAULT_START_DELAY_MS
@@ -67,6 +72,9 @@ class RuntimeOptions:
     buy_page_url: str = ""
     buy_page_timeout_seconds: int = 60
     buy_page_check_before_seconds: int = 5
+    bark_test_level: BarkLevel = DEFAULT_BARK_TEST_LEVEL
+    bark_precheck_level: BarkLevel = DEFAULT_BARK_TEST_LEVEL
+    bark_success_level: BarkLevel = DEFAULT_BARK_LEVEL
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "RuntimeOptions":
@@ -358,6 +366,9 @@ def build_runtime_options(
     buy_page_url: str = "",
     buy_page_timeout_seconds: int = 60,
     buy_page_check_before_seconds: int = 5,
+    bark_test_level: BarkLevel = DEFAULT_BARK_TEST_LEVEL,
+    bark_precheck_level: BarkLevel = DEFAULT_BARK_TEST_LEVEL,
+    bark_success_level: BarkLevel = DEFAULT_BARK_LEVEL,
 ) -> RuntimeOptions:
     return RuntimeOptions(
         interval=normalize_interval(interval),
@@ -429,6 +440,9 @@ def build_runtime_options(
         buy_page_check_before_seconds=normalize_non_negative_interval(
             buy_page_check_before_seconds, default=5
         ),
+        bark_test_level=bark_test_level,
+        bark_precheck_level=bark_precheck_level,
+        bark_success_level=bark_success_level,
     )
 
 
