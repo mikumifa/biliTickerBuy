@@ -218,3 +218,41 @@ def test_guest_config_reaches_order_payload_without_parent_id_substitution(monke
     assert payload["link_id"] == 3049
     assert payload["sku_id"] == 932296
     # Only construct the payload: no request is sent.
+
+
+def test_signing_ticket_warmup_failure_does_not_abort_buy_stream(monkeypatch):
+    import json
+    from app_cmd.config.BuyConfig import BuyConfig
+    from task.buy import buy_stream
+
+    monkeypatch.setattr(
+        "task.buy.fetch_project_payload",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            RuntimeError("对不起，系统繁忙，PLEASE TRY LATER!")
+        ),
+    )
+
+    config = BuyConfig(
+        tickets_info=json.dumps(
+            {
+                "detail": "test-signing-ticket",
+                "project_id": 1007852,
+                "link_id": 3252,
+                "sku_id": 972766,
+                "screen_id": 1039642,
+                "count": 1,
+                "pay_money": 0,
+                "is_hot_project": True,
+                "buyer_info": [{"name": "test", "personal_id": "123"}],
+                "deliver_info": {},
+                "cookies": [{"name": "DedeUserID", "value": "123"}],
+            }
+        ),
+        time_start="2099-01-01 00:00:00",
+    )
+
+    gen = buy_stream(config)
+    step1 = next(gen)
+    assert "当前代理" in step1.message
+    step2 = next(gen)
+    assert "等待开始时间" in step2.message
